@@ -1,0 +1,6 @@
+# React 组件目录
+# 
+# 建议结构:
+# components/
+# ├── ui/           # 基础 UI 组件 (Button, Input, Modal 等)
+# └── features/     # 业务功能组件
