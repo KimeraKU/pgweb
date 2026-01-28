@@ -138,33 +138,19 @@ export default function EditorPage() {
 
   // 分组图层（参考 Photoshop 的实现）
   const handleGroupLayers = (layerIds: string[]) => {
-    console.log('handleGroupLayers 被调用:', { layerIds, layersCount: layers.length });
-    
-    if (layerIds.length < 2) {
-      console.log('layerIds 数量不足，返回');
-      return;
-    }
+    if (layerIds.length < 2) return;
     
     // 过滤掉 background 图层和已经是 group 的图层
     const validLayerIds = layerIds.filter(id => {
       const layer = layers.find(l => l.id === id);
-      const isValid = layer && 
+      return layer && 
              layer.type !== 'background' && 
              layer.id !== BACKGROUND_LAYER_ID && 
              !layer.isGroup &&
-             !(layer as any).groupId; // 已经是其他组的子图层，不能再次分组
-      if (!isValid) {
-        console.log('图层被过滤:', { id, layer: layer ? { type: layer.type, isGroup: layer.isGroup, groupId: (layer as any).groupId } : null });
-      }
-      return isValid;
+             !(layer as any).groupId;
     });
     
-    console.log('validLayerIds:', validLayerIds);
-    
-    if (validLayerIds.length < 2) {
-      console.log('validLayerIds 数量不足，返回');
-      return;
-    }
+    if (validLayerIds.length < 2) return;
     
     const groupId = `group-${Date.now()}`;
     const groupName = `Group ${layers.filter(l => l.isGroup).length + 1}`;
@@ -200,15 +186,7 @@ export default function EditorPage() {
     // 更新图层，给子图层添加 groupId 属性
     const updatedLayers = layers.map(layer => {
       if (validLayerIds.includes(layer.id)) {
-        // 给子图层添加 groupId，指向 group 图层的 id
-        const updated = { ...layer, groupId: groupId };
-        console.log('给图层添加 groupId:', { 
-          layerId: layer.id, 
-          layerName: layer.name, 
-          groupId, 
-          hasGroupId: !!(updated as any).groupId 
-        });
-        return updated;
+        return { ...layer, groupId: groupId };
       }
       return layer;
     });
@@ -220,25 +198,7 @@ export default function EditorPage() {
     }), 0);
     groupLayer.zIndex = maxZIndex + 1;
     
-    // 添加分组图层到图层列表
     const finalLayers = [...updatedLayers, groupLayer];
-    console.log('创建 group 图层:', {
-      groupId,
-      groupName,
-      groupLayer: { ...groupLayer, isGroup: groupLayer.isGroup },
-      finalLayersCount: finalLayers.length,
-      finalLayers: finalLayers.map(l => ({ 
-        id: l.id, 
-        name: l.name, 
-        isGroup: (l as any).isGroup, 
-        groupId: (l as any).groupId,
-        type: l.type 
-      })),
-      updatedLayersWithGroupId: updatedLayers
-        .filter(l => validLayerIds.includes(l.id))
-        .map(l => ({ id: l.id, name: l.name, groupId: (l as any).groupId }))
-    });
-    
     setLayers(finalLayers);
     setSelectedLayerId(groupId);
     setSelectedLayerIds(new Set());

@@ -96,9 +96,6 @@ export function RightSidebar({
   // 分离分组图层、普通图层和背景图层
   const groupLayers = displayLayers.filter(l => {
     const isGroup = (l as any).isGroup === true || (l as any).type === 'group';
-    if (isGroup) {
-      console.log('找到 group 图层:', { id: l.id, name: l.name, isGroup: (l as any).isGroup, type: l.type });
-    }
     return isGroup;
   });
   const regularLayers = displayLayers.filter(l => {
@@ -108,25 +105,9 @@ export function RightSidebar({
   });
   const backgroundLayer = displayLayers.find(l => l.isBackground === true || l.type === 'background');
   
-  console.log('右侧边栏图层组织:', {
-    totalLayers: displayLayers.length,
-    groupLayersCount: groupLayers.length,
-    regularLayersCount: regularLayers.length,
-    groupLayers: groupLayers.map((l: any) => ({ id: l.id, name: l.name, groupIds: (l as any).groupIds })),
-    regularLayersWithGroupId: regularLayers
-      .filter((l: any) => (l as any).groupId)
-      .map((l: any) => ({ id: l.id, name: l.name, groupId: (l as any).groupId }))
-  });
-  
   // 构建分组结构：将分组图层和其子图层组织在一起
   const organizedLayers: Array<{ type: 'group' | 'layer'; data: any; children?: any[] }> = [];
   const processedLayerIds = new Set<string>();
-  
-  console.log('右侧边栏 - 开始组织图层:', {
-    totalLayers: displayLayers.length,
-    groupLayers: groupLayers.map((l: any) => ({ id: l.id, name: l.name, groupIds: (l as any).groupIds })),
-    regularLayers: regularLayers.map((l: any) => ({ id: l.id, name: l.name, groupId: (l as any).groupId }))
-  });
   
   // 先添加分组图层及其子图层（按 zIndex 排序，从下到上）
   groupLayers
@@ -135,36 +116,9 @@ export function RightSidebar({
       const groupData = groupLayer as any;
       // 根据 groupId 属性查找子图层（子图层有 groupId 属性指向 group 图层的 id）
       const childLayers = regularLayers
-        .filter(l => {
-          const layerGroupId = (l as any).groupId;
-          const matches = layerGroupId === groupData.id;
-          if (matches) {
-            console.log('找到子图层:', { 
-              layerId: l.id, 
-              layerName: l.name, 
-              groupId: groupData.id,
-              layerGroupId,
-              layer: l
-            });
-          } else if (layerGroupId) {
-            console.log('图层有 groupId 但不匹配:', { 
-              layerId: l.id, 
-              layerName: l.name, 
-              layerGroupId, 
-              expectedGroupId: groupData.id 
-            });
-          }
-          return matches;
-        })
+        .filter(l => (l as any).groupId === groupData.id)
         .sort((a: any, b: any) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
       
-      console.log('Group 图层:', { 
-        groupId: groupData.id, 
-        groupName: groupData.name, 
-        childCount: childLayers.length,
-        childIds: childLayers.map((l: any) => l.id),
-        allRegularLayers: regularLayers.map((l: any) => ({ id: l.id, name: l.name, groupId: (l as any).groupId }))
-      });
       
       childLayers.forEach((l: any) => processedLayerIds.add(l.id));
       organizedLayers.push({
@@ -181,14 +135,6 @@ export function RightSidebar({
     .forEach(layer => {
       organizedLayers.push({ type: 'layer', data: layer });
     });
-  
-  console.log('最终 organizedLayers:', organizedLayers.map(item => ({
-    type: item.type,
-    id: item.data.id,
-    name: item.data.name,
-    childrenCount: item.children?.length || 0,
-    childrenIds: item.children?.map((c: any) => c.id) || []
-  })));
   
   // 用于拖拽的扁平列表（保持原有逻辑）
   const draggableLayers = displayLayers.filter(l => !l.isBackground);
