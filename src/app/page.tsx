@@ -24,6 +24,12 @@ export default function Home() {
           >
             ✏️ Aggregation Editor
           </Link>
+          <Link
+            href="/templates/youtube-1"
+            className="inline-block bg-teal-500 hover:bg-teal-600 text-white px-8 py-4 rounded-lg font-medium text-lg transition-colors shadow-lg ml-4"
+          >
+            📄 模板详情
+          </Link>
         </div>
       </div>
     </main>
