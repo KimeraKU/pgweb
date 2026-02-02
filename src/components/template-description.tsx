@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 
 /** 描述区域折叠时固定为 4 行高（按行高倍数）；leading-relaxed = 1.625 */
 const COLLAPSED_LINES = 4;
@@ -58,9 +59,10 @@ export function TemplateDescription({ text }: { text: string }) {
           <button
             type="button"
             onClick={() => setExpanded(false)}
-            className="mt-1 text-teal-600 hover:text-teal-700 font-medium text-sm"
+            className="mt-1 inline-flex items-center gap-1.5 text-teal-600 hover:text-teal-700 font-medium text-sm"
           >
-            收起
+            <ChevronUp className="w-4 h-4" />
+            Show less
           </button>
         </>
       ) : (
@@ -84,9 +86,10 @@ export function TemplateDescription({ text }: { text: string }) {
             <button
               type="button"
               onClick={() => setExpanded(true)}
-              className="mt-1 text-teal-600 hover:text-teal-700 font-medium text-sm"
+              className="mt-1 inline-flex items-center gap-1.5 text-teal-600 hover:text-teal-700 font-medium text-sm"
             >
-              详情
+              More
+              <ChevronDown className="w-4 h-4" />
             </button>
           )}
         </div>
