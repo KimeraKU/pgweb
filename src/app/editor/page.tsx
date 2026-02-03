@@ -24,8 +24,12 @@ type SidebarTab =
 // 背景图层（特殊图层，始终存在）
 const BACKGROUND_LAYER_ID = 'background-layer';
 
+/** 动态打开的 App Tab（如 AI 生图），显示在 batch 下方，可关闭 */
+export type OpenAppTab = { id: string; label: string };
+
 export default function EditorPage() {
-  const [activeTab, setActiveTab] = useState<SidebarTab>('ratio');
+  const [activeTab, setActiveTab] = useState<SidebarTab | string>('ratio');
+  const [openAppTabs, setOpenAppTabs] = useState<OpenAppTab[]>([]);
   const [isRightSidebarCollapsed, setIsRightSidebarCollapsed] = useState(false);
   const [userStatus, setUserStatus] = useState<'guest' | 'free' | 'pro'>('free');
   const [imageUrl, setImageUrl] = useState<string | undefined>();
@@ -51,8 +55,21 @@ export default function EditorPage() {
     locked: false,
   });
 
-  const handleTabChange = (tab: SidebarTab) => {
+  const handleTabChange = (tab: SidebarTab | string) => {
     setActiveTab(tab);
+  };
+
+  const handleOpenAppTab = (appId: string, label: string) => {
+    setOpenAppTabs((prev) => {
+      if (prev.some((t) => t.id === appId)) return prev;
+      return [...prev, { id: appId, label }];
+    });
+    setActiveTab(appId);
+  };
+
+  const handleCloseAppTab = (tabId: string) => {
+    setOpenAppTabs((prev) => prev.filter((t) => t.id !== tabId));
+    setActiveTab((current) => (current === tabId ? 'apps' : current));
   };
 
   const handleToolSelect = (tool: string) => {
@@ -317,6 +334,8 @@ export default function EditorPage() {
         <LeftSidebar 
           activeTab={activeTab} 
           onTabChange={handleTabChange}
+          openAppTabs={openAppTabs}
+          onCloseAppTab={handleCloseAppTab}
           highlightTab={isLayoutSelectMode ? 'layout' : undefined}
           className={isLayoutSelectMode ? 'relative z-40' : ''}
         />
@@ -324,6 +343,7 @@ export default function EditorPage() {
         {/* Tab 内容面板 */}
         <TabContent 
           activeTab={activeTab}
+          onOpenApp={handleOpenAppTab}
           canvasSize={canvasSize}
           onSizeChange={(width, height) => setCanvasSize({ width, height })}
           isCollapsed={isLeftTabContentCollapsed}

@@ -1,11 +1,13 @@
 'use client';
 
-import { Lock, Search, ChevronDown, Plus, Sparkles, Wand2, Type, AlignLeft, List, Upload, Image as ImageIcon, Eraser, Palette, Crop, Layers, Star, Heart, Circle, Square, Triangle, Hexagon, ChevronRight, Video, Folder, MoreVertical, Trash2, Play, ImagePlus, Shirt, Clapperboard, Frame, Smile, Expand, Film, UserCircle, Stamp, BookOpen, Scissors, Sticker, UserMinus, ChevronLeft } from 'lucide-react';
+import { Lock, Search, ChevronDown, Plus, Sparkles, Wand2, Type, AlignLeft, List, Upload, Image as ImageIcon, Eraser, Palette, Crop, Layers, Star, Heart, Circle, Square, Triangle, Hexagon, ChevronRight, Video, Folder, MoreVertical, Trash2, Play, Shirt, Clapperboard, Frame, Smile, Expand, Film, UserCircle, Stamp, BookOpen, Scissors, Sticker, UserMinus, ChevronLeft, Zap, Minus, Check, X } from 'lucide-react';
 import { useState } from 'react';
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { useLanguage } from '@/contexts/language-context';
 import { generateLayoutTemplates } from '@/data/layout-templates';
 import { LayoutTemplate } from '@/types/layout';
+import { ImageFastIcon } from '@/components/icons/image-fast-icon';
 
 type SidebarTab =
   | 'apps'
@@ -42,7 +44,8 @@ interface ShapeLayer {
 }
 
 interface TabContentProps {
-  activeTab: SidebarTab;
+  activeTab: SidebarTab | string;
+  onOpenApp?: (appId: string, label: string) => void;
   canvasSize?: { width: number; height: number };
   onSizeChange?: (width: number, height: number) => void;
   onLayoutSelect?: (layout: any) => void;
@@ -86,7 +89,7 @@ function TabContentWrapper({
   );
 }
 
-export function TabContent({ activeTab, canvasSize = { width: 1080, height: 1080 }, onSizeChange, onLayoutSelect, onTextAdd, onImageAdd, onShapeAdd, isLayoutSelectMode = false, isCollapsed = false, onToggleCollapse }: TabContentProps) {
+export function TabContent({ activeTab, onOpenApp, canvasSize = { width: 1080, height: 1080 }, onSizeChange, onLayoutSelect, onTextAdd, onImageAdd, onShapeAdd, isLayoutSelectMode = false, isCollapsed = false, onToggleCollapse }: TabContentProps) {
   const { t } = useLanguage();
   const [unit, setUnit] = useState<'px' | 'in' | 'cm' | 'mm'>('px');
   
@@ -285,7 +288,16 @@ export function TabContent({ activeTab, canvasSize = { width: 1080, height: 1080
   if (activeTab === 'apps') {
     return (
       <TabContentWrapper isCollapsed={isCollapsed} onToggleCollapse={onToggleCollapse}>
-        <AppsTabContent />
+        <AppsTabContent onOpenApp={onOpenApp} />
+      </TabContentWrapper>
+    );
+  }
+
+  // 动态 App Tab：AI 生图
+  if (activeTab === 'ai-image-generator') {
+    return (
+      <TabContentWrapper isCollapsed={isCollapsed} onToggleCollapse={onToggleCollapse}>
+        <AIImageGeneratorTabContent />
       </TabContentWrapper>
     );
   }
@@ -2588,18 +2600,442 @@ function UploadTabContent({ onImageAdd }: { onImageAdd?: (imageLayer: ImageLayer
   );
 }
 
+const MAX_REFERENCE_IMAGES = 14;
+
+/** 输入框下方预设标签（魔杖右侧） */
+const PRESET_TAGS = ['Poster', 'Flyer', 'Business card'];
+/** 点击「更多」弹窗内的预设选项 */
+const PRESET_MODAL_OPTIONS = [
+  'Create Poster',
+  'Spaceship',
+  'Halloween Theme Poster',
+  'Christmas Theme Poster',
+  'Beauty and Sports Car',
+];
+
+/** 模型选项：左侧图标 + 名称 + 右侧单选 */
+const AI_IMAGE_MODELS: { id: string; label: string; icon: React.ComponentType<{ className?: string }>; iconBg?: string }[] = [
+  { id: 'nano-banana-pro', label: 'Nano Banana Pro', icon: Circle, iconBg: 'bg-amber-400' },
+  { id: 'seedream-4.5', label: 'SeeDream 4.5', icon: UserCircle, iconBg: 'bg-gray-300' },
+  { id: 'midjourney', label: 'midjourney', icon: ImageIcon, iconBg: 'bg-slate-500' },
+  { id: 'seedream-4.0', label: 'SeeDream 4.0', icon: UserCircle, iconBg: 'bg-gray-300' },
+  { id: 'nano-banana', label: 'Nano Banana', icon: Circle, iconBg: 'bg-amber-400' },
+  { id: 'wan2.6', label: 'wan2.6', icon: Hexagon, iconBg: 'bg-violet-500' },
+];
+
+// AI 生图 Tab 内容：一个完整输入框（左上图片区+中部文本+左下魔杖）+ 下方模型/比例/生成
+function AIImageGeneratorTabContent() {
+  const { t } = useLanguage();
+  const [prompt, setPrompt] = useState('');
+  const [selectedModelId, setSelectedModelId] = useState(AI_IMAGE_MODELS[0].id);
+  const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
+  const [selectedSize, setSelectedSize] = useState<'1K' | '2K' | '4K'>('1K');
+  const [selectedAspectRatio, setSelectedAspectRatio] = useState('1:1');
+  const [referenceImages, setReferenceImages] = useState<{ id: string }[]>([]);
+
+  const ASPECT_RATIOS = ['1:1', '3:2', '2:3', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9'];
+  const modelDropdownRef = React.useRef<HTMLDivElement>(null);
+  const [dropdownPosition, setDropdownPosition] = React.useState<{ bottom: number; left: number } | null>(null);
+
+  const paramsDropdownRef = React.useRef<HTMLDivElement>(null);
+  const [paramsDropdownOpen, setParamsDropdownOpen] = useState(false);
+  const [paramsDropdownPosition, setParamsDropdownPosition] = useState<{ bottom: number; left: number } | null>(null);
+  const [presetModalOpen, setPresetModalOpen] = useState(false);
+  const [presetModalPosition, setPresetModalPosition] = useState<{ bottom: number; left: number } | null>(null);
+  const presetMoreRef = React.useRef<HTMLButtonElement>(null);
+
+  const [generatedImages, setGeneratedImages] = useState<{ id: string; createdAt: number; url?: string }[]>([]);
+  const generatedListRef = React.useRef<HTMLDivElement>(null);
+
+  const [inputBoxHeight, setInputBoxHeight] = useState(160);
+
+  const handleResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const startY = e.clientY;
+    const startHeight = inputBoxHeight;
+    const onMove = (e2: MouseEvent) => {
+      const delta = e2.clientY - startY;
+      setInputBoxHeight(Math.min(320, Math.max(120, startHeight + delta)));
+    };
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+    document.body.style.cursor = 'ns-resize';
+    document.body.style.userSelect = 'none';
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  };
+
+  const selectedModel = AI_IMAGE_MODELS.find((m) => m.id === selectedModelId) ?? AI_IMAGE_MODELS[0];
+  const SelectedModelIcon = selectedModel.icon;
+
+  // 模型下拉：打开时在按钮上方显示（向上展开）
+  React.useEffect(() => {
+    if (!modelDropdownOpen || typeof window === 'undefined' || !modelDropdownRef.current) return;
+    const rect = modelDropdownRef.current.getBoundingClientRect();
+    setDropdownPosition({ bottom: window.innerHeight - rect.top + 4, left: rect.left });
+  }, [modelDropdownOpen]);
+
+  // 参数下拉：打开时在按钮上方显示
+  React.useEffect(() => {
+    if (!paramsDropdownOpen || typeof window === 'undefined' || !paramsDropdownRef.current) return;
+    const rect = paramsDropdownRef.current.getBoundingClientRect();
+    setParamsDropdownPosition({ bottom: window.innerHeight - rect.top + 4, left: rect.left });
+  }, [paramsDropdownOpen]);
+
+  // Preset 弹窗：打开时在 More 按钮上方显示
+  React.useEffect(() => {
+    if (!presetModalOpen || typeof window === 'undefined' || !presetMoreRef.current) return;
+    const rect = presetMoreRef.current.getBoundingClientRect();
+    setPresetModalPosition({ bottom: window.innerHeight - rect.top + 4, left: rect.left });
+  }, [presetModalOpen]);
+
+  React.useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (modelDropdownOpen && !modelDropdownRef.current?.contains(target) && !target.closest('[data-ai-model-dropdown]')) {
+        setModelDropdownOpen(false);
+      }
+      if (paramsDropdownOpen && !paramsDropdownRef.current?.contains(target) && !target.closest('[data-ai-params-dropdown]')) {
+        setParamsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [modelDropdownOpen, paramsDropdownOpen]);
+
+  const addImage = () => {
+    if (referenceImages.length >= MAX_REFERENCE_IMAGES) return;
+    setReferenceImages((prev) => [...prev, { id: `img-${Date.now()}` }]);
+  };
+  const removeImage = (id: string) => {
+    setReferenceImages((prev) => prev.filter((img) => img.id !== id));
+  };
+
+  const handleGenerate = () => {
+    setGeneratedImages((prev) => [...prev, { id: `gen-${Date.now()}`, createdAt: Date.now() }]);
+  };
+
+  // 生成图列表新增后滚动到底部（最新一条）
+  React.useEffect(() => {
+    if (generatedImages.length === 0) return;
+    const el = generatedListRef.current;
+    if (el) {
+      requestAnimationFrame(() => {
+        el.scrollTop = el.scrollHeight;
+      });
+    }
+  }, [generatedImages.length]);
+
+  return (
+    <div className="w-80 bg-white border-r border-gray-200 flex flex-col h-full">
+      <div className="flex-shrink-0 px-4 py-3 border-b border-gray-200">
+        <h3 className="text-sm font-medium text-gray-800">{t.aiImageGenerator}</h3>
+      </div>
+
+      {/* 上方：生成图区域，从上到下按时间远到近（旧在上，新在下） */}
+      <div className="flex-1 overflow-y-auto min-h-0 flex flex-col">
+        <h4 className="flex-shrink-0 px-4 py-2 text-xs font-medium text-gray-600 border-b border-gray-100">
+          {t.aiImageGeneratedImages}
+        </h4>
+        <div ref={generatedListRef} className="flex-1 overflow-y-auto p-3 flex flex-col gap-2">
+          {generatedImages.length === 0 ? (
+            <p className="text-xs text-gray-400 py-6 text-center">点击下方生成按钮后，图片将显示在此</p>
+          ) : (
+            generatedImages.map((img) => (
+              <div
+                key={img.id}
+                className="flex-shrink-0 w-full aspect-square max-h-48 rounded-lg border border-gray-200 bg-gray-100 overflow-hidden"
+              >
+                {img.url ? (
+                  <img src={img.url} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">生成中...</div>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* 下方固定：输入框 + 模型/参数 + Generate（与 Generate 按钮同一区域） */}
+      <div className="flex-shrink-0 border-t border-gray-100 p-4 flex flex-col gap-3">
+        {/* 一个完整输入框：左上图片区 + 中部文本 + 左下魔杖 + 右下高度拖拽 */}
+        <div
+          className="flex flex-col rounded-lg border border-gray-300 bg-white overflow-hidden focus-within:ring-2 focus-within:ring-teal-500 focus-within:border-transparent relative"
+          style={{ height: inputBoxHeight }}
+        >
+          {/* 左上：图片添加区，排布在右边及下方第二排，最多 14 张 */}
+          <div className="flex-shrink-0 p-2 flex flex-wrap gap-1.5">
+            <button
+              type="button"
+              onClick={addImage}
+              disabled={referenceImages.length >= MAX_REFERENCE_IMAGES}
+              className="w-11 h-11 flex-shrink-0 rounded border border-dashed border-gray-300 bg-gray-50 flex flex-col items-center justify-center gap-0.5 text-gray-500 hover:bg-gray-100 hover:border-gray-400 disabled:opacity-50 disabled:pointer-events-none transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="text-[10px]">{t.aiImageAdd}</span>
+            </button>
+            {referenceImages.map((img) => (
+              <div
+                key={img.id}
+                className="relative w-11 h-11 flex-shrink-0 rounded border border-gray-200 bg-gray-100 overflow-hidden"
+              >
+                <button
+                  type="button"
+                  onClick={() => removeImage(img.id)}
+                  className="absolute right-0.5 top-0.5 w-4 h-4 rounded-full bg-gray-600 flex items-center justify-center text-white"
+                  aria-label="移除"
+                >
+                  <Minus className="w-2.5 h-2.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+          {/* 中部：提示词输入 */}
+          <div className="flex-1 min-h-0 flex flex-col relative px-2 pb-2">
+            <textarea
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              placeholder={t.describeYourImage}
+              className="w-full flex-1 min-h-[4rem] pt-0 pb-10 rounded border-0 bg-transparent text-sm text-gray-800 placeholder:text-gray-400 resize-none focus:outline-none"
+              rows={3}
+            />
+            {/* 左下：魔杖 + 预设标签（不换行，显示不下就少显示一个：只显示前 2 个 + More） */}
+            <div className="absolute left-2 right-2 bottom-2 flex items-center gap-1.5 flex-nowrap min-w-0">
+              <button
+                type="button"
+                className="w-7 h-7 rounded-md flex items-center justify-center text-gray-500 hover:bg-gray-100 hover:text-teal-600 transition-colors shrink-0"
+                title="AI 优化提示词"
+              >
+                <Wand2 className="w-4 h-4" />
+              </button>
+              {PRESET_TAGS.slice(0, 2).map((label) => (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => setPrompt((p) => (p ? `${p} ${label}` : label))}
+                  className="px-2.5 py-1 rounded-md text-xs font-medium border border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100 hover:border-gray-300 transition-colors shrink-0"
+                >
+                  {label}
+                </button>
+              ))}
+              <button
+                ref={presetMoreRef}
+                type="button"
+                onClick={() => setPresetModalOpen(true)}
+                className="px-2.5 py-1 rounded-md text-xs font-medium border border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100 hover:border-gray-300 transition-colors shrink-0"
+              >
+                {t.aiImagePresetMore}
+              </button>
+            </div>
+            {/* 右下角：两条平行短虚线斜线（点状）缩放手柄 */}
+            <div
+              role="slider"
+              aria-label="调整输入框高度"
+              onMouseDown={handleResizeStart}
+              className="absolute right-0 bottom-0 w-4 h-4 flex items-end justify-end cursor-nwse-resize pointer-events-auto"
+            >
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="shrink-0">
+                <path
+                  d="M12 12L5 5"
+                  stroke="currentColor"
+                  strokeWidth="1"
+                  strokeLinecap="round"
+                  strokeDasharray="0.8 1.2"
+                  className="text-gray-600"
+                />
+                <path
+                  d="M11 12L4 5"
+                  stroke="currentColor"
+                  strokeWidth="1"
+                  strokeLinecap="round"
+                  strokeDasharray="0.8 1.2"
+                  className="text-gray-600"
+                />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        {/* 输入框下方：模型（优先宽度以完整显示名称）+ 参数 */}
+        <div className="flex gap-2">
+          <div className="min-w-0 flex-[1.8] basis-0 relative" ref={modelDropdownRef} style={{ minWidth: '10.5rem' }}>
+            <button
+              type="button"
+              onClick={() => setModelDropdownOpen((v) => !v)}
+              className="w-full h-9 flex items-center gap-2 px-2.5 rounded-lg border border-gray-300 bg-white text-gray-800 hover:bg-gray-50 min-h-0"
+            >
+              <span className={`w-5 h-5 shrink-0 rounded-full flex items-center justify-center overflow-hidden border border-gray-200 ${selectedModel.iconBg ?? 'bg-gray-100'}`}>
+                <SelectedModelIcon className="w-3 h-3 text-gray-600" />
+              </span>
+              <span className="flex-1 text-xs text-left min-w-0 overflow-hidden text-ellipsis whitespace-nowrap" title={selectedModel.label}>{selectedModel.label}</span>
+              <ChevronDown className="w-4 h-4 shrink-0 text-gray-500" />
+            </button>
+            {modelDropdownOpen && dropdownPosition && typeof document !== 'undefined' &&
+              createPortal(
+                <div
+                  data-ai-model-dropdown
+                  className="fixed z-[100] w-52 rounded-lg bg-white border border-gray-300 shadow-lg py-1"
+                  style={{ bottom: dropdownPosition.bottom, left: dropdownPosition.left }}
+                >
+                  {AI_IMAGE_MODELS.map((m) => {
+                    const Icon = m.icon;
+                    const isSelected = m.id === selectedModelId;
+                    return (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedModelId(m.id);
+                          setModelDropdownOpen(false);
+                        }}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-gray-800 hover:bg-gray-50 transition-colors"
+                      >
+                        <span className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border border-gray-200 overflow-hidden ${m.iconBg ?? 'bg-gray-100'}`}>
+                          <Icon className="w-4 h-4 text-gray-600" />
+                        </span>
+                        <span className="flex-1 text-sm truncate">{m.label}</span>
+                        <span className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 border-2 ${isSelected ? 'border-teal-500 bg-teal-500' : 'border-gray-300'}`}>
+                          {isSelected && <Check className="w-2.5 h-2.5 text-white" />}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>,
+                document.body
+              )}
+          </div>
+          {/* 参数设置下拉：剩余宽度 */}
+          <div className="flex-1 min-w-[4.5rem] basis-0 relative" ref={paramsDropdownRef}>
+            <button
+              type="button"
+              onClick={() => setParamsDropdownOpen((v) => !v)}
+              className="w-full h-9 flex items-center gap-2 px-2.5 rounded-lg border border-gray-300 bg-white text-gray-800 hover:bg-gray-50 min-h-0"
+            >
+              <span className="flex-1 text-xs text-left truncate min-w-0" title={`${selectedSize} · ${selectedAspectRatio}`}>
+                {selectedSize} · {selectedAspectRatio}
+              </span>
+              <ChevronDown className="w-4 h-4 text-gray-500 shrink-0" />
+            </button>
+            {paramsDropdownOpen && paramsDropdownPosition && typeof document !== 'undefined' &&
+              createPortal(
+                <div
+                  data-ai-params-dropdown
+                  className="fixed z-[100] w-52 rounded-lg bg-white border border-gray-300 shadow-lg p-3 max-h-80 overflow-y-auto"
+                  style={{ bottom: paramsDropdownPosition.bottom, left: paramsDropdownPosition.left }}
+                >
+                  <p className="text-xs font-medium text-gray-700 mb-1.5">{t.aiImageSize}</p>
+                  <div className="flex flex-wrap gap-1.5 mb-3">
+                    {(['1K', '2K', '4K'] as const).map((size) => (
+                      <button
+                        key={size}
+                        type="button"
+                        onClick={() => setSelectedSize(size)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                          selectedSize === size
+                            ? 'border-2 border-teal-500 bg-teal-50 text-teal-700'
+                            : 'border border-gray-300 bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        {size}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-xs font-medium text-gray-700 mb-1.5">{t.aiImageAspectRatio}</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {ASPECT_RATIOS.map((ar) => (
+                      <button
+                        key={ar}
+                        type="button"
+                        onClick={() => setSelectedAspectRatio(ar)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                          selectedAspectRatio === ar
+                            ? 'border-2 border-teal-500 bg-teal-50 text-teal-700'
+                            : 'border border-gray-300 bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        {ar}
+                      </button>
+                    ))}
+                  </div>
+                </div>,
+                document.body
+              )}
+          </div>
+        </div>
+
+        {/* Generate 按钮（与 Upload 一致：teal 全宽） */}
+        <button
+          type="button"
+          onClick={handleGenerate}
+          className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-teal-500 hover:bg-teal-600 text-white rounded-lg transition-colors font-medium"
+        >
+          <Zap className="w-5 h-5" />
+          <span>{t.aiImageGenerate}</span>
+        </button>
+      </div>
+
+      {/* Preset 弹窗：在 More 按钮下方打开，不占画面中央 */}
+      {presetModalOpen && presetModalPosition && (
+        <>
+          <div
+            className="fixed inset-0 z-[90] bg-black/20"
+            aria-hidden
+            onClick={() => setPresetModalOpen(false)}
+          />
+          <div
+            className="fixed z-[91] w-72 rounded-lg border border-gray-300 bg-white p-4 shadow-lg"
+            style={{ bottom: presetModalPosition.bottom, left: presetModalPosition.left }}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-sm font-medium text-gray-800">{t.aiImagePreset}</h4>
+              <button
+                type="button"
+                onClick={() => setPresetModalOpen(false)}
+                className="w-8 h-8 rounded-md flex items-center justify-center text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                aria-label="关闭"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {PRESET_MODAL_OPTIONS.map((label) => (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => {
+                    setPrompt((p) => (p ? `${p} ${label}` : label));
+                    setPresetModalOpen(false);
+                  }}
+                  className="px-3 py-2 rounded-lg text-sm font-medium border border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100 hover:border-gray-300 transition-colors"
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // Apps Tab 组件
-function AppsTabContent() {
+function AppsTabContent({ onOpenApp }: { onOpenApp?: (appId: string, label: string) => void }) {
   const { t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
 
   // App 列表数据
   const apps = [
     { 
-      id: 'ai-image-editor', 
-      name: 'AI Image Editor', 
+      id: 'ai-image-generator', 
+      name: 'AI Image Generator', 
       color: 'from-purple-400 to-pink-300',
-      icon: ImagePlus,
+      icon: ImageFastIcon,
     },
     { 
       id: 'ai-try-on', 
@@ -2613,12 +3049,6 @@ function AppsTabContent() {
       color: 'from-teal-300 to-green-200',
       icon: Clapperboard,
       hasVideo: true,
-    },
-    { 
-      id: 'ai-image-generator', 
-      name: 'AI Image Generator', 
-      color: 'from-pink-300 to-rose-200',
-      icon: Sparkles,
     },
     { 
       id: 'ai-background', 
@@ -2720,6 +3150,7 @@ function AppsTabContent() {
               <button
                 key={app.id}
                 className="flex flex-col items-center group"
+                onClick={() => app.id === 'ai-image-generator' && onOpenApp?.(app.id, t.aiImageGenerator)}
               >
                 {/* App Icon */}
                 <div className={`relative w-full aspect-square rounded-xl bg-gradient-to-br ${app.color} flex items-center justify-center mb-2 overflow-hidden group-hover:shadow-lg transition-shadow`}>

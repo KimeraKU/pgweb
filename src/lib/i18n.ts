@@ -19,9 +19,10 @@ export interface Translations {
   image: string;
   assets: string;
   background: string;
-  batch: string;
-  
-  // Layer Toolbar - Image
+    batch: string;
+    aiImageGenerator: string;
+    
+    // Layer Toolbar - Image
   enhance: string;
   removeBg: string;
   aiReplace: string;
@@ -140,9 +141,22 @@ export interface Translations {
   templateCategoryAIVideo: string;
   templateCategoryMoments: string;
   templateCategoryFestivals: string;
-  seeMore: string;
-  showLess: string;
-}
+    seeMore: string;
+    showLess: string;
+    describeYourImage: string;
+    aiImageAdd: string;
+    aiImageModel: string;
+    aiImageRatio: string;
+    aiImageAddStyleModel: string;
+    aiImageGenerate: string;
+    aiImageSelectStyles: string;
+    aiImageResetStyles: string;
+    aiImageSize: string;
+    aiImageAspectRatio: string;
+    aiImagePreset: string;
+    aiImagePresetMore: string;
+    aiImageGeneratedImages: string;
+  }
 
 const translations: Record<Language, Translations> = {
   zh: {
@@ -165,6 +179,7 @@ const translations: Record<Language, Translations> = {
     assets: '资源',
     background: '背景',
     batch: '批量',
+    aiImageGenerator: 'AI生图',
     
     // Layer Toolbar - Image
     enhance: '画质增强',
@@ -288,6 +303,19 @@ const translations: Record<Language, Translations> = {
     templateCategoryFestivals: '全球节日',
     seeMore: '查看更多',
     showLess: '收起',
+    describeYourImage: '输入图片生成的提示词，例如: 浩瀚的银河中一艘宇宙飞船驶过',
+    aiImageAdd: '添加',
+    aiImageModel: 'Seedream 4.5',
+    aiImageRatio: '4:3 · 1张',
+    aiImageAddStyleModel: '添加风格模型',
+    aiImageGenerate: '生成',
+    aiImageSelectStyles: '选择风格',
+    aiImageResetStyles: '重置风格',
+    aiImageSize: '尺寸',
+    aiImageAspectRatio: '比例',
+    aiImagePreset: '预设',
+    aiImagePresetMore: '更多',
+    aiImageGeneratedImages: '生成图',
   },
   en: {
     // Header
@@ -309,6 +337,7 @@ const translations: Record<Language, Translations> = {
     assets: 'Assets',
     background: 'Background',
     batch: 'Batch',
+    aiImageGenerator: 'AI Image Generator',
     
     // Layer Toolbar - Image
     enhance: 'Enhance',
@@ -432,6 +461,19 @@ const translations: Record<Language, Translations> = {
     templateCategoryFestivals: 'Festivals',
     seeMore: 'See more',
     showLess: 'Show less',
+    describeYourImage: 'Describe your image',
+    aiImageAdd: 'Add',
+    aiImageModel: 'Seedream 4.5',
+    aiImageRatio: '4:3 · 1 image',
+    aiImageAddStyleModel: 'Add style model',
+    aiImageGenerate: 'Generate',
+    aiImageSelectStyles: 'Select styles',
+    aiImageResetStyles: 'Reset styles',
+    aiImageSize: 'Size',
+    aiImageAspectRatio: 'Aspect_ratio',
+    aiImagePreset: 'Preset',
+    aiImagePresetMore: 'More',
+    aiImageGeneratedImages: 'Generated',
   },
 };
 
