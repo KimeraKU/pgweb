@@ -5,6 +5,8 @@ import {
   Upload,
   Folder,
   X,
+  Clapperboard,
+  Sparkles,
 } from 'lucide-react';
 import { useLanguage } from '@/contexts/language-context';
 import { AIToolsIcon } from '@/components/icons/ai-tools-icon';
@@ -38,6 +40,8 @@ export interface OpenAppTab {
 /** 已知的 App Tab 图标映射 */
 const APP_TAB_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   'ai-image-generator': ImageFastIcon,
+  'ai-video-generator': Clapperboard,
+  'ai-filter': Sparkles,
 };
 
 interface LeftSidebarProps {
@@ -123,6 +127,7 @@ export function LeftSidebar({ activeTab, onTabChange, openAppTabs = [], onCloseA
   );
 }
 
+/** 动态 App Tab：仅圆形 logo（与常驻 Tab 的 icon+label 区分） */
 function DynamicAppTabButton({
   id,
   label,
@@ -142,7 +147,7 @@ function DynamicAppTabButton({
 
   return (
     <div
-      className="relative group min-w-0 overflow-visible"
+      className="relative flex justify-center py-2 min-w-0 overflow-visible"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
@@ -153,7 +158,7 @@ function DynamicAppTabButton({
             e.stopPropagation();
             onClose();
           }}
-          className="absolute left-1 top-1 z-10 w-4 h-4 min-w-4 min-h-4 rounded-full bg-gray-300 hover:bg-gray-400 flex items-center justify-center text-white border-0"
+          className="absolute left-1/2 top-0.5 -translate-x-[22px] z-10 w-4 h-4 min-w-4 min-h-4 rounded-full bg-gray-400 hover:bg-gray-500 flex items-center justify-center text-white border border-white shadow"
           aria-label="关闭"
         >
           <X className="w-2.5 h-2.5" />
@@ -162,18 +167,16 @@ function DynamicAppTabButton({
       <button
         type="button"
         onClick={onSelect}
+        title={label}
         className={`
-          w-full flex flex-col items-center justify-center gap-1 px-2 py-3 transition-colors relative
-          ${isActive ? 'bg-white text-teal-600 shadow-sm rounded-lg border border-gray-200' : 'text-gray-700 hover:bg-gray-50'}
+          flex items-center justify-center w-10 h-10 rounded-full flex-shrink-0 transition-colors relative
+          ${isActive ? 'bg-teal-100 text-teal-600 ring-2 ring-teal-500/50' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-700'}
         `}
       >
-        <Icon className={`w-5 h-5 ${isActive ? 'text-teal-600' : 'text-gray-500'}`} />
-        <span className={`text-xs font-medium ${isActive ? 'text-teal-600' : 'text-gray-700'}`}>
-          {label}
-        </span>
+        <Icon className="w-5 h-5" />
       </button>
       {isActive && (
-        <div className="absolute right-0 top-0 bottom-0 w-0.5 bg-teal-500 rounded-l pointer-events-none" />
+        <div className="absolute right-0 top-1/2 -translate-y-1/2 w-0.5 h-6 bg-teal-500 rounded-l pointer-events-none" />
       )}
     </div>
   );

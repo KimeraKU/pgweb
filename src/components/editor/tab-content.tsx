@@ -1,6 +1,6 @@
 'use client';
 
-import { Lock, Search, ChevronDown, Plus, Sparkles, Wand2, Type, AlignLeft, List, Upload, Image as ImageIcon, Eraser, Palette, Crop, Layers, Star, Heart, Circle, Square, Triangle, Hexagon, ChevronRight, Video, Folder, MoreVertical, Trash2, Play, Shirt, Clapperboard, Frame, Smile, Expand, Film, UserCircle, Stamp, BookOpen, Scissors, Sticker, UserMinus, ChevronLeft, Zap, Minus, Check, X } from 'lucide-react';
+import { Lock, Search, ChevronDown, Plus, Sparkles, Wand2, Type, AlignLeft, List, Upload, Image as ImageIcon, Eraser, Palette, Crop, Layers, Star, Heart, Circle, Square, Triangle, Hexagon, ChevronRight, Video, Folder, MoreVertical, Trash2, Play, Shirt, Clapperboard, Frame, Smile, Expand, Film, UserCircle, Stamp, BookOpen, Scissors, Sticker, UserMinus, ChevronLeft, Zap, Minus, Check, X, ThumbsUp, ThumbsDown, Download, RotateCcw } from 'lucide-react';
 import { useState } from 'react';
 import React from 'react';
 import { createPortal } from 'react-dom';
@@ -55,6 +55,10 @@ interface TabContentProps {
   isLayoutSelectMode?: boolean;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
+  /** 当前选中的图层 id，用于 AI Filter 等展示画板选中图片 */
+  selectedLayerId?: string | null;
+  /** 画布图层列表，用于根据 selectedLayerId 取图片 url */
+  layers?: Array<{ id: string; type?: string; imageUrl?: string }>;
 }
 
 // 包装组件：为每个 tab 内容添加收起/展开按钮
@@ -89,7 +93,7 @@ function TabContentWrapper({
   );
 }
 
-export function TabContent({ activeTab, onOpenApp, canvasSize = { width: 1080, height: 1080 }, onSizeChange, onLayoutSelect, onTextAdd, onImageAdd, onShapeAdd, isLayoutSelectMode = false, isCollapsed = false, onToggleCollapse }: TabContentProps) {
+export function TabContent({ activeTab, onOpenApp, canvasSize = { width: 1080, height: 1080 }, onSizeChange, onLayoutSelect, onTextAdd, onImageAdd, onShapeAdd, isLayoutSelectMode = false, isCollapsed = false, onToggleCollapse, selectedLayerId = null, layers = [] }: TabContentProps) {
   const { t } = useLanguage();
   const [unit, setUnit] = useState<'px' | 'in' | 'cm' | 'mm'>('px');
   
@@ -302,7 +306,16 @@ export function TabContent({ activeTab, onOpenApp, canvasSize = { width: 1080, h
     );
   }
 
-  // 其他 tab 的占位内容
+  // 动态 App Tab：AI Filter（上传 + 分类 + 滤镜网格）
+  if (activeTab === 'ai-filter') {
+    return (
+      <TabContentWrapper isCollapsed={isCollapsed} onToggleCollapse={onToggleCollapse}>
+        <AIFilterTabContent selectedLayerId={selectedLayerId} layers={layers} />
+      </TabContentWrapper>
+    );
+  }
+
+  // 其他 tab（含 ai-video-generator）占位内容
   return (
     <TabContentWrapper isCollapsed={isCollapsed} onToggleCollapse={onToggleCollapse}>
       <div className="w-80 bg-white border-r border-gray-200 p-4 flex items-center justify-center h-full overflow-y-auto">
@@ -2644,7 +2657,7 @@ function AIImageGeneratorTabContent() {
   const [presetModalPosition, setPresetModalPosition] = useState<{ bottom: number; left: number } | null>(null);
   const presetMoreRef = React.useRef<HTMLButtonElement>(null);
 
-  const [generatedImages, setGeneratedImages] = useState<{ id: string; createdAt: number; url?: string }[]>([]);
+  const [generatedImages, setGeneratedImages] = useState<{ id: string; createdAt: number; url?: string; modelName: string }[]>([]);
   const generatedListRef = React.useRef<HTMLDivElement>(null);
 
   const [inputBoxHeight, setInputBoxHeight] = useState(160);
@@ -2655,7 +2668,8 @@ function AIImageGeneratorTabContent() {
     const startHeight = inputBoxHeight;
     const onMove = (e2: MouseEvent) => {
       const delta = e2.clientY - startY;
-      setInputBoxHeight(Math.min(320, Math.max(120, startHeight + delta)));
+      // 手柄在右上角：向下拖拽为缩小高度，向上为增大
+      setInputBoxHeight(Math.min(320, Math.max(120, startHeight - delta)));
     };
     const onUp = () => {
       document.removeEventListener('mousemove', onMove);
@@ -2716,7 +2730,14 @@ function AIImageGeneratorTabContent() {
   };
 
   const handleGenerate = () => {
-    setGeneratedImages((prev) => [...prev, { id: `gen-${Date.now()}`, createdAt: Date.now() }]);
+    setGeneratedImages((prev) => [...prev, { id: `gen-${Date.now()}`, createdAt: Date.now(), modelName: selectedModel.label }]);
+  };
+
+  const handleRegenerate = (id: string) => {
+    setGeneratedImages((prev) => [
+      ...prev.filter((img) => img.id !== id),
+      { id: `gen-${Date.now()}`, createdAt: Date.now(), modelName: selectedModel.label },
+    ]);
   };
 
   // 生成图列表新增后滚动到底部（最新一条）
@@ -2738,9 +2759,6 @@ function AIImageGeneratorTabContent() {
 
       {/* 上方：生成图区域，从上到下按时间远到近（旧在上，新在下） */}
       <div className="flex-1 overflow-y-auto min-h-0 flex flex-col">
-        <h4 className="flex-shrink-0 px-4 py-2 text-xs font-medium text-gray-600 border-b border-gray-100">
-          {t.aiImageGeneratedImages}
-        </h4>
         <div ref={generatedListRef} className="flex-1 overflow-y-auto p-3 flex flex-col gap-2">
           {generatedImages.length === 0 ? (
             <p className="text-xs text-gray-400 py-6 text-center">点击下方生成按钮后，图片将显示在此</p>
@@ -2748,13 +2766,54 @@ function AIImageGeneratorTabContent() {
             generatedImages.map((img) => (
               <div
                 key={img.id}
-                className="flex-shrink-0 w-full aspect-square max-h-48 rounded-lg border border-gray-200 bg-gray-100 overflow-hidden"
+                className="flex-shrink-0 w-full rounded-lg border border-gray-200 bg-gray-100 overflow-hidden flex flex-col"
               >
-                {img.url ? (
-                  <img src={img.url} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">生成中...</div>
-                )}
+                <div className="relative w-full aspect-square max-h-48">
+                  {img.url ? (
+                    <img src={img.url} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">生成中...</div>
+                  )}
+                  <span className="absolute left-1.5 top-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-black/50 text-white truncate max-w-[80%]">
+                    {img.modelName ?? selectedModel.label}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between px-2 py-1.5 bg-white border-t border-gray-100">
+                  <button
+                    type="button"
+                    onClick={() => handleRegenerate(img.id)}
+                    className="flex items-center gap-1 text-xs text-gray-600 hover:text-teal-600 hover:bg-teal-50 rounded px-2 py-1 transition-colors"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    {t.aiImageRegenerate}
+                  </button>
+                  <div className="flex items-center gap-0.5">
+                    <button
+                      type="button"
+                      className="p-1.5 text-gray-500 hover:text-teal-600 hover:bg-gray-100 rounded transition-colors"
+                      title={t.aiImageLike}
+                      aria-label={t.aiImageLike}
+                    >
+                      <ThumbsUp className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      className="p-1.5 text-gray-500 hover:text-red-500 hover:bg-gray-100 rounded transition-colors"
+                      title={t.aiImageDislike}
+                      aria-label={t.aiImageDislike}
+                    >
+                      <ThumbsDown className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      className="p-1.5 text-gray-500 hover:text-teal-600 hover:bg-gray-100 rounded transition-colors"
+                      title={t.download}
+                      aria-label={t.download}
+                    >
+                      <Download className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
               </div>
             ))
           )}
@@ -2768,8 +2827,8 @@ function AIImageGeneratorTabContent() {
           className="flex flex-col rounded-lg border border-gray-300 bg-white overflow-hidden focus-within:ring-2 focus-within:ring-teal-500 focus-within:border-transparent relative"
           style={{ height: inputBoxHeight }}
         >
-          {/* 左上：图片添加区，排布在右边及下方第二排，最多 14 张 */}
-          <div className="flex-shrink-0 p-2 flex flex-wrap gap-1.5">
+          {/* 左上：图片添加区 + 右上角高度手柄，同一容器内 */}
+          <div className="flex-shrink-0 p-2 flex flex-wrap gap-1.5 relative">
             <button
               type="button"
               onClick={addImage}
@@ -2794,6 +2853,22 @@ function AIImageGeneratorTabContent() {
                 </button>
               </div>
             ))}
+            {/* 右上角：高度缩放手柄（与图片添加区同容器） */}
+            <div
+              role="slider"
+              aria-label="调整输入框高度"
+              onMouseDown={handleResizeStart}
+              className="absolute right-0 top-0 w-6 h-6 flex items-start justify-end cursor-ns-resize pointer-events-auto"
+            >
+              <svg width="18" height="18" viewBox="0 0 12 12" className="shrink-0" fill="none">
+                <path
+                  d="M5 0 L10 0 A 2 2 0 0 1 12 2 L12 7 L5 0 Z"
+                  fill="#9ca3af"
+                  stroke="#6b7280"
+                  strokeWidth="0.5"
+                />
+              </svg>
+            </div>
           </div>
           {/* 中部：提示词输入 */}
           <div className="flex-1 min-h-0 flex flex-col relative px-2 pb-2">
@@ -2801,62 +2876,52 @@ function AIImageGeneratorTabContent() {
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               placeholder={t.describeYourImage}
+              maxLength={2000}
               className="w-full flex-1 min-h-[4rem] pt-0 pb-10 rounded border-0 bg-transparent text-sm text-gray-800 placeholder:text-gray-400 resize-none focus:outline-none"
               rows={3}
             />
-            {/* 左下：魔杖 + 预设标签（不换行，显示不下就少显示一个：只显示前 2 个 + More） */}
-            <div className="absolute left-2 right-2 bottom-2 flex items-center gap-1.5 flex-nowrap min-w-0">
-              <button
-                type="button"
-                className="w-7 h-7 rounded-md flex items-center justify-center text-gray-500 hover:bg-gray-100 hover:text-teal-600 transition-colors shrink-0"
-                title="AI 优化提示词"
-              >
-                <Wand2 className="w-4 h-4" />
-              </button>
-              {PRESET_TAGS.slice(0, 2).map((label) => (
+            {/* 底栏单行：魔杖 + 预设标签 + More（左）| 字数 + 竖线 + 删除（右），左右边距与 left-2 一致 */}
+            <div className="absolute left-2 right-2 bottom-2 flex items-center justify-between gap-2 flex-nowrap min-w-0 h-6">
+              <div className="flex items-center gap-1 min-w-0 flex-1 overflow-hidden">
                 <button
-                  key={label}
                   type="button"
-                  onClick={() => setPrompt((p) => (p ? `${p} ${label}` : label))}
-                  className="px-2.5 py-1 rounded-md text-xs font-medium border border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100 hover:border-gray-300 transition-colors shrink-0"
+                  className="w-6 h-6 rounded flex items-center justify-center text-gray-500 hover:bg-gray-100 hover:text-teal-600 transition-colors shrink-0"
+                  title="AI 优化提示词"
                 >
-                  {label}
+                  <Wand2 className="w-3.5 h-3.5" />
                 </button>
-              ))}
-              <button
-                ref={presetMoreRef}
-                type="button"
-                onClick={() => setPresetModalOpen(true)}
-                className="px-2.5 py-1 rounded-md text-xs font-medium border border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100 hover:border-gray-300 transition-colors shrink-0"
-              >
-                {t.aiImagePresetMore}
-              </button>
-            </div>
-            {/* 右下角：两条平行短虚线斜线（点状）缩放手柄 */}
-            <div
-              role="slider"
-              aria-label="调整输入框高度"
-              onMouseDown={handleResizeStart}
-              className="absolute right-0 bottom-0 w-4 h-4 flex items-end justify-end cursor-nwse-resize pointer-events-auto"
-            >
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="shrink-0">
-                <path
-                  d="M12 12L5 5"
-                  stroke="currentColor"
-                  strokeWidth="1"
-                  strokeLinecap="round"
-                  strokeDasharray="0.8 1.2"
-                  className="text-gray-600"
-                />
-                <path
-                  d="M11 12L4 5"
-                  stroke="currentColor"
-                  strokeWidth="1"
-                  strokeLinecap="round"
-                  strokeDasharray="0.8 1.2"
-                  className="text-gray-600"
-                />
-              </svg>
+                {PRESET_TAGS.slice(0, 2).map((label) => (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() => setPrompt((p) => (p ? `${p} ${label}` : label))}
+                    className="px-2 py-0.5 rounded text-[11px] font-medium border border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100 hover:border-gray-300 transition-colors shrink-0 max-w-[4.5rem] truncate"
+                  >
+                    {label}
+                  </button>
+                ))}
+                <button
+                  ref={presetMoreRef}
+                  type="button"
+                  onClick={() => setPresetModalOpen(true)}
+                  className="px-2 py-0.5 rounded text-[11px] font-medium border border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100 hover:border-gray-300 transition-colors shrink-0"
+                >
+                  {t.aiImagePresetMore}
+                </button>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <span className="text-[11px] text-gray-400 tabular-nums">{prompt.length} / 2000</span>
+                <span className="w-px h-2.5 bg-gray-300" aria-hidden="true" />
+                <button
+                  type="button"
+                  onClick={() => setPrompt('')}
+                  className="p-0.5 text-gray-500 hover:text-gray-700 rounded transition-colors"
+                  title={t.delete}
+                  aria-label={t.delete}
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -3024,100 +3089,220 @@ function AIImageGeneratorTabContent() {
   );
 }
 
+// AI Filter Tab 内容：上传区 + 分类 Tab + 滤镜效果网格
+const AI_FILTER_CATEGORIES = ['Hot', 'AI Star', 'AI Weather', 'Pet', 'Portrait', 'Landscape', 'Vintage'] as const;
+const AI_FILTER_STYLES = [
+  'Puppy Face', 'Angel Wings', 'Bubblegum Pop', 'Baby Career', 'Heart Spotlight', 'Valentine Accent',
+  'Cupid Shot', 'Love Mood Grid', 'Rose Moment', 'Sweetheart Dish', 'Valentine Cutie', 'Valentine Mood',
+];
+
+function AIFilterTabContent({
+  selectedLayerId = null,
+  layers = [],
+}: {
+  selectedLayerId?: string | null;
+  layers?: Array<{ id: string; type?: string; imageUrl?: string }>;
+}) {
+  const { t } = useLanguage();
+  const [activeCategory, setActiveCategory] = useState<string>(AI_FILTER_CATEGORIES[0]);
+  const [isDragging, setIsDragging] = useState(false);
+  const filterTagScrollRef = React.useRef<HTMLDivElement>(null);
+  const [tagScrollState, setTagScrollState] = useState({ canScrollLeft: false, canScrollRight: false });
+
+  // 选中画板中的图片图层时，取该图层的 imageUrl 用于上方预览
+  const selectedImageUrl = React.useMemo(() => {
+    if (!selectedLayerId || !layers.length) return null;
+    const layer = layers.find((l) => l.id === selectedLayerId);
+    if (!layer || layer.type !== 'image' || !layer.imageUrl) return null;
+    return layer.imageUrl;
+  }, [selectedLayerId, layers]);
+
+  const checkFilterTagScroll = () => {
+    const el = filterTagScrollRef.current;
+    if (!el) return;
+    const { scrollLeft, scrollWidth, clientWidth } = el;
+    setTagScrollState({
+      canScrollLeft: scrollLeft > 0,
+      canScrollRight: scrollLeft < scrollWidth - clientWidth - 1,
+    });
+  };
+
+  const scrollFilterTagLeft = () => {
+    filterTagScrollRef.current?.scrollBy({ left: -120, behavior: 'smooth' });
+    setTimeout(checkFilterTagScroll, 300);
+  };
+
+  const scrollFilterTagRight = () => {
+    filterTagScrollRef.current?.scrollBy({ left: 120, behavior: 'smooth' });
+    setTimeout(checkFilterTagScroll, 300);
+  };
+
+  React.useEffect(() => {
+    const el = filterTagScrollRef.current;
+    const runCheck = () => {
+      requestAnimationFrame(checkFilterTagScroll);
+    };
+    runCheck();
+    setTimeout(runCheck, 50);
+    if (!el) return;
+    el.addEventListener('scroll', checkFilterTagScroll);
+    window.addEventListener('resize', checkFilterTagScroll);
+    return () => {
+      el.removeEventListener('scroll', checkFilterTagScroll);
+      window.removeEventListener('resize', checkFilterTagScroll);
+    };
+  }, []);
+
+  const handleUpload = () => {
+    // 占位：后续接实际上传
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    // 占位：后续接实际处理
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragging(false);
+  };
+
+  return (
+    <div className="w-80 bg-white border-r border-gray-200 flex flex-col h-full">
+      <div className="flex-shrink-0 px-4 py-3 border-b border-gray-200">
+        <h3 className="text-sm font-medium text-gray-800">{t.aiFilter}</h3>
+      </div>
+
+      <div className="flex-1 overflow-y-auto min-h-0 flex flex-col p-4 gap-4">
+        {/* 有选中图片时只显示该图片，否则显示上传框 */}
+        {selectedImageUrl ? (
+          <div className="flex-shrink-0 w-full aspect-square max-h-32 rounded-lg border border-gray-200 overflow-hidden bg-gray-100">
+            <img src={selectedImageUrl} alt="" className="w-full h-full object-contain" />
+          </div>
+        ) : (
+          <div
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            className={`flex-shrink-0 flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed transition-colors min-h-[140px] px-4 py-5 ${isDragging ? 'border-teal-400 bg-teal-50' : 'border-gray-300 bg-white'}`}
+          >
+            <p className="text-sm font-medium text-gray-800 text-center leading-snug">
+              {t.aiFilterUploadLine1}
+              <br />
+              {t.aiFilterUploadLine2}
+            </p>
+            <p className="text-sm font-medium text-gray-800 text-center">
+              {t.aiFilterSelectFromArtboard}
+            </p>
+            <button
+              type="button"
+              onClick={handleUpload}
+              className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-teal-500 hover:bg-teal-600 text-white text-sm font-medium transition-colors"
+            >
+              <Upload className="w-5 h-5" />
+              {t.upload}
+            </button>
+          </div>
+        )}
+
+        {/* 分类 Tag 栏：与其它页面一致（选中 teal 实心，未选灰字；左右箭头 + 隐藏滚动条） */}
+        <div className="flex-shrink-0 relative flex items-center">
+          {tagScrollState.canScrollLeft && (
+            <button
+              type="button"
+              onClick={scrollFilterTagLeft}
+              className="flex-shrink-0 mr-2 text-gray-400 hover:text-gray-600 transition-colors"
+              aria-label="向左滚动"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+          )}
+          <div
+            ref={filterTagScrollRef}
+            className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide flex-1 min-w-0"
+            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+          >
+            {AI_FILTER_CATEGORIES.map((cat) => {
+              const isSelected = activeCategory === cat;
+              return (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setActiveCategory(cat)}
+                  className={`
+                    flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap
+                    ${isSelected ? 'bg-teal-500 text-white' : 'text-gray-700'}
+                  `}
+                >
+                  {cat}
+                </button>
+              );
+            })}
+          </div>
+          {tagScrollState.canScrollRight && (
+            <button
+              type="button"
+              onClick={scrollFilterTagRight}
+              className="flex-shrink-0 ml-2 text-gray-400 hover:text-gray-600 transition-colors"
+              aria-label="向右滚动"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+        {/* 滤镜效果网格：3 列，缩略图 + 文案 */}
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          <div className="grid grid-cols-3 gap-2 pb-2">
+            {AI_FILTER_STYLES.map((label) => (
+              <button
+                key={label}
+                type="button"
+                className="flex flex-col rounded-lg overflow-hidden border border-gray-200 bg-gray-50 hover:border-teal-300 hover:bg-teal-50/50 transition-colors text-left"
+              >
+                <div className="w-full aspect-square bg-gray-200 flex items-center justify-center">
+                  <Sparkles className="w-8 h-8 text-gray-400" />
+                </div>
+                <p className="px-1.5 py-1.5 text-xs font-medium text-gray-800 truncate">{label}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Apps Tab 组件
 function AppsTabContent({ onOpenApp }: { onOpenApp?: (appId: string, label: string) => void }) {
   const { t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
 
-  // App 列表数据
+  // 首期可点击的 app id
+  const AVAILABLE_APP_IDS = ['ai-image-generator', 'ai-video-generator', 'ai-filter'];
+
+  // App 列表数据：前三个为首期，其余为 2 期（置灰 + Phase 2 徽标）
   const apps = [
-    { 
-      id: 'ai-image-generator', 
-      name: 'AI Image Generator', 
-      color: 'from-purple-400 to-pink-300',
-      icon: ImageFastIcon,
-    },
-    { 
-      id: 'ai-try-on', 
-      name: 'AI Try On', 
-      color: 'from-amber-100 to-orange-100',
-      icon: Shirt,
-    },
-    { 
-      id: 'ai-video-generator', 
-      name: 'AI Video Generator', 
-      color: 'from-teal-300 to-green-200',
-      icon: Clapperboard,
-      hasVideo: true,
-    },
-    { 
-      id: 'ai-background', 
-      name: 'AI Background', 
-      color: 'from-violet-200 to-purple-100',
-      icon: Frame,
-    },
-    { 
-      id: 'makeup', 
-      name: 'Makeup', 
-      color: 'from-rose-100 to-pink-50',
-      icon: Smile,
-    },
-    { 
-      id: 'ai-expand', 
-      name: 'AI Expand', 
-      color: 'from-gray-100 to-slate-100',
-      icon: Expand,
-    },
-    { 
-      id: 'motion-studio', 
-      name: 'Motion Studio', 
-      color: 'from-green-200 to-emerald-100',
-      icon: Film,
-      hasVideo: true,
-    },
-    { 
-      id: 'ai-avatar', 
-      name: 'AI Avatar', 
-      color: 'from-pink-200 to-rose-100',
-      icon: UserCircle,
-    },
-    { 
-      id: 'ai-logo-maker', 
-      name: 'AI Logo Maker', 
-      color: 'from-indigo-200 to-blue-100',
-      icon: Stamp,
-    },
-    { 
-      id: 'story-maker', 
-      name: 'Story Maker', 
-      color: 'from-amber-200 to-yellow-100',
-      icon: BookOpen,
-    },
-    { 
-      id: 'ai-video-editor', 
-      name: 'AI Video Editor', 
-      color: 'from-purple-200 to-violet-100',
-      icon: Scissors,
-    },
-    { 
-      id: 'ai-video-avatar', 
-      name: 'AI Video Avatar', 
-      color: 'from-cyan-200 to-teal-100',
-      icon: Video,
-    },
-    { 
-      id: 'batch-editor', 
-      name: 'Batch Editor', 
-      color: 'from-rose-300 to-pink-200',
-      icon: Layers,
-      badge: 'BETA',
-    },
-    { 
-      id: 'ai-sticker-generator', 
-      name: 'AI Sticker Generator', 
-      color: 'from-gray-100 to-slate-50',
-      icon: Sticker,
-    },
+    { id: 'ai-image-generator', name: 'AI Image Generator', color: 'from-purple-400 to-pink-300', icon: ImageFastIcon },
+    { id: 'ai-video-generator', name: 'AI Video Generator', color: 'from-teal-300 to-green-200', icon: Clapperboard, hasVideo: true },
+    { id: 'ai-filter', name: 'AI Filter', color: 'from-violet-200 to-purple-100', icon: Sparkles },
+    { id: 'ai-try-on', name: 'AI Try On', color: 'from-amber-100 to-orange-100', icon: Shirt, phase2: true },
+    { id: 'ai-background', name: 'AI Background', color: 'from-violet-200 to-purple-100', icon: Frame, phase2: true },
+    { id: 'makeup', name: 'Makeup', color: 'from-rose-100 to-pink-50', icon: Smile, phase2: true },
+    { id: 'ai-expand', name: 'AI Expand', color: 'from-gray-100 to-slate-100', icon: Expand, phase2: true },
+    { id: 'motion-studio', name: 'Motion Studio', color: 'from-green-200 to-emerald-100', icon: Film, hasVideo: true, phase2: true },
+    { id: 'ai-avatar', name: 'AI Avatar', color: 'from-pink-200 to-rose-100', icon: UserCircle, phase2: true },
+    { id: 'ai-logo-maker', name: 'AI Logo Maker', color: 'from-indigo-200 to-blue-100', icon: Stamp, phase2: true },
+    { id: 'story-maker', name: 'Story Maker', color: 'from-amber-200 to-yellow-100', icon: BookOpen, phase2: true },
+    { id: 'ai-video-editor', name: 'AI Video Editor', color: 'from-purple-200 to-violet-100', icon: Scissors, phase2: true },
+    { id: 'ai-video-avatar', name: 'AI Video Avatar', color: 'from-cyan-200 to-teal-100', icon: Video, phase2: true },
+    { id: 'batch-editor', name: 'Batch Editor', color: 'from-rose-300 to-pink-200', icon: Layers, badge: 'BETA', phase2: true },
+    { id: 'ai-sticker-generator', name: 'AI Sticker Generator', color: 'from-gray-100 to-slate-50', icon: Sticker, phase2: true },
   ];
 
   // 过滤搜索结果
@@ -3141,37 +3326,47 @@ function AppsTabContent({ onOpenApp }: { onOpenApp?: (appId: string, label: stri
         </div>
       </div>
 
-      {/* Apps Grid */}
+      {/* Apps Grid：首期三款可点击，其余 2 期置灰 + Phase 2 徽标 */}
       <div className="flex-1 overflow-y-auto p-4">
         <div className="grid grid-cols-3 gap-3">
           {filteredApps.map((app) => {
             const IconComponent = app.icon;
+            const isAvailable = AVAILABLE_APP_IDS.includes(app.id);
+            const label = app.id === 'ai-image-generator' ? t.aiImageGenerator : app.name;
             return (
               <button
                 key={app.id}
-                className="flex flex-col items-center group"
-                onClick={() => app.id === 'ai-image-generator' && onOpenApp?.(app.id, t.aiImageGenerator)}
+                className={`flex flex-col items-center group ${!isAvailable ? 'cursor-not-allowed opacity-60' : ''}`}
+                onClick={() => isAvailable && onOpenApp?.(app.id, label)}
+                disabled={!isAvailable}
               >
                 {/* App Icon */}
-                <div className={`relative w-full aspect-square rounded-xl bg-gradient-to-br ${app.color} flex items-center justify-center mb-2 overflow-hidden group-hover:shadow-lg transition-shadow`}>
+                <div className={`relative w-full aspect-square rounded-xl bg-gradient-to-br ${app.color} flex items-center justify-center mb-2 overflow-hidden transition-shadow ${isAvailable ? 'group-hover:shadow-lg' : 'grayscale'}`}>
                   <IconComponent className="w-8 h-8 text-gray-700/70" />
                   
-                  {/* Video play indicator */}
-                  {app.hasVideo && (
+                  {/* Video play indicator (仅首期显示) */}
+                  {app.hasVideo && isAvailable && (
                     <div className="absolute top-1 right-1 w-5 h-5 bg-white/80 rounded-full flex items-center justify-center">
                       <Play className="w-3 h-3 text-gray-700 fill-current" />
                     </div>
                   )}
                   
-                  {/* Badge */}
-                  {app.badge && (
+                  {/* 2 期徽标 / 其它 Badge */}
+                  {app.phase2 && (
+                    <div className="absolute top-1 right-1 px-1.5 py-0.5 bg-gray-500 text-white text-[8px] font-bold rounded">
+                      Phase 2
+                    </div>
+                  )}
+                  {app.badge && !app.phase2 && (
                     <div className="absolute top-1 right-1 px-1.5 py-0.5 bg-rose-500 text-white text-[8px] font-bold rounded">
                       {app.badge}
                     </div>
                   )}
                   
-                  {/* Hover overlay */}
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                  {/* Hover overlay (仅首期) */}
+                  {isAvailable && (
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                  )}
                 </div>
                 
                 {/* App Name */}

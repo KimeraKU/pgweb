@@ -156,6 +156,16 @@ export interface Translations {
     aiImagePreset: string;
     aiImagePresetMore: string;
     aiImageGeneratedImages: string;
+    aiImageRegenerate: string;
+    aiImageLike: string;
+    aiImageDislike: string;
+    aiVideoGenerator: string;
+    aiVideoDragDrop: string;
+    aiFilter: string;
+    aiFilterDragDrop: string;
+    aiFilterUploadLine1: string;
+    aiFilterUploadLine2: string;
+    aiFilterSelectFromArtboard: string;
   }
 
 const translations: Record<Language, Translations> = {
@@ -316,6 +326,16 @@ const translations: Record<Language, Translations> = {
     aiImagePreset: '预设',
     aiImagePresetMore: '更多',
     aiImageGeneratedImages: '生成图',
+    aiImageRegenerate: '重新生成',
+    aiImageLike: '点赞',
+    aiImageDislike: '点踩',
+    aiVideoGenerator: 'AI 视频生成',
+    aiVideoDragDrop: '将文件拖放到此处',
+    aiFilter: 'AI Filter',
+    aiFilterDragDrop: '将文件拖放到此处',
+    aiFilterUploadLine1: '拖放图片，',
+    aiFilterUploadLine2: '或从设备添加',
+    aiFilterSelectFromArtboard: 'Select image from artboard',
   },
   en: {
     // Header
@@ -474,6 +494,16 @@ const translations: Record<Language, Translations> = {
     aiImagePreset: 'Preset',
     aiImagePresetMore: 'More',
     aiImageGeneratedImages: 'Generated',
+    aiImageRegenerate: 'Regenerate',
+    aiImageLike: 'Like',
+    aiImageDislike: 'Dislike',
+    aiVideoGenerator: 'AI Video Generator',
+    aiVideoDragDrop: 'Drag and drop your files here',
+    aiFilter: 'AI Filter',
+    aiFilterDragDrop: 'Drag and drop your files here',
+    aiFilterUploadLine1: 'Drag and drop images,',
+    aiFilterUploadLine2: 'or add from your device',
+    aiFilterSelectFromArtboard: 'Select image from artboard',
   },
 };
 

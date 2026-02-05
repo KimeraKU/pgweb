@@ -146,7 +146,8 @@ export default function EditorPage() {
       const layer = layers.find(l => l.id === layerId);
       if (layer) {
         const tab = getTabByLayerType(layer.type);
-        if (tab) {
+        // AI Filter 页选中图片图层时不切到 image tab，保持展示画板选中图
+        if (tab && !(activeTab === 'ai-filter' && tab === 'image')) {
           setActiveTab(tab);
         }
       }
@@ -348,6 +349,8 @@ export default function EditorPage() {
           onSizeChange={(width, height) => setCanvasSize({ width, height })}
           isCollapsed={isLeftTabContentCollapsed}
           onToggleCollapse={() => setIsLeftTabContentCollapsed(!isLeftTabContentCollapsed)}
+          selectedLayerId={selectedLayerId}
+          layers={layers}
           onLayoutSelect={(layout) => {
             // 如果处于 layout 选择模式，更新现有图层
             if (isLayoutSelectMode && selectedLayerId) {
