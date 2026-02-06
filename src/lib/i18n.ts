@@ -36,10 +36,29 @@ export interface Translations {
   erasePen: string;
   erase: string;
   flipRotate: string;
+  flip: string;
+  flipHorizontal: string;
+  flipVertical: string;
+  rotate: string;
+  rotateRight90: string;
+  rotateLeft90: string;
   align: string;
+  alignObjects: string;
+  alignTop: string;
+  alignMiddle: string;
+  alignBottom: string;
+  alignLeft: string;
+  alignCenter: string;
+  alignRight: string;
   effect: string;
   adjust: string;
-  
+  brightness: string;
+  contrast: string;
+  saturation: string;
+  hue: string;
+  vignette: string;
+  sharpen: string;
+
   // Layer Toolbar - Text
   aiWrite: string;
   font: string;
@@ -141,6 +160,7 @@ export interface Translations {
   templateCategoryAIVideo: string;
   templateCategoryMoments: string;
   templateCategoryFestivals: string;
+  templateCategoryLayout: string;
     seeMore: string;
     showLess: string;
     describeYourImage: string;
@@ -166,6 +186,40 @@ export interface Translations {
     aiFilterUploadLine1: string;
     aiFilterUploadLine2: string;
     aiFilterSelectFromArtboard: string;
+    // Image Enhancer
+    imageEnhancer: string;
+    imageEnhancerModalTitle: string;
+    imageEnhancerUploadImage: string;
+    imageEnhancerSelectFromArtboard: string;
+    imageEnhancerNoImageHint: string;
+    imageEnhancerImagesOnArtboard: string;
+    imageEnhancerBefore: string;
+    imageEnhancerAfter: string;
+    imageEnhancerStyle: string;
+    imageEnhancerStandard: string;
+    imageEnhancerVivid: string;
+    imageEnhancerFresh: string;
+    imageEnhancerBackgroundBlur: string;
+    imageEnhancerDiscard: string;
+    imageEnhancer4k: string;
+    imageEnhancer4kSub: string;
+    imageEnhancerProBadge: string;
+    // AI Removal
+    aiRemoval: string;
+    aiRemovalModalTitle: string;
+    aiRemovalUploadImage: string;
+    aiRemovalSelectFromArtboard: string;
+    aiRemovalNoImageHint: string;
+    aiRemovalImagesOnArtboard: string;
+    aiRemovalHighQuality: string;
+    aiRemovalFast: string;
+    aiRemovalBrush: string;
+    aiRemovalMagic: string;
+    aiRemovalAutoSelect: string;
+    aiRemovalSize: string;
+    aiRemovalRemove: string;
+    aiRemovalPaintHint: string;
+    aiRemovalHot: string;
   }
 
 const translations: Record<Language, Translations> = {
@@ -205,10 +259,29 @@ const translations: Record<Language, Translations> = {
     erasePen: '消除笔',
     erase: '橡皮',
     flipRotate: '对称和旋转',
+    flip: '翻转',
+    flipHorizontal: '水平翻转',
+    flipVertical: '垂直翻转',
+    rotate: '旋转',
+    rotateRight90: '向右旋转 90°',
+    rotateLeft90: '向左旋转 90°',
     align: '对齐',
+    alignObjects: '对齐对象',
+    alignTop: '顶部',
+    alignMiddle: '垂直居中',
+    alignBottom: '底部',
+    alignLeft: '左侧',
+    alignCenter: '水平居中',
+    alignRight: '右侧',
     effect: '特效',
     adjust: '调整',
-    
+    brightness: '亮度',
+    contrast: '对比度',
+    saturation: '饱和度',
+    hue: '色相',
+    vignette: '暗角',
+    sharpen: '锐化',
+
     // Layer Toolbar - Text
     aiWrite: 'AI写作',
     font: '字体',
@@ -293,7 +366,7 @@ const translations: Record<Language, Translations> = {
     noAppsFound: '未找到应用',
     tryDifferentSearch: '尝试其他搜索词',
     selectLayoutTemplate: '选择布局模板',
-    selectLayoutTemplateHint: '请在左侧 Layout 页面中选择一个布局模板来替换当前布局',
+    selectLayoutTemplateHint: '请在左侧模板 > Layout 分类中选择一个布局模板来替换当前布局',
     cancel: '取消',
     changeImage: '更换图片',
     confirm: '确认',
@@ -311,6 +384,7 @@ const translations: Record<Language, Translations> = {
     templateCategoryAIVideo: 'AI Video',
     templateCategoryMoments: '生命瞬间',
     templateCategoryFestivals: '全球节日',
+    templateCategoryLayout: 'Layout',
     seeMore: '查看更多',
     showLess: '收起',
     describeYourImage: '输入图片生成的提示词，例如: 浩瀚的银河中一艘宇宙飞船驶过',
@@ -336,6 +410,38 @@ const translations: Record<Language, Translations> = {
     aiFilterUploadLine1: '拖放图片，',
     aiFilterUploadLine2: '或从设备添加',
     aiFilterSelectFromArtboard: 'Select image from artboard',
+    imageEnhancer: 'Image enhancer',
+    imageEnhancerModalTitle: '添加要增强的图片',
+    imageEnhancerUploadImage: '上传图片',
+    imageEnhancerSelectFromArtboard: '从画板选择图片',
+    imageEnhancerNoImageHint: '请上传或从画板选择一张图片',
+    imageEnhancerImagesOnArtboard: '画板中的图片',
+    imageEnhancerBefore: 'Before',
+    imageEnhancerAfter: 'After',
+    imageEnhancerStyle: '风格',
+    imageEnhancerStandard: 'Standard',
+    imageEnhancerVivid: 'Vivid',
+    imageEnhancerFresh: 'Fresh',
+    imageEnhancerBackgroundBlur: 'Background Blur',
+    imageEnhancerDiscard: '放弃',
+    imageEnhancer4k: '4K 超清',
+    imageEnhancer4kSub: '最高 4096px',
+    imageEnhancerProBadge: 'PRO',
+    aiRemoval: 'AI Removal',
+    aiRemovalModalTitle: '添加要擦除的图片',
+    aiRemovalUploadImage: '上传图片',
+    aiRemovalSelectFromArtboard: '从画板选择图片',
+    aiRemovalNoImageHint: '请上传或从画板选择一张图片',
+    aiRemovalImagesOnArtboard: '画板中的图片',
+    aiRemovalHighQuality: 'High Quality',
+    aiRemovalFast: 'Fast',
+    aiRemovalBrush: 'Brush',
+    aiRemovalMagic: 'Magic',
+    aiRemovalAutoSelect: 'Auto Select',
+    aiRemovalSize: 'Size',
+    aiRemovalRemove: 'Remove',
+    aiRemovalPaintHint: 'Paint over the object to remove',
+    aiRemovalHot: 'Hot',
   },
   en: {
     // Header
@@ -373,10 +479,29 @@ const translations: Record<Language, Translations> = {
     erasePen: 'Erase Pen',
     erase: 'Eraser',
     flipRotate: 'Flip & Rotate',
+    flip: 'Flip',
+    flipHorizontal: 'Flip horizontal',
+    flipVertical: 'Flip vertical',
+    rotate: 'Rotate',
+    rotateRight90: 'Rotate right 90°',
+    rotateLeft90: 'Rotate left 90°',
     align: 'Align',
+    alignObjects: 'Align objects',
+    alignTop: 'Top',
+    alignMiddle: 'Middle',
+    alignBottom: 'Bottom',
+    alignLeft: 'Left',
+    alignCenter: 'Center',
+    alignRight: 'Right',
     effect: 'Effect',
     adjust: 'Adjust',
-    
+    brightness: 'Brightness',
+    contrast: 'Contrast',
+    saturation: 'Saturation',
+    hue: 'Hue',
+    vignette: 'Vignette',
+    sharpen: 'Sharpen',
+
     // Layer Toolbar - Text
     aiWrite: 'AI Write',
     font: 'Font',
@@ -461,7 +586,7 @@ const translations: Record<Language, Translations> = {
     noAppsFound: 'No apps found',
     tryDifferentSearch: 'Try a different search term',
     selectLayoutTemplate: 'Select Layout Template',
-    selectLayoutTemplateHint: 'Please select a layout template from the left Layout page to replace the current layout',
+    selectLayoutTemplateHint: 'Please select a layout template from the Templates > Layout category on the left to replace the current layout',
     cancel: 'Cancel',
     changeImage: 'Change image',
     confirm: 'Confirm',
@@ -479,6 +604,7 @@ const translations: Record<Language, Translations> = {
     templateCategoryAIVideo: 'AI Video',
     templateCategoryMoments: 'Moments',
     templateCategoryFestivals: 'Festivals',
+    templateCategoryLayout: 'Layout',
     seeMore: 'See more',
     showLess: 'Show less',
     describeYourImage: 'Describe your image',
@@ -504,6 +630,38 @@ const translations: Record<Language, Translations> = {
     aiFilterUploadLine1: 'Drag and drop images,',
     aiFilterUploadLine2: 'or add from your device',
     aiFilterSelectFromArtboard: 'Select image from artboard',
+    imageEnhancer: 'Image enhancer',
+    imageEnhancerModalTitle: 'Add image to enhance',
+    imageEnhancerUploadImage: 'Upload image',
+    imageEnhancerSelectFromArtboard: 'Select from artboard',
+    imageEnhancerNoImageHint: 'Upload or select an image to enhance',
+    imageEnhancerImagesOnArtboard: 'Images on artboard',
+    imageEnhancerBefore: 'Before',
+    imageEnhancerAfter: 'After',
+    imageEnhancerStyle: 'Style',
+    imageEnhancerStandard: 'Standard',
+    imageEnhancerVivid: 'Vivid',
+    imageEnhancerFresh: 'Fresh',
+    imageEnhancerBackgroundBlur: 'Background Blur',
+    imageEnhancerDiscard: 'Discard',
+    imageEnhancer4k: '4K HD',
+    imageEnhancer4kSub: 'Up to 4096px',
+    imageEnhancerProBadge: 'PRO',
+    aiRemoval: 'AI Removal',
+    aiRemovalModalTitle: 'Add image to remove from',
+    aiRemovalUploadImage: 'Upload image',
+    aiRemovalSelectFromArtboard: 'Select from artboard',
+    aiRemovalNoImageHint: 'Upload or select an image',
+    aiRemovalImagesOnArtboard: 'Images on artboard',
+    aiRemovalHighQuality: 'High Quality',
+    aiRemovalFast: 'Fast',
+    aiRemovalBrush: 'Brush',
+    aiRemovalMagic: 'Magic',
+    aiRemovalAutoSelect: 'Auto Select',
+    aiRemovalSize: 'Size',
+    aiRemovalRemove: 'Remove',
+    aiRemovalPaintHint: 'Paint over the object to remove',
+    aiRemovalHot: 'Hot',
   },
 };
 

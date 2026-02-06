@@ -1,25 +1,28 @@
 'use client';
 
-import { Lock, Search, ChevronDown, Plus, Sparkles, Wand2, Type, AlignLeft, List, Upload, Image as ImageIcon, Eraser, Palette, Crop, Layers, Star, Heart, Circle, Square, Triangle, Hexagon, ChevronRight, Video, Folder, MoreVertical, Trash2, Play, Shirt, Clapperboard, Frame, Smile, Expand, Film, UserCircle, Stamp, BookOpen, Scissors, Sticker, UserMinus, ChevronLeft, Zap, Minus, Check, X, ThumbsUp, ThumbsDown, Download, RotateCcw } from 'lucide-react';
-import { useState } from 'react';
+import { Lock, Search, ChevronDown, Plus, Sparkles, Wand2, Type, AlignLeft, List, Upload, Image as ImageIcon, Eraser, Palette, Crop, Layers, Star, Heart, Circle, Square, Triangle, Hexagon, ChevronRight, Video, Folder, MoreVertical, Trash2, Play, Shirt, Clapperboard, Frame, Smile, Expand, Film, UserCircle, Stamp, BookOpen, Scissors, Sticker, UserMinus, ChevronLeft, Zap, Minus, Check, X, ThumbsUp, ThumbsDown, Download, RotateCcw, Info } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { useLanguage } from '@/contexts/language-context';
 import { generateLayoutTemplates } from '@/data/layout-templates';
 import { LayoutTemplate } from '@/types/layout';
 import { ImageFastIcon } from '@/components/icons/image-fast-icon';
+import { HighQualityIcon } from '@/components/icons/high-quality-icon';
+import { QuickRemovalIcon } from '@/components/icons/quick-removal-icon';
+import { AIBackgroundIcon } from '@/components/icons/ai-background-icon';
+import { AIEditorIcon } from '@/components/icons/ai-editor-icon';
+import { AdjustPanel } from '@/components/adjust-modal';
 
 type SidebarTab =
   | 'apps'
   | 'ratio'
-  | 'layout'
   | 'templates'
   | 'upload'
   | 'text'
   | 'image'
   | 'assets'
-  | 'background'
-  | 'batch';
+  | 'background';
 
 interface TextLayer {
   id: string;
@@ -59,6 +62,22 @@ interface TabContentProps {
   selectedLayerId?: string | null;
   /** 画布图层列表，用于根据 selectedLayerId 取图片 url */
   layers?: Array<{ id: string; type?: string; imageUrl?: string }>;
+  /** Image Enhancer 当前要增强的图片 URL（从画板选中或弹窗上传/选择带入） */
+  imageEnhancerSourceUrl?: string | null;
+  /** 用户身份，用于 Image Enhancer 4K 按钮会员限制 */
+  userStatus?: 'guest' | 'free' | 'pro';
+  /** AI Removal 当前要擦除的图片 URL */
+  aiRemovalSourceUrl?: string | null;
+  /** AI Removal 笔刷大小（1–100），与画布笔刷联动 */
+  aiRemovalBrushSize?: number;
+  /** AI Removal 笔刷大小变更 */
+  onAiRemovalBrushSizeChange?: (size: number) => void;
+  /** AI Removal 是否有有效选区（无选区时禁用 Remove） */
+  aiRemovalHasSelection?: boolean;
+  /** AI Removal 点击 Remove 后触发展示画布前后对比弹窗 */
+  onAiRemovalRemoveClick?: () => void;
+  /** 关闭调整面板时回调（返回 Apps tab） */
+  onCloseAdjust?: () => void;
 }
 
 // 包装组件：为每个 tab 内容添加收起/展开按钮
@@ -93,9 +112,18 @@ function TabContentWrapper({
   );
 }
 
-export function TabContent({ activeTab, onOpenApp, canvasSize = { width: 1080, height: 1080 }, onSizeChange, onLayoutSelect, onTextAdd, onImageAdd, onShapeAdd, isLayoutSelectMode = false, isCollapsed = false, onToggleCollapse, selectedLayerId = null, layers = [] }: TabContentProps) {
+export function TabContent({ activeTab, onOpenApp, canvasSize = { width: 1080, height: 1080 }, onSizeChange, onLayoutSelect, onTextAdd, onImageAdd, onShapeAdd, isLayoutSelectMode = false, isCollapsed = false, onToggleCollapse, selectedLayerId = null, layers = [], imageEnhancerSourceUrl = null, userStatus = 'free', aiRemovalSourceUrl = null, aiRemovalBrushSize = 30, onAiRemovalBrushSizeChange, aiRemovalHasSelection = false, onAiRemovalRemoveClick, onCloseAdjust }: TabContentProps) {
   const { t } = useLanguage();
   const [unit, setUnit] = useState<'px' | 'in' | 'cm' | 'mm'>('px');
+
+  // 调整面板：显示在左侧内容栏，不选中任何侧边 icon
+  if (activeTab === 'adjust') {
+    return (
+      <TabContentWrapper isCollapsed={isCollapsed} onToggleCollapse={onToggleCollapse}>
+        <AdjustPanel onClose={onCloseAdjust ?? (() => {})} />
+      </TabContentWrapper>
+    );
+  }
   
   // Ratio tab 内容（根据图片描述）
   if (activeTab === 'ratio') {
@@ -225,20 +253,11 @@ export function TabContent({ activeTab, onOpenApp, canvasSize = { width: 1080, h
     );
   }
 
-  // Layout tab 内容
-  if (activeTab === 'layout') {
-    return (
-      <TabContentWrapper isCollapsed={isCollapsed} onToggleCollapse={onToggleCollapse}>
-        <LayoutTabContent onLayoutSelect={onLayoutSelect} isLayoutSelectMode={isLayoutSelectMode} />
-      </TabContentWrapper>
-    );
-  }
-
-  // Templates tab 内容
+  // Templates tab 内容（含分类 Layout，tab 为 All / 1 / 2 / 3 …）
   if (activeTab === 'templates') {
     return (
       <TabContentWrapper isCollapsed={isCollapsed} onToggleCollapse={onToggleCollapse}>
-        <TemplatesTabContent />
+        <TemplatesTabContent onLayoutSelect={onLayoutSelect} isLayoutSelectMode={isLayoutSelectMode} />
       </TabContentWrapper>
     );
   }
@@ -311,6 +330,24 @@ export function TabContent({ activeTab, onOpenApp, canvasSize = { width: 1080, h
     return (
       <TabContentWrapper isCollapsed={isCollapsed} onToggleCollapse={onToggleCollapse}>
         <AIFilterTabContent selectedLayerId={selectedLayerId} layers={layers} />
+      </TabContentWrapper>
+    );
+  }
+
+  // 动态 App Tab：Image Enhancer（从 Apps 点击进入，带入选中的图或弹窗选择/上传的图）
+  if (activeTab === 'image-enhancer') {
+    return (
+      <TabContentWrapper isCollapsed={isCollapsed} onToggleCollapse={onToggleCollapse}>
+        <ImageEnhancerTabContent sourceUrl={imageEnhancerSourceUrl} userStatus={userStatus} />
+      </TabContentWrapper>
+    );
+  }
+
+  // 动态 App Tab：AI Removal（原 Magic Eraser，入口逻辑同 Image Enhancer）
+  if (activeTab === 'ai-removal') {
+    return (
+      <TabContentWrapper isCollapsed={isCollapsed} onToggleCollapse={onToggleCollapse}>
+        <AIRemovalTabContent sourceUrl={aiRemovalSourceUrl} brushSize={aiRemovalBrushSize} onBrushSizeChange={onAiRemovalBrushSizeChange} hasSelection={aiRemovalHasSelection} onRemoveClick={onAiRemovalRemoveClick} />
       </TabContentWrapper>
     );
   }
@@ -1034,7 +1071,7 @@ function AssetsTabContent({ onShapeAdd, onImageAdd }: { onShapeAdd?: (shapeLayer
 }
 
 // Templates Tab 组件
-function TemplatesTabContent() {
+function TemplatesTabContent({ onLayoutSelect, isLayoutSelectMode = false }: { onLayoutSelect?: (layout: any) => void; isLayoutSelectMode?: boolean }) {
   const { t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryDetail, setCategoryDetail] = useState<{ categoryId: string; categoryTitle: string } | null>(null);
@@ -1043,6 +1080,7 @@ function TemplatesTabContent() {
   const initialSelectedTags: { [categoryId: string]: string | null } = {
     'marketing': 'All',
     'social': 'All',
+    'layout': 'All',
     'utility': 'All',
     'art': 'All',
     'ai-filter': 'All',
@@ -1054,7 +1092,13 @@ function TemplatesTabContent() {
   const [selectedTags, setSelectedTags] = useState<{ [categoryId: string]: string | null }>(initialSelectedTags);
   const tagScrollRefs = React.useRef<{ [categoryId: string]: HTMLDivElement | null }>({});
   const [tagScrollStates, setTagScrollStates] = useState<{ [categoryId: string]: { canScrollLeft: boolean; canScrollRight: boolean } }>({});
-  
+
+  // 布局选择模式下进入 Templates 时自动打开 Layout 分类
+  useEffect(() => {
+    if (isLayoutSelectMode && !categoryDetail) {
+      setCategoryDetail({ categoryId: 'layout', categoryTitle: t.templateCategoryLayout });
+    }
+  }, [isLayoutSelectMode, t.templateCategoryLayout]);
 
   // 检查标签滚动位置
   const checkTagScrollPosition = (categoryId: string) => {
@@ -1101,8 +1145,14 @@ function TemplatesTabContent() {
     { id: 'ai-image', icon: ImageIcon, label: 'AI Image', color: 'bg-pink-100', iconColor: 'text-pink-600' },
   ];
 
-  // Template categories with items
+  // Template categories with items（Layout 置顶）
   const templateCategories = [
+    {
+      id: 'layout',
+      titleKey: 'templateCategoryLayout' as keyof typeof t,
+      tags: ['All', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14'],
+      templates: [],
+    },
     {
       id: 'marketing',
       titleKey: 'templateCategoryMarketing' as keyof typeof t,
@@ -1265,6 +1315,13 @@ function TemplatesTabContent() {
     }
   };
 
+  // 进入详情页时重置当前分类的选中标签（避免从其他分类带来的 tag 导致 layout 无数据）
+  React.useEffect(() => {
+    if (categoryDetail) {
+      setDetailSelectedTag('All');
+    }
+  }, [categoryDetail?.categoryId]);
+
   // 初始化详情页标签滚动状态
   React.useEffect(() => {
     if (categoryDetail) {
@@ -1288,9 +1345,14 @@ function TemplatesTabContent() {
     const detailTemplates = currentCategory ? generateMoreTemplates(categoryDetail.categoryId, currentCategory.templates) : [];
 
     return (
-      <div className="w-80 bg-white border-r border-gray-200 flex flex-col h-full">
+      <div className={`w-80 bg-white border-r border-gray-200 flex flex-col h-full relative ${categoryDetail.categoryId === 'layout' && isLayoutSelectMode ? 'z-40' : ''}`}>
+        {categoryDetail.categoryId === 'layout' && isLayoutSelectMode && (
+          <div className="absolute top-0 left-0 right-0 bg-amber-500 text-white px-4 py-2 text-sm font-medium z-10 flex items-center justify-center gap-2">
+            <span>{t.selectLayoutTemplateHint}</span>
+          </div>
+        )}
         {/* 顶部导航栏 */}
-        <div className="flex-shrink-0 px-4 py-3 border-b border-gray-200">
+        <div className={`flex-shrink-0 px-4 py-3 border-b border-gray-200 ${categoryDetail.categoryId === 'layout' && isLayoutSelectMode ? 'pt-12' : ''}`}>
           <div className="flex items-center gap-3 mb-3">
             <button
               onClick={() => setCategoryDetail(null)}
@@ -1368,26 +1430,62 @@ function TemplatesTabContent() {
           </div>
         )}
 
-        {/* 瀑布流内容区域 */}
+        {/* 内容区域：Layout 分类为布局模板网格，其他为瀑布流 */}
         <div className="flex-1 overflow-y-auto p-4">
-          <div className="columns-2 gap-3">
-            {detailTemplates.map((template) => (
-              <button
-                key={template.id}
-                className="relative w-full mb-3 rounded-lg overflow-hidden border border-gray-200 hover:border-teal-500 hover:shadow-md transition-all group break-inside-avoid"
-              >
-                <div className={`w-full aspect-square ${template.color} flex items-center justify-center`}>
-                  <span className="text-[10px] text-gray-600 font-medium text-center px-1">{template.label}</span>
-                </div>
-                {template.badge && (
-                  <span className="absolute top-1 left-1 bg-purple-600 text-white text-[8px] font-bold px-1.5 py-0.5 rounded">
-                    {template.badge}
-                  </span>
-                )}
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
-              </button>
-            ))}
-          </div>
+          {categoryDetail.categoryId === 'layout' ? (() => {
+            const layoutCategory = detailSelectedTag === 'All' ? 'featured' : detailSelectedTag;
+            const layouts = generateLayoutTemplates(layoutCategory);
+            const renderLayoutPreview = (layout: LayoutTemplate) => (
+              <div className="w-full aspect-square min-h-[80px] bg-gray-50 rounded border border-gray-200 relative overflow-hidden">
+                {layout.frames.map((frame) => (
+                  <div
+                    key={frame.id}
+                    className="absolute bg-gray-300 border border-gray-400 rounded-sm"
+                    style={{
+                      left: `${frame.x}%`,
+                      top: `${frame.y}%`,
+                      width: `${frame.width}%`,
+                      height: `${frame.height}%`,
+                    }}
+                  />
+                ))}
+              </div>
+            );
+            return (
+              <div className="grid grid-cols-2 gap-3">
+                {layouts.map((layout) => (
+                  <button
+                    key={layout.id}
+                    type="button"
+                    onClick={() => onLayoutSelect?.(layout)}
+                    className="flex flex-col items-stretch p-3 rounded-lg border border-gray-200 hover:border-teal-500 hover:bg-teal-50 transition-colors"
+                  >
+                    {renderLayoutPreview(layout)}
+                    <p className="text-xs font-medium text-gray-900 text-center mt-2">{layout.name}</p>
+                  </button>
+                ))}
+              </div>
+            );
+          })() : (
+            <div className="columns-2 gap-3">
+              {detailTemplates.map((template) => (
+                <button
+                  key={template.id}
+                  className="relative w-full mb-3 rounded-lg overflow-hidden border border-gray-200 hover:border-teal-500 hover:shadow-md transition-all group break-inside-avoid"
+                >
+                  <div className={`w-full aspect-square ${template.color} flex items-center justify-center`}>
+                    <span className="text-[10px] text-gray-600 font-medium text-center px-1">{template.label}</span>
+                  </div>
+                  {template.badge && (
+                    <span className="absolute top-1 left-1 bg-purple-600 text-white text-[8px] font-bold px-1.5 py-0.5 rounded">
+                      {template.badge}
+                    </span>
+                  )}
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -1503,24 +1601,54 @@ function TemplatesTabContent() {
                     )}
                   </div>
                 )}
-                {/* Templates grid */}
+                {/* Templates grid：Layout 分类用布局预览缩略图，其他用 template 列表 */}
                 <div className="grid grid-cols-3 gap-2">
-                  {category.templates.map((template) => (
-                    <button
-                      key={template.id}
-                      className="relative aspect-square rounded-lg overflow-hidden border border-gray-200 hover:border-teal-500 hover:shadow-md transition-all group"
-                    >
-                      <div className={`w-full h-full ${template.color} flex items-center justify-center`}>
-                        <span className="text-[10px] text-gray-600 font-medium text-center px-1">{template.label}</span>
-                      </div>
-                      {template.badge && (
-                        <span className="absolute top-1 left-1 bg-purple-600 text-white text-[8px] font-bold px-1.5 py-0.5 rounded">
-                          {template.badge}
-                        </span>
-                      )}
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
-                    </button>
-                  ))}
+                  {category.id === 'layout' ? (
+                    (() => {
+                      const layoutPreviews = generateLayoutTemplates('featured').slice(0, 3);
+                      return layoutPreviews.map((layout) => (
+                        <button
+                          key={layout.id}
+                          type="button"
+                          onClick={() => setCategoryDetail({ categoryId: 'layout', categoryTitle: t.templateCategoryLayout })}
+                          className="relative aspect-square rounded-lg overflow-hidden border border-gray-200 hover:border-teal-500 hover:shadow-md transition-all group"
+                        >
+                          <div className="w-full h-full bg-gray-50 p-1 relative">
+                            {layout.frames.map((frame) => (
+                              <div
+                                key={frame.id}
+                                className="absolute bg-gray-300 border border-gray-400 rounded-sm"
+                                style={{
+                                  left: `${frame.x}%`,
+                                  top: `${frame.y}%`,
+                                  width: `${frame.width}%`,
+                                  height: `${frame.height}%`,
+                                }}
+                              />
+                            ))}
+                          </div>
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                        </button>
+                      ));
+                    })()
+                  ) : (
+                    category.templates.map((template) => (
+                      <button
+                        key={template.id}
+                        className="relative aspect-square rounded-lg overflow-hidden border border-gray-200 hover:border-teal-500 hover:shadow-md transition-all group"
+                      >
+                        <div className={`w-full h-full ${template.color} flex items-center justify-center`}>
+                          <span className="text-[10px] text-gray-600 font-medium text-center px-1">{template.label}</span>
+                        </div>
+                        {template.badge && (
+                          <span className="absolute top-1 left-1 bg-purple-600 text-white text-[8px] font-bold px-1.5 py-0.5 rounded">
+                            {template.badge}
+                          </span>
+                        )}
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                      </button>
+                    ))
+                  )}
                 </div>
               </div>
             ))}
@@ -3278,31 +3406,238 @@ function AIFilterTabContent({
   );
 }
 
+// Image Enhancer Tab 内容：仅风格选择 + Background Blur（前后对比在画布弹窗中）
+const IMAGE_ENHANCER_STYLES = ['standard', 'vivid', 'fresh'] as const;
+
+function ImageEnhancerTabContent({ sourceUrl, userStatus = 'free' }: { sourceUrl?: string | null; userStatus?: 'guest' | 'free' | 'pro' }) {
+  const { t } = useLanguage();
+  const [style, setStyle] = useState<(typeof IMAGE_ENHANCER_STYLES)[number]>('standard');
+  const [styleDropdownOpen, setStyleDropdownOpen] = useState(false);
+  const [backgroundBlur, setBackgroundBlur] = useState(false);
+  const styleDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!styleDropdownOpen) return;
+    const onOutside = (e: MouseEvent) => {
+      if (styleDropdownRef.current && !styleDropdownRef.current.contains(e.target as Node)) {
+        setStyleDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onOutside);
+    return () => document.removeEventListener('mousedown', onOutside);
+  }, [styleDropdownOpen]);
+
+  const styleLabel = style === 'standard' ? t.imageEnhancerStandard : style === 'vivid' ? t.imageEnhancerVivid : t.imageEnhancerFresh;
+
+  return (
+    <div className="w-80 bg-white border-r border-gray-200 flex flex-col h-full">
+      <div className="flex-shrink-0 px-4 py-3 border-b border-gray-200">
+        <h3 className="text-sm font-medium text-gray-800">{t.imageEnhancer}</h3>
+      </div>
+      <div className="flex-1 overflow-y-auto min-h-0 flex flex-col p-4 gap-4">
+        {sourceUrl ? (
+          <>
+            {/* 风格选择 */}
+            <div className="flex-shrink-0" ref={styleDropdownRef}>
+              <p className="text-xs font-medium text-gray-600 mb-1.5">{t.imageEnhancerStyle}</p>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setStyleDropdownOpen((v) => !v)}
+                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg bg-gray-100 border border-gray-200 text-gray-800 text-sm"
+                >
+                  <span>{styleLabel}</span>
+                  <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${styleDropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {styleDropdownOpen && (
+                  <div className="absolute top-full left-0 right-0 mt-1 py-1 rounded-lg bg-white border border-gray-200 shadow-lg z-20">
+                    {IMAGE_ENHANCER_STYLES.map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => { setStyle(s); setStyleDropdownOpen(false); }}
+                        className={`w-full px-3 py-2 text-left text-sm ${style === s ? 'bg-teal-50 text-teal-700' : 'text-gray-700 hover:bg-gray-50'}`}
+                      >
+                        {s === 'standard' ? t.imageEnhancerStandard : s === 'vivid' ? t.imageEnhancerVivid : t.imageEnhancerFresh}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Background Blur 开关 */}
+            <div className="flex-shrink-0 flex items-center justify-between px-3 py-2.5 rounded-lg bg-gray-100 border border-gray-200">
+              <div className="flex items-center gap-2">
+                <ImageIcon className="w-4 h-4 text-gray-600" />
+                <span className="text-sm text-gray-800">{t.imageEnhancerBackgroundBlur}</span>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={backgroundBlur}
+                onClick={() => setBackgroundBlur((v) => !v)}
+                className={`relative w-10 h-5 rounded-full transition-colors ${backgroundBlur ? 'bg-teal-500' : 'bg-gray-300'}`}
+              >
+                <span
+                  className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${backgroundBlur ? 'translate-x-5 left-0.5' : 'translate-x-0 left-0.5'}`}
+                />
+              </button>
+            </div>
+          </>
+        ) : (
+          <p className="text-sm text-gray-500">{t.imageEnhancerNoImageHint}</p>
+        )}
+        {/* 左下角 4K 按钮：PRO 角标，不禁用、始终可点 */}
+        <div className="flex-shrink-0 pt-4 mt-auto">
+          <button
+            type="button"
+            className="relative w-full rounded-xl border-2 border-teal-500 bg-white hover:bg-teal-50/50 text-teal-600 text-left px-4 py-3 transition-colors"
+          >
+            <span className="absolute -top-1.5 left-3 px-2 py-0.5 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 text-white text-[10px] font-bold">
+              {t.imageEnhancerProBadge}
+            </span>
+            <p className="text-sm font-semibold mt-0.5">{t.imageEnhancer4k}</p>
+            <p className="text-xs mt-0.5 text-teal-500">{t.imageEnhancer4kSub}</p>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// AI Removal Tab 内容：模式（High Quality / Fast）+ 选择工具（Brush / Magic / Auto Select）+ Size 滑杆 + Remove 按钮
+const AI_REMOVAL_TOOLS = ['brush', 'magic', 'auto-select'] as const;
+
+function AIRemovalTabContent({ sourceUrl, brushSize = 30, onBrushSizeChange, hasSelection = false, onRemoveClick }: { sourceUrl?: string | null; brushSize?: number; onBrushSizeChange?: (size: number) => void; hasSelection?: boolean; onRemoveClick?: () => void }) {
+  const { t } = useLanguage();
+  const [mode, setMode] = useState<'high-quality' | 'fast'>('high-quality');
+  const [tool, setTool] = useState<(typeof AI_REMOVAL_TOOLS)[number]>('brush');
+
+  return (
+    <div className="w-80 bg-white border-r border-gray-200 flex flex-col h-full">
+      <div className="flex-shrink-0 px-4 py-3 border-b border-gray-200">
+        <h3 className="text-sm font-medium text-gray-800">{t.aiRemoval}</h3>
+      </div>
+      <div className="flex-1 overflow-y-auto min-h-0 flex flex-col p-4 gap-4">
+        {sourceUrl ? (
+          <>
+            {/* 模式：High Quality / Fast */}
+            <div className="flex-shrink-0">
+              <div className="flex border-b border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => setMode('high-quality')}
+                  className="flex-1 flex flex-col items-center pt-2 pb-2.5 relative"
+                >
+                  <div className="flex items-center gap-1 mb-1">
+                    <span className="w-6 h-6 rounded border border-dashed border-gray-400 flex items-center justify-center text-[10px] font-semibold text-gray-600">AI</span>
+                    <span className="bg-red-500 text-white text-[10px] px-1 rounded">{t.aiRemovalHot}</span>
+                    <Info className="w-3.5 h-3.5 text-gray-400" />
+                  </div>
+                  <span className="text-xs font-medium text-gray-800">{t.aiRemovalHighQuality}</span>
+                  {mode === 'high-quality' && (
+                    <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-teal-500 rounded-t" />
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMode('fast')}
+                  className="flex-1 flex flex-col items-center pt-2 pb-2.5 relative"
+                >
+                  <div className="flex items-center gap-1 mb-1">
+                    <Zap className="w-5 h-5 text-gray-600" />
+                    <Info className="w-3.5 h-3.5 text-gray-400" />
+                  </div>
+                  <span className="text-xs font-medium text-gray-800">{t.aiRemovalFast}</span>
+                  {mode === 'fast' && (
+                    <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-teal-500 rounded-t" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* 选择工具：Brush / Magic / Auto Select */}
+            <div className="flex-shrink-0">
+              <div className="flex rounded-lg overflow-hidden border border-gray-200 bg-gray-100 p-0.5">
+                {AI_REMOVAL_TOOLS.map((tb) => (
+                  <button
+                    key={tb}
+                    type="button"
+                    onClick={() => setTool(tb)}
+                    className={`flex-1 py-2 text-xs font-medium transition-colors ${
+                      tool === tb ? 'bg-white text-gray-800 shadow-sm rounded-md' : 'text-gray-600'
+                    }`}
+                  >
+                    {tb === 'brush' ? t.aiRemovalBrush : tb === 'magic' ? t.aiRemovalMagic : t.aiRemovalAutoSelect}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Size 滑杆：仅 Brush 时显示，与画布笔刷大小联动 */}
+            {tool === 'brush' && (
+              <div className="flex-shrink-0">
+                <label className="block text-xs font-medium text-gray-600 mb-2">{t.aiRemovalSize}</label>
+                <input
+                  type="range"
+                  min={1}
+                  max={100}
+                  value={brushSize}
+                  onChange={(e) => onBrushSizeChange?.(Number(e.target.value))}
+                  className="w-full h-2 rounded-full appearance-none bg-gray-200 accent-teal-500"
+                />
+              </div>
+            )}
+
+            {/* Remove 按钮 + 提示：无有效选区时禁用 */}
+            <div className="flex-shrink-0 flex flex-col gap-2 mt-auto pt-2">
+              <button
+                type="button"
+                onClick={() => hasSelection && onRemoveClick?.()}
+                disabled={!hasSelection}
+                className={`w-full py-3 rounded-lg font-semibold text-sm shadow-md transition-colors ${
+                  hasSelection
+                    ? 'bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 text-white cursor-pointer'
+                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                }`}
+              >
+                {t.aiRemovalRemove}
+              </button>
+              <p className="text-xs text-gray-500 text-center">{t.aiRemovalPaintHint}</p>
+            </div>
+          </>
+        ) : (
+          <p className="text-sm text-gray-500">{t.aiRemovalNoImageHint}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // Apps Tab 组件
 function AppsTabContent({ onOpenApp }: { onOpenApp?: (appId: string, label: string) => void }) {
   const { t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
 
-  // 首期可点击的 app id
-  const AVAILABLE_APP_IDS = ['ai-image-generator', 'ai-video-generator', 'ai-filter'];
+  // 首期可点击的 app id（5 个）
+  const AVAILABLE_APP_IDS = ['ai-image-generator', 'ai-filter', 'image-enhancer', 'background-remover', 'ai-removal'];
 
-  // App 列表数据：前三个为首期，其余为 2 期（置灰 + Phase 2 徽标）
+  // App 列表：前 5 个为首期可点击，其余为 2 期（置灰 + 2.1～2.8 徽标）
   const apps = [
     { id: 'ai-image-generator', name: 'AI Image Generator', color: 'from-purple-400 to-pink-300', icon: ImageFastIcon },
-    { id: 'ai-video-generator', name: 'AI Video Generator', color: 'from-teal-300 to-green-200', icon: Clapperboard, hasVideo: true },
-    { id: 'ai-filter', name: 'AI Filter', color: 'from-violet-200 to-purple-100', icon: Sparkles },
-    { id: 'ai-try-on', name: 'AI Try On', color: 'from-amber-100 to-orange-100', icon: Shirt, phase2: true },
-    { id: 'ai-background', name: 'AI Background', color: 'from-violet-200 to-purple-100', icon: Frame, phase2: true },
-    { id: 'makeup', name: 'Makeup', color: 'from-rose-100 to-pink-50', icon: Smile, phase2: true },
-    { id: 'ai-expand', name: 'AI Expand', color: 'from-gray-100 to-slate-100', icon: Expand, phase2: true },
-    { id: 'motion-studio', name: 'Motion Studio', color: 'from-green-200 to-emerald-100', icon: Film, hasVideo: true, phase2: true },
-    { id: 'ai-avatar', name: 'AI Avatar', color: 'from-pink-200 to-rose-100', icon: UserCircle, phase2: true },
-    { id: 'ai-logo-maker', name: 'AI Logo Maker', color: 'from-indigo-200 to-blue-100', icon: Stamp, phase2: true },
-    { id: 'story-maker', name: 'Story Maker', color: 'from-amber-200 to-yellow-100', icon: BookOpen, phase2: true },
-    { id: 'ai-video-editor', name: 'AI Video Editor', color: 'from-purple-200 to-violet-100', icon: Scissors, phase2: true },
-    { id: 'ai-video-avatar', name: 'AI Video Avatar', color: 'from-cyan-200 to-teal-100', icon: Video, phase2: true },
-    { id: 'batch-editor', name: 'Batch Editor', color: 'from-rose-300 to-pink-200', icon: Layers, badge: 'BETA', phase2: true },
-    { id: 'ai-sticker-generator', name: 'AI Sticker Generator', color: 'from-gray-100 to-slate-50', icon: Sticker, phase2: true },
+    { id: 'ai-filter', name: 'AI Filter', color: 'from-violet-200 to-purple-100', icon: AIEditorIcon },
+    { id: 'image-enhancer', name: 'Image enhancer', color: 'from-amber-200 to-orange-200', icon: HighQualityIcon },
+    { id: 'background-remover', name: 'Background remover', color: 'from-sky-200 to-blue-100', icon: AIBackgroundIcon },
+    { id: 'ai-removal', name: 'AI Removal', color: 'from-gray-200 to-slate-200', icon: QuickRemovalIcon },
+    { id: 'ai-video', name: 'AI video', color: 'from-teal-300 to-green-200', icon: Clapperboard, hasVideo: true, phase2: true, badge: '2.1' },
+    { id: 'ai-expand', name: 'AIExpand', color: 'from-gray-100 to-slate-100', icon: Expand, phase2: true, badge: '2.2' },
+    { id: 'ai-replace', name: 'AIReplace', color: 'from-indigo-200 to-purple-100', icon: ImageIcon, phase2: true, badge: '2.3' },
+    { id: 'ai-detach', name: 'aiDetach', color: 'from-rose-200 to-pink-100', icon: Scissors, phase2: true, badge: '2.4' },
+    { id: 'ai-super-remove', name: 'AISuperRemove', color: 'from-red-200 to-rose-100', icon: Eraser, phase2: true, badge: '2.5' },
+    { id: 'ai-background-maker', name: 'AIBackgroundMaker', color: 'from-violet-200 to-purple-100', icon: Frame, phase2: true, badge: '2.6' },
+    { id: 'ai-editor', name: 'AIEditor', color: 'from-slate-200 to-gray-100', icon: Layers, phase2: true, badge: '2.7' },
+    { id: 'ai-sticker-maker', name: 'AIStickerMaker', color: 'from-gray-100 to-slate-50', icon: Sticker, phase2: true, badge: '2.8' },
   ];
 
   // 过滤搜索结果
@@ -3332,7 +3667,7 @@ function AppsTabContent({ onOpenApp }: { onOpenApp?: (appId: string, label: stri
           {filteredApps.map((app) => {
             const IconComponent = app.icon;
             const isAvailable = AVAILABLE_APP_IDS.includes(app.id);
-            const label = app.id === 'ai-image-generator' ? t.aiImageGenerator : app.name;
+            const label = app.id === 'ai-image-generator' ? t.aiImageGenerator : app.id === 'ai-filter' ? t.aiFilter : app.id === 'image-enhancer' ? t.imageEnhancer : app.id === 'ai-removal' ? t.aiRemoval : app.name;
             return (
               <button
                 key={app.id}
@@ -3351,10 +3686,10 @@ function AppsTabContent({ onOpenApp }: { onOpenApp?: (appId: string, label: stri
                     </div>
                   )}
                   
-                  {/* 2 期徽标 / 其它 Badge */}
+                  {/* 2 期徽标（2.1～2.8）/ 其它 Badge */}
                   {app.phase2 && (
                     <div className="absolute top-1 right-1 px-1.5 py-0.5 bg-gray-500 text-white text-[8px] font-bold rounded">
-                      Phase 2
+                      {app.badge ?? '2.x'}
                     </div>
                   )}
                   {app.badge && !app.phase2 && (

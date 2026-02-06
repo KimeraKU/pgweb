@@ -11,13 +11,19 @@ import {
   Download, 
   Sparkles,
   Wand2,
-  PenTool,
   Crop,
   RotateCw,
+  RotateCcw,
   AlignCenter,
   AlignLeft,
   AlignRight,
   AlignJustify,
+  AlignStartVertical,
+  AlignCenterVertical,
+  AlignEndVertical,
+  AlignStartHorizontal,
+  AlignCenterHorizontal,
+  AlignEndHorizontal,
   Palette,
   Sliders,
   Copy,
@@ -39,6 +45,8 @@ import {
   GripVertical,
   RefreshCw
 } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { QuickRemovalIcon } from '@/components/icons/quick-removal-icon';
 
 type LayerType = 'image' | 'text' | 'layout' | 'shape' | 'background';
 
@@ -54,44 +62,80 @@ interface LayerToolbarProps {
   visible: boolean;
   layerType?: LayerType;
   onToolSelect?: (tool: string) => void;
-  onLayoutSelect?: () => void; // 用于触发 layout 选择模式
+  onLayoutSelect?: () => void;
+  onFlipHorizontal?: () => void;
+  onFlipVertical?: () => void;
+  onRotateRight90?: () => void;
+  onRotateLeft90?: () => void;
 }
 
-export function LayerToolbar({ visible, layerType = 'image', onToolSelect, onLayoutSelect }: LayerToolbarProps) {
+export function LayerToolbar({
+  visible,
+  layerType = 'image',
+  onToolSelect,
+  onLayoutSelect,
+  onFlipHorizontal,
+  onFlipVertical,
+  onRotateRight90,
+  onRotateLeft90,
+}: LayerToolbarProps) {
   const { t } = useLanguage();
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showSubMenu, setShowSubMenu] = useState<string | null>(null);
   const [subMenuPosition, setSubMenuPosition] = useState<{ x: number; y: number } | null>(null);
   const [moreMenuPosition, setMoreMenuPosition] = useState<{ x: number; y: number } | null>(null);
+  const [flipRotateOpen, setFlipRotateOpen] = useState(false);
+  const [flipRotateAnchor, setFlipRotateAnchor] = useState<{ top: number; left: number } | null>(null);
+  const [alignOpen, setAlignOpen] = useState(false);
+  const [alignAnchor, setAlignAnchor] = useState<{ top: number; left: number } | null>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
   const subMenuRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
   const toolbarRef = useRef<HTMLDivElement>(null);
+  const flipRotatePopoverRef = useRef<HTMLDivElement>(null);
+  const alignPopoverRef = useRef<HTMLDivElement>(null);
+
+  const hasFlipRotateActions = [onFlipHorizontal, onFlipVertical, onRotateRight90, onRotateLeft90].some(Boolean);
 
   // 点击外部关闭菜单
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      // 检查更多菜单和工具栏
       if (showMoreMenu && toolbarRef.current) {
         if (!toolbarRef.current.contains(event.target as Node)) {
           setShowMoreMenu(false);
           setMoreMenuPosition(null);
         }
       }
-      
-      // 检查子菜单和工具栏
       if (showSubMenu && toolbarRef.current) {
         if (!toolbarRef.current.contains(event.target as Node)) {
           setShowSubMenu(null);
           setSubMenuPosition(null);
         }
       }
+      if (flipRotateOpen) {
+        if (
+          flipRotatePopoverRef.current?.contains(event.target as Node) ||
+          toolbarRef.current?.contains(event.target as Node)
+        )
+          return;
+        setFlipRotateOpen(false);
+        setFlipRotateAnchor(null);
+      }
+      if (alignOpen) {
+        if (
+          alignPopoverRef.current?.contains(event.target as Node) ||
+          toolbarRef.current?.contains(event.target as Node)
+        )
+          return;
+        setAlignOpen(false);
+        setAlignAnchor(null);
+      }
     };
 
-    if (showMoreMenu || showSubMenu) {
+    if (showMoreMenu || showSubMenu || flipRotateOpen || alignOpen) {
       document.addEventListener('mousedown', handleClickOutside);
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
-  }, [showMoreMenu, showSubMenu]);
+  }, [showMoreMenu, showSubMenu, flipRotateOpen, alignOpen]);
 
   if (!visible) return null;
 
@@ -103,7 +147,7 @@ export function LayerToolbar({ visible, layerType = 'image', onToolSelect, onLay
           main: [
             { id: 'enhance', icon: Wand2, label: t.enhance },
             { id: 'remove-bg', icon: UserMinus, label: t.removeBg },
-            { id: 'erase-pen', icon: PenTool, label: t.erasePen },
+            { id: 'ai-removal', icon: QuickRemovalIcon, label: t.aiRemoval },
             { id: 'replace', icon: RefreshCw, label: t.replace },
             { id: 'crop', icon: Crop, label: t.crop },
             { id: 'adjust', icon: Sliders, label: t.adjust },
@@ -249,11 +293,17 @@ export function LayerToolbar({ visible, layerType = 'image', onToolSelect, onLay
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  // 如果是 layout 工具且是 layout 图层，触发特殊处理
                   if (tool.id === 'layout' && layerType === 'layout' && onLayoutSelect) {
                     onLayoutSelect();
+                  } else if (tool.id === 'flip-rotate' && hasFlipRotateActions) {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setFlipRotateAnchor({ top: rect.bottom + 4, left: rect.left });
+                    setFlipRotateOpen((prev) => !prev);
+                  } else if (tool.id === 'align') {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setAlignAnchor({ top: rect.bottom + 4, left: rect.left });
+                    setAlignOpen((prev) => !prev);
                   } else if (hasSubMenu) {
-                    // 如果有子菜单，计算位置并显示
                     const buttonEl = e.currentTarget;
                     if (buttonEl && toolbarRef.current) {
                       const buttonRect = buttonEl.getBoundingClientRect();
@@ -265,13 +315,12 @@ export function LayerToolbar({ visible, layerType = 'image', onToolSelect, onLay
                     }
                     setShowSubMenu(isSubMenuOpen ? null : tool.id);
                   } else {
-                    // 否则直接触发工具选择
                     onToolSelect?.(tool.id);
                   }
                 }}
                 onMouseDown={(e) => e.stopPropagation()}
                 className={`flex flex-col items-center px-2 py-1 rounded transition-colors relative group ${
-                  isSubMenuOpen ? 'bg-gray-100' : 'hover:bg-gray-50'
+                  isSubMenuOpen || (tool.id === 'flip-rotate' && flipRotateOpen) || (tool.id === 'align' && alignOpen) ? 'bg-gray-100' : 'hover:bg-gray-50'
                 }`}
                 title={tool.label}
               >
@@ -386,6 +435,176 @@ export function LayerToolbar({ visible, layerType = 'image', onToolSelect, onLay
           })}
         </div>
       )}
+
+      {/* Flip & Rotate 弹层 */}
+      {flipRotateOpen &&
+        flipRotateAnchor &&
+        createPortal(
+          <div
+            ref={flipRotatePopoverRef}
+            className="fixed z-[70] min-w-[200px] py-2 bg-gray-100 rounded-lg border border-gray-200 shadow-lg"
+            style={{ top: flipRotateAnchor.top, left: flipRotateAnchor.left }}
+          >
+            <div className="px-3 py-1.5">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{t.flip}</p>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onFlipHorizontal?.();
+                  setFlipRotateOpen(false);
+                  setFlipRotateAnchor(null);
+                }}
+                className="flex items-center gap-2 w-full px-2 py-2 rounded-md text-sm text-gray-800 hover:bg-gray-200"
+              >
+                <FlipHorizontal className="w-4 h-4 text-gray-600" />
+                {t.flipHorizontal}
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onFlipVertical?.();
+                  setFlipRotateOpen(false);
+                  setFlipRotateAnchor(null);
+                }}
+                className="flex items-center gap-2 w-full px-2 py-2 rounded-md text-sm text-gray-800 hover:bg-gray-200"
+              >
+                <FlipVertical className="w-4 h-4 text-gray-600" />
+                {t.flipVertical}
+              </button>
+            </div>
+            <div className="border-t border-gray-200 my-1" />
+            <div className="px-3 py-1.5">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{t.rotate}</p>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRotateRight90?.();
+                  setFlipRotateOpen(false);
+                  setFlipRotateAnchor(null);
+                }}
+                className="flex items-center gap-2 w-full px-2 py-2 rounded-md text-sm text-gray-800 hover:bg-gray-200"
+              >
+                <RotateCw className="w-4 h-4 text-gray-600" />
+                {t.rotateRight90}
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRotateLeft90?.();
+                  setFlipRotateOpen(false);
+                  setFlipRotateAnchor(null);
+                }}
+                className="flex items-center gap-2 w-full px-2 py-2 rounded-md text-sm text-gray-800 hover:bg-gray-200"
+              >
+                <RotateCcw className="w-4 h-4 text-gray-600" />
+                {t.rotateLeft90}
+              </button>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {/* Align objects 弹层 */}
+      {alignOpen &&
+        alignAnchor &&
+        createPortal(
+          <div
+            ref={alignPopoverRef}
+            className="fixed z-[70] min-w-[240px] py-3 px-3 bg-gray-100 rounded-lg border border-gray-200 shadow-lg"
+            style={{ top: alignAnchor.top, left: alignAnchor.left }}
+          >
+            <p className="text-sm font-semibold text-gray-800 mb-3 px-1">{t.alignObjects}</p>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-1">
+              <div className="flex flex-col gap-0.5">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToolSelect?.('align-top');
+                    setAlignOpen(false);
+                    setAlignAnchor(null);
+                  }}
+                  className="flex items-center gap-2 px-2 py-2 rounded-md text-sm text-gray-800 hover:bg-gray-200 text-left"
+                >
+                  <AlignStartVertical className="w-4 h-4 text-gray-600 flex-shrink-0" />
+                  {t.alignTop}
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToolSelect?.('align-middle');
+                    setAlignOpen(false);
+                    setAlignAnchor(null);
+                  }}
+                  className="flex items-center gap-2 px-2 py-2 rounded-md text-sm text-gray-800 hover:bg-gray-200 text-left"
+                >
+                  <AlignCenterVertical className="w-4 h-4 text-gray-600 flex-shrink-0" />
+                  {t.alignMiddle}
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToolSelect?.('align-bottom');
+                    setAlignOpen(false);
+                    setAlignAnchor(null);
+                  }}
+                  className="flex items-center gap-2 px-2 py-2 rounded-md text-sm text-gray-800 hover:bg-gray-200 text-left"
+                >
+                  <AlignEndVertical className="w-4 h-4 text-gray-600 flex-shrink-0" />
+                  {t.alignBottom}
+                </button>
+              </div>
+              <div className="flex flex-col gap-0.5">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToolSelect?.('align-left');
+                    setAlignOpen(false);
+                    setAlignAnchor(null);
+                  }}
+                  className="flex items-center gap-2 px-2 py-2 rounded-md text-sm text-gray-800 hover:bg-gray-200 text-left"
+                >
+                  <AlignStartHorizontal className="w-4 h-4 text-gray-600 flex-shrink-0" />
+                  {t.alignLeft}
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToolSelect?.('align-center');
+                    setAlignOpen(false);
+                    setAlignAnchor(null);
+                  }}
+                  className="flex items-center gap-2 px-2 py-2 rounded-md text-sm text-gray-800 hover:bg-gray-200 text-left"
+                >
+                  <AlignCenterHorizontal className="w-4 h-4 text-gray-600 flex-shrink-0" />
+                  {t.alignCenter}
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToolSelect?.('align-right');
+                    setAlignOpen(false);
+                    setAlignAnchor(null);
+                  }}
+                  className="flex items-center gap-2 px-2 py-2 rounded-md text-sm text-gray-800 hover:bg-gray-200 text-left"
+                >
+                  <AlignEndHorizontal className="w-4 h-4 text-gray-600 flex-shrink-0" />
+                  {t.alignRight}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

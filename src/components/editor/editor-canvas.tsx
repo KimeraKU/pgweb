@@ -34,6 +34,12 @@ interface EditorCanvasProps {
   onLayoutSelect?: () => void; // 触发 layout 选择模式
   onGroupLayers?: (layerIds: string[]) => void;
   onUngroupLayers?: (groupId: string) => void;
+  /** 图层工具栏点击（如 enhance）时回调，用于跳转 App 等 */
+  onLayerToolSelect?: (tool: string) => void;
+  onFlipHorizontal?: () => void;
+  onFlipVertical?: () => void;
+  onRotateRight90?: () => void;
+  onRotateLeft90?: () => void;
 }
 
 export function EditorCanvas({ 
@@ -52,6 +58,11 @@ export function EditorCanvas({
   onLayoutSelect,
   onGroupLayers,
   onUngroupLayers,
+  onLayerToolSelect,
+  onFlipHorizontal,
+  onFlipVertical,
+  onRotateRight90,
+  onRotateLeft90,
 }: EditorCanvasProps) {
   const { t } = useLanguage();
   const [zoom, setZoom] = useState(1);
@@ -1590,8 +1601,12 @@ export function EditorCanvas({
                               visible={isSelected && !layer.locked}
                               layerType="image"
                               onToolSelect={(tool) => {
-                                console.log('Tool selected:', tool);
+                                onLayerToolSelect?.(tool);
                               }}
+                              onFlipHorizontal={onFlipHorizontal}
+                              onFlipVertical={onFlipVertical}
+                              onRotateRight90={onRotateRight90}
+                              onRotateLeft90={onRotateLeft90}
                             />
                           </>
                         )}

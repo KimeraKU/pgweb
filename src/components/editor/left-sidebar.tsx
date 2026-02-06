@@ -6,30 +6,36 @@ import {
   Folder,
   X,
   Clapperboard,
-  Sparkles,
+  Eraser,
+  Expand,
+  Scissors,
+  Frame,
+  Layers,
+  Sticker,
 } from 'lucide-react';
 import { useLanguage } from '@/contexts/language-context';
 import { AIToolsIcon } from '@/components/icons/ai-tools-icon';
 import { RatioIcon } from '@/components/icons/ratio-icon';
-import { LayoutIcon } from '@/components/icons/layout-icon';
 import { TextIcon } from '@/components/icons/text-icon';
 import { BackgroundIcon } from '@/components/icons/background-icon';
 import { ElementsIcon } from '@/components/icons/elements-icon';
 import { ImageIcon } from '@/components/icons/image-icon';
 import { TemplatesIcon } from '@/components/icons/templates-icon';
 import { ImageFastIcon } from '@/components/icons/image-fast-icon';
+import { HighQualityIcon } from '@/components/icons/high-quality-icon';
+import { QuickRemovalIcon } from '@/components/icons/quick-removal-icon';
+import { AIBackgroundIcon } from '@/components/icons/ai-background-icon';
+import { AIEditorIcon } from '@/components/icons/ai-editor-icon';
 
 type SidebarTab =
   | 'apps'
   | 'ratio'
-  | 'layout'
   | 'templates'
   | 'upload'
   | 'text'
   | 'image'
   | 'assets'
-  | 'background'
-  | 'batch';
+  | 'background';
 
 /** 动态 App Tab（如 AI 生图） */
 export interface OpenAppTab {
@@ -40,8 +46,18 @@ export interface OpenAppTab {
 /** 已知的 App Tab 图标映射 */
 const APP_TAB_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   'ai-image-generator': ImageFastIcon,
-  'ai-video-generator': Clapperboard,
-  'ai-filter': Sparkles,
+  'ai-filter': AIEditorIcon,
+  'image-enhancer': HighQualityIcon,
+  'background-remover': AIBackgroundIcon,
+  'ai-removal': QuickRemovalIcon,
+  'ai-video': Clapperboard,
+  'ai-expand': Expand,
+  'ai-replace': ImageIcon,
+  'ai-detach': Scissors,
+  'ai-super-remove': Eraser,
+  'ai-background-maker': Frame,
+  'ai-editor': Layers,
+  'ai-sticker-maker': Sticker,
 };
 
 interface LeftSidebarProps {
@@ -59,14 +75,12 @@ export function LeftSidebar({ activeTab, onTabChange, openAppTabs = [], onCloseA
   const tabs: { id: SidebarTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
     { id: 'apps', label: t.apps, icon: AIToolsIcon },
     { id: 'ratio', label: t.ratio, icon: RatioIcon },
-    { id: 'layout', label: t.layout, icon: LayoutIcon },
     { id: 'templates', label: t.templates, icon: TemplatesIcon },
     { id: 'upload', label: t.upload, icon: Upload },
     { id: 'text', label: t.text, icon: TextIcon },
     { id: 'image', label: t.image, icon: ImageIcon },
     { id: 'assets', label: t.assets, icon: ElementsIcon },
     { id: 'background', label: t.background, icon: BackgroundIcon },
-    { id: 'batch', label: t.batch, icon: Folder },
   ];
 
   return (
@@ -106,7 +120,7 @@ export function LeftSidebar({ activeTab, onTabChange, openAppTabs = [], onCloseA
           );
         })}
 
-        {/* 动态 App Tab（batch 下方），悬停显示关闭按钮 */}
+        {/* 动态 App Tab，悬停显示关闭按钮 */}
         {openAppTabs.map((appTab) => {
           const AppIcon = APP_TAB_ICONS[appTab.id] ?? Folder;
           const isActive = activeTab === appTab.id;
