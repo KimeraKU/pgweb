@@ -189,12 +189,14 @@ export interface Translations {
     // Image Enhancer
     imageEnhancer: string;
     imageEnhancerModalTitle: string;
+    removeBgModalTitle: string;
     imageEnhancerUploadImage: string;
     imageEnhancerSelectFromArtboard: string;
     imageEnhancerNoImageHint: string;
     imageEnhancerImagesOnArtboard: string;
     imageEnhancerBefore: string;
     imageEnhancerAfter: string;
+    imageEnhancerLoadingImage: string;
     imageEnhancerStyle: string;
     imageEnhancerStandard: string;
     imageEnhancerVivid: string;
@@ -204,6 +206,12 @@ export interface Translations {
     imageEnhancer4k: string;
     imageEnhancer4kSub: string;
     imageEnhancerProBadge: string;
+    imageEnhancerEnhancing: string;
+    imageEnhancerGenerating: string;
+    imageEnhancerStepRemoveBlur: string;
+    imageEnhancerStepEnhanceQuality: string;
+    imageEnhancerStepUpscaleImage: string;
+    imageEnhancerStepBoostDetails: string;
     // AI Removal
     aiRemoval: string;
     aiRemovalModalTitle: string;
@@ -220,6 +228,7 @@ export interface Translations {
     aiRemovalRemove: string;
     aiRemovalPaintHint: string;
     aiRemovalHot: string;
+    aiRemovalProcessing: string;
   }
 
 const translations: Record<Language, Translations> = {
@@ -412,12 +421,14 @@ const translations: Record<Language, Translations> = {
     aiFilterSelectFromArtboard: 'Select image from artboard',
     imageEnhancer: 'Image enhancer',
     imageEnhancerModalTitle: '添加要增强的图片',
+    removeBgModalTitle: '添加要去背的图片',
     imageEnhancerUploadImage: '上传图片',
     imageEnhancerSelectFromArtboard: '从画板选择图片',
     imageEnhancerNoImageHint: '请上传或从画板选择一张图片',
     imageEnhancerImagesOnArtboard: '画板中的图片',
     imageEnhancerBefore: 'Before',
     imageEnhancerAfter: 'After',
+    imageEnhancerLoadingImage: '加载图片中...',
     imageEnhancerStyle: '风格',
     imageEnhancerStandard: 'Standard',
     imageEnhancerVivid: 'Vivid',
@@ -427,6 +438,12 @@ const translations: Record<Language, Translations> = {
     imageEnhancer4k: '4K 超清',
     imageEnhancer4kSub: '最高 4096px',
     imageEnhancerProBadge: 'PRO',
+    imageEnhancerEnhancing: '增强中...',
+    imageEnhancerGenerating: '生成中',
+    imageEnhancerStepRemoveBlur: '去除模糊',
+    imageEnhancerStepEnhanceQuality: '提升画质',
+    imageEnhancerStepUpscaleImage: '放大图片',
+    imageEnhancerStepBoostDetails: '增强细节',
     aiRemoval: 'AI Removal',
     aiRemovalModalTitle: '添加要擦除的图片',
     aiRemovalUploadImage: '上传图片',
@@ -442,6 +459,7 @@ const translations: Record<Language, Translations> = {
     aiRemovalRemove: 'Remove',
     aiRemovalPaintHint: 'Paint over the object to remove',
     aiRemovalHot: 'Hot',
+    aiRemovalProcessing: '处理中...',
   },
   en: {
     // Header
@@ -632,12 +650,14 @@ const translations: Record<Language, Translations> = {
     aiFilterSelectFromArtboard: 'Select image from artboard',
     imageEnhancer: 'Image enhancer',
     imageEnhancerModalTitle: 'Add image to enhance',
+    removeBgModalTitle: 'Add image to remove background',
     imageEnhancerUploadImage: 'Upload image',
     imageEnhancerSelectFromArtboard: 'Select from artboard',
     imageEnhancerNoImageHint: 'Upload or select an image to enhance',
     imageEnhancerImagesOnArtboard: 'Images on artboard',
     imageEnhancerBefore: 'Before',
     imageEnhancerAfter: 'After',
+    imageEnhancerLoadingImage: 'Loading image...',
     imageEnhancerStyle: 'Style',
     imageEnhancerStandard: 'Standard',
     imageEnhancerVivid: 'Vivid',
@@ -647,6 +667,12 @@ const translations: Record<Language, Translations> = {
     imageEnhancer4k: '4K HD',
     imageEnhancer4kSub: 'Up to 4096px',
     imageEnhancerProBadge: 'PRO',
+    imageEnhancerEnhancing: 'Enhancing...',
+    imageEnhancerGenerating: 'Generating',
+    imageEnhancerStepRemoveBlur: 'Remove Blur',
+    imageEnhancerStepEnhanceQuality: 'Enhance Quality',
+    imageEnhancerStepUpscaleImage: 'Upscale Image',
+    imageEnhancerStepBoostDetails: 'Boost Details',
     aiRemoval: 'AI Removal',
     aiRemovalModalTitle: 'Add image to remove from',
     aiRemovalUploadImage: 'Upload image',
@@ -662,6 +688,7 @@ const translations: Record<Language, Translations> = {
     aiRemovalRemove: 'Remove',
     aiRemovalPaintHint: 'Paint over the object to remove',
     aiRemovalHot: 'Hot',
+    aiRemovalProcessing: 'Processing...',
   },
 };
 

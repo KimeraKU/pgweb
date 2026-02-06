@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { ZoomIn, ZoomOut, Maximize2, Hand, Check, X, Plus, Image as ImageIcon, Star, Heart, Circle, Square, Triangle, Hexagon, Lock, Layers, Ungroup } from 'lucide-react';
+import { ZoomIn, ZoomOut, Maximize2, Hand, Check, X, Plus, Image as ImageIcon, Star, Heart, Circle, Square, Triangle, Hexagon, Lock, Layers, Ungroup, Loader2 } from 'lucide-react';
 import { useLanguage } from '@/contexts/language-context';
 import { LayerToolbar } from './layer-toolbar';
 
@@ -40,6 +40,14 @@ interface EditorCanvasProps {
   onFlipVertical?: () => void;
   onRotateRight90?: () => void;
   onRotateLeft90?: () => void;
+  /** Image Enhancer 正在增强的图片 URL；与 imageEnhancerEnhancingInProgress 一起用于画板图层显示「生成中」 */
+  imageEnhancerSourceUrl?: string | null;
+  /** 左侧 Image Enhancer「增强中」动画是否进行中；为 true 时对应画板图层显示生成中，且不显示对比弹窗 */
+  imageEnhancerEnhancingInProgress?: boolean;
+  /** Remove BG 正在处理的图片 URL；与 removeBgInProgress 一起用于画板图层显示「生成中」 */
+  removeBgSourceUrl?: string | null;
+  /** 点击 Remove BG 后为 true，对应图层显示生成中，几秒后完成 */
+  removeBgInProgress?: boolean;
 }
 
 export function EditorCanvas({ 
@@ -63,6 +71,10 @@ export function EditorCanvas({
   onFlipVertical,
   onRotateRight90,
   onRotateLeft90,
+  imageEnhancerSourceUrl,
+  imageEnhancerEnhancingInProgress = false,
+  removeBgSourceUrl,
+  removeBgInProgress = false,
 }: EditorCanvasProps) {
   const { t } = useLanguage();
   const [zoom, setZoom] = useState(1);
@@ -1504,13 +1516,20 @@ export function EditorCanvas({
                           }
                         }}
                       >
-                        {/* 图片内容 */}
-                        <img 
-                          src={layer.imageUrl} 
-                          alt={layer.name || 'Image'} 
-                          className="w-full h-full object-cover rounded"
-                          draggable={false}
-                        />
+                        {/* 图片内容；增强中或 Remove BG 生成中时该图层显示「生成中」 */}
+                        {(imageEnhancerEnhancingInProgress && layer.imageUrl === imageEnhancerSourceUrl) || (removeBgInProgress && layer.imageUrl === removeBgSourceUrl) ? (
+                          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-gray-100 rounded z-[1]">
+                            <Loader2 className="w-8 h-8 text-teal-500 animate-spin" />
+                            <span className="text-xs font-medium text-gray-600">{t.imageEnhancerGenerating}</span>
+                          </div>
+                        ) : (
+                          <img
+                            src={layer.imageUrl}
+                            alt={layer.name || 'Image'}
+                            className="w-full h-full object-cover rounded"
+                            draggable={false}
+                          />
+                        )}
                         
                         {/* 选中状态 UI */}
                         {isSelected && !layer.locked && (

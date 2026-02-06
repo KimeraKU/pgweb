@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { LanguageProvider, useLanguage } from '@/contexts/language-context';
-import { Upload, X, ArrowLeftRight, Check } from 'lucide-react';
+import { Upload, X, ArrowLeftRight, Check, Loader2 } from 'lucide-react';
 import { EditorHeader } from '@/components/editor/editor-header';
 import { LeftSidebar } from '@/components/editor/left-sidebar';
 import { TabContent } from '@/components/editor/tab-content';
@@ -26,28 +26,32 @@ const BACKGROUND_LAYER_ID = 'background-layer';
 /** 动态打开的 App Tab（如 AI 生图），可关闭 */
 export type OpenAppTab = { id: string; label: string };
 
-/** Image Enhancer 入口弹窗：无选中图时显示，可选上传或从画板选择 */
+/** Image Enhancer / Background remover 共用入口弹窗：无选中图时显示，可选上传或从画板选择；forApp 决定标题等文案 */
 function ImageEnhancerModal({
   open,
   onClose,
   layers,
   onConfirm,
+  forApp = 'image-enhancer',
 }: {
   open: boolean;
   onClose: () => void;
   layers: Array<{ id: string; type?: string; name?: string; imageUrl?: string }>;
   onConfirm: (url: string, label: string) => void;
+  forApp?: 'image-enhancer' | 'background-remover';
 }) {
   const { t } = useLanguage();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageLayers = layers.filter((l) => l.type === 'image' && l.imageUrl);
+  const modalTitle = forApp === 'background-remover' ? t.removeBgModalTitle : t.imageEnhancerModalTitle;
+  const confirmLabel = forApp === 'background-remover' ? t.removeBg : t.imageEnhancer;
 
   const handleUploadClick = () => fileInputRef.current?.click();
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const url = URL.createObjectURL(file);
-      onConfirm(url, t.imageEnhancer);
+      onConfirm(url, confirmLabel);
     }
     e.target.value = '';
   };
@@ -58,7 +62,7 @@ function ImageEnhancerModal({
       <div className="fixed inset-0 bg-black/40 z-50" onClick={onClose} aria-hidden />
       <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-sm bg-white rounded-xl shadow-xl border border-gray-200 p-4 flex flex-col gap-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-gray-900">{t.imageEnhancerModalTitle}</h3>
+          <h3 className="text-sm font-semibold text-gray-900">{modalTitle}</h3>
           <button type="button" onClick={onClose} className="p-1 rounded hover:bg-gray-100" aria-label="Close">
             <X className="w-5 h-5 text-gray-500" />
           </button>
@@ -87,7 +91,7 @@ function ImageEnhancerModal({
                   <button
                     key={layer.id}
                     type="button"
-                    onClick={() => onConfirm(layer.imageUrl!, t.imageEnhancer)}
+                    onClick={() => onConfirm(layer.imageUrl!, confirmLabel)}
                     className="flex flex-col rounded-lg border border-gray-200 overflow-hidden bg-gray-50 hover:border-teal-300 hover:bg-teal-50/50 text-left"
                   >
                     <div className="w-full aspect-square bg-gray-200">
@@ -184,43 +188,10 @@ function AIRemovalModal({
   );
 }
 
-/** 画板上的前后对比弹窗：与选区画布弹窗同形式（全画布 overlay + 同尺寸图片区 + 滑杆 + 放弃/确认） */
+/** 画板上的 Image Enhancer 完成弹窗：直接复用 AI Removal 结果弹窗结构（同一套 DOM + ComparisonResultContent，After 尺寸乘 4） */
 function ImageEnhancerComparisonPopup({ sourceUrl, onClose }: { sourceUrl: string; onClose?: () => void }) {
   const { t } = useLanguage();
-  const comparisonRef = useRef<HTMLDivElement>(null);
-  const [beforeDimensions, setBeforeDimensions] = useState<{ width: number; height: number } | null>(null);
-  const [sliderPosition, setSliderPosition] = useState(50);
-  const [isSliding, setIsSliding] = useState(false);
-
-  const afterDimensions = beforeDimensions
-    ? { width: beforeDimensions.width * 4, height: beforeDimensions.height * 4 }
-    : null;
-
-  const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
-    const img = e.currentTarget;
-    if (img.naturalWidth && img.naturalHeight) {
-      setBeforeDimensions({ width: img.naturalWidth, height: img.naturalHeight });
-    }
-  };
-
-  useEffect(() => {
-    if (!isSliding) return;
-    const onMove = (e: MouseEvent) => {
-      const el = comparisonRef.current;
-      if (!el) return;
-      const rect = el.getBoundingClientRect();
-      const x = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
-      setSliderPosition(x);
-    };
-    const onUp = () => setIsSliding(false);
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
-    return () => {
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
-    };
-  }, [isSliding]);
-
+  const boxRef = useRef<HTMLDivElement>(null);
   return (
     <div className="absolute inset-0 z-40 flex items-center justify-center bg-white/95 p-6 overflow-auto">
       {onClose && (
@@ -235,47 +206,11 @@ function ImageEnhancerComparisonPopup({ sourceUrl, onClose }: { sourceUrl: strin
       )}
       <div className="w-full max-w-3xl flex flex-col items-center">
         <div
-          ref={comparisonRef}
+          ref={boxRef}
           className="relative w-full flex-shrink-0 rounded-lg border border-gray-200 overflow-hidden bg-gray-100 shadow-xl"
           style={{ aspectRatio: '3/4', maxHeight: '70vh' }}
         >
-          {/* 底层：整张「后」图；滑杆右侧显示 */}
-          <img
-            src={sourceUrl}
-            alt=""
-            className="absolute inset-0 w-full h-full object-cover"
-          />
-          {/* 顶层：「前」图，用 clip 只露出滑杆左侧，滑杆左移显示更多前图 */}
-          <img
-            src={sourceUrl}
-            alt=""
-            className="absolute inset-0 w-full h-full object-cover z-[1]"
-            style={{ clipPath: `inset(0 ${100 - sliderPosition}% 0 0)` }}
-            onLoad={handleImageLoad}
-          />
-          {beforeDimensions && (
-            <span className="absolute top-3 left-3 px-2.5 py-1 rounded-md bg-gray-100/95 text-gray-700 text-sm font-medium z-10">
-              {t.imageEnhancerBefore} {beforeDimensions.width} * {beforeDimensions.height}
-            </span>
-          )}
-          {afterDimensions && (
-            <span className="absolute top-3 right-3 px-2.5 py-1 rounded-md bg-gray-100/95 text-gray-700 text-sm font-medium z-10">
-              {t.imageEnhancerAfter} {afterDimensions.width} * {afterDimensions.height}
-            </span>
-          )}
-          <div
-            className="absolute top-0 bottom-0 w-0.5 bg-white shadow-lg z-10 pointer-events-none"
-            style={{ left: `${sliderPosition}%`, transform: 'translateX(-50%)' }}
-          />
-          <button
-            type="button"
-            onMouseDown={(e) => { e.preventDefault(); setIsSliding(true); }}
-            className="absolute top-1/2 z-20 w-10 h-10 rounded-full bg-gray-100 border-2 border-white shadow flex items-center justify-center text-gray-600 hover:bg-gray-200 cursor-ew-resize -translate-y-1/2 -translate-x-1/2"
-            style={{ left: `${sliderPosition}%` }}
-            aria-label="拖动对比"
-          >
-            <ArrowLeftRight className="w-5 h-5" />
-          </button>
+          <ComparisonResultContent sourceUrl={sourceUrl} containerRef={boxRef} afterDimensionsMultiplier={4} />
         </div>
         <div className="flex items-center justify-center gap-4 mt-4">
           <button
@@ -302,13 +237,15 @@ function ImageEnhancerComparisonPopup({ sourceUrl, onClose }: { sourceUrl: strin
   );
 }
 
-/** AI Removal 同一弹窗内的前后对比内容：滑杆 + 左上 Before / 右上 After（参考 Image Enhancer），渲染在父级提供的 box 内 */
-function AIRemovalComparisonContent({
+/** 前后对比内容（AI Removal / Image Enhancer 共用）：滑杆 + 左上 Before / 右上 After，渲染在父级提供的 box 内；afterDimensionsMultiplier 用于增强弹窗的 After 尺寸（如 4） */
+function ComparisonResultContent({
   sourceUrl,
   containerRef,
+  afterDimensionsMultiplier = 1,
 }: {
   sourceUrl: string;
   containerRef: React.RefObject<HTMLDivElement | null>;
+  afterDimensionsMultiplier?: number;
 }) {
   const { t } = useLanguage();
   const [beforeDimensions, setBeforeDimensions] = useState<{ width: number; height: number } | null>(null);
@@ -316,7 +253,7 @@ function AIRemovalComparisonContent({
   const [isSliding, setIsSliding] = useState(false);
 
   const afterDimensions = beforeDimensions
-    ? { width: beforeDimensions.width, height: beforeDimensions.height }
+    ? { width: Math.round(beforeDimensions.width * afterDimensionsMultiplier), height: Math.round(beforeDimensions.height * afterDimensionsMultiplier) }
     : null;
 
   const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
@@ -346,13 +283,11 @@ function AIRemovalComparisonContent({
 
   return (
     <>
-      {/* 底层：整张「后」图，与选区时一致用 object-contain 不放大图片 */}
       <img
         src={sourceUrl}
         alt=""
         className="absolute inset-0 w-full h-full object-contain"
       />
-      {/* 顶层：「前」图，clip 只露出滑杆左侧 */}
       <img
         src={sourceUrl}
         alt=""
@@ -385,6 +320,17 @@ function AIRemovalComparisonContent({
       </button>
     </>
   );
+}
+
+/** AI Removal 弹窗内的前后对比：直接复用 ComparisonResultContent（After 尺寸与 Before 一致） */
+function AIRemovalComparisonContent({
+  sourceUrl,
+  containerRef,
+}: {
+  sourceUrl: string;
+  containerRef: React.RefObject<HTMLDivElement | null>;
+}) {
+  return <ComparisonResultContent sourceUrl={sourceUrl} containerRef={containerRef} />;
 }
 
 /** AI Removal 图片上的笔刷选区：红色半透明笔刷光标 + 拖拽绘制选区；可传入 containerRef 以填入父级 box；onStroke 在用户绘制时回调用于启用 Remove */
@@ -545,7 +491,7 @@ function AIRemovalBrushCanvas({
   );
 }
 
-/** AI Removal 统一弹窗：discard 回到选区步骤；右上角叉关闭 tab 回 apps；confirm 新增/更新画布图片 */
+/** AI Removal 统一弹窗：discard 回到选区步骤；右上角叉关闭 tab 回 apps；confirm 新增/更新画布图片；点击 Remove 后先显示弹窗内加载态再出对比图 */
 function AIRemovalUnifiedPopup({
   sourceUrl,
   brushSize,
@@ -566,6 +512,17 @@ function AIRemovalUnifiedPopup({
   onStroke?: () => void;
 }) {
   const { t } = useLanguage();
+  const [comparisonImageReady, setComparisonImageReady] = useState(false);
+
+  useEffect(() => {
+    if (!comparisonVisible) {
+      setComparisonImageReady(false);
+      return;
+    }
+    const id = setTimeout(() => setComparisonImageReady(true), 2000);
+    return () => clearTimeout(id);
+  }, [comparisonVisible]);
+
   return (
     <div className="absolute inset-0 flex items-center justify-center bg-white/95 p-6 overflow-auto">
       <button
@@ -582,18 +539,23 @@ function AIRemovalUnifiedPopup({
           className="relative w-full flex-shrink-0 rounded-lg border border-gray-200 overflow-hidden bg-gray-100 shadow-xl"
           style={{ aspectRatio: '3/4', maxHeight: '70vh' }}
         >
-          {comparisonVisible ? (
-            <AIRemovalComparisonContent sourceUrl={sourceUrl} containerRef={boxRef} />
-          ) : (
+          {!comparisonVisible ? (
             <AIRemovalBrushCanvas
               containerRef={boxRef}
               sourceUrl={sourceUrl}
               brushSize={brushSize}
               onStroke={onStroke}
             />
+          ) : !comparisonImageReady ? (
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-gray-100">
+              <Loader2 className="w-10 h-10 text-teal-500 animate-spin flex-shrink-0" />
+              <span className="text-sm text-gray-500">{t.aiRemovalProcessing}</span>
+            </div>
+          ) : (
+            <ComparisonResultContent sourceUrl={sourceUrl} containerRef={boxRef} />
           )}
         </div>
-        {comparisonVisible && (
+        {comparisonVisible && comparisonImageReady && (
           <div className="flex items-center justify-center gap-4 mt-4">
             <button
               type="button"
@@ -637,8 +599,12 @@ export default function EditorPage() {
   const [isLeftTabContentCollapsed, setIsLeftTabContentCollapsed] = useState(false);
   // Image Enhancer：无选中图时弹出的选择/上传弹窗；带入工具的图片 URL；画板上前后对比弹窗是否显示
   const [imageEnhancerModalOpen, setImageEnhancerModalOpen] = useState(false);
+  /** 当前用「选图/上传」弹窗打开的是哪个 App：image-enhancer 或 background-remover（二者共用同一弹窗） */
+  const [imageEnhancerModalForApp, setImageEnhancerModalForApp] = useState<'image-enhancer' | 'background-remover'>('image-enhancer');
   const [imageEnhancerSourceUrl, setImageEnhancerSourceUrl] = useState<string | null>(null);
-  const [imageEnhancerComparisonVisible, setImageEnhancerComparisonVisible] = useState(true);
+  const [imageEnhancerComparisonVisible, setImageEnhancerComparisonVisible] = useState(false);
+  /** 左侧「增强中」动画是否进行中；为 true 时画板不显示对比弹窗，对应图层显示生成中 */
+  const [imageEnhancerEnhancingInProgress, setImageEnhancerEnhancingInProgress] = useState(false);
   // AI Removal：同 Image Enhancer 的入口逻辑；点击 Remove 后在画布显示前后对比弹窗；笔刷大小供画布选区用
   const [aiRemovalModalOpen, setAiRemovalModalOpen] = useState(false);
   const [aiRemovalSourceUrl, setAiRemovalSourceUrl] = useState<string | null>(null);
@@ -649,6 +615,11 @@ export default function EditorPage() {
   /** 从画布选中图层进入 AI Removal 时的图层 id，confirm 时更新该图层；为 null 则 confirm 时新增图片图层 */
   const [aiRemovalSourceLayerId, setAiRemovalSourceLayerId] = useState<string | null>(null);
   const aiRemovalBoxRef = useRef<HTMLDivElement>(null);
+  /** Remove BG：点击图层工具栏 Remove BG 后，该图层显示生成中，几秒后完成 */
+  const [removeBgSourceUrl, setRemoveBgSourceUrl] = useState<string | null>(null);
+  const [removeBgInProgress, setRemoveBgInProgress] = useState(false);
+  const removeBgTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (removeBgTimeoutRef.current) clearTimeout(removeBgTimeoutRef.current); }, []);
 
   // 背景图层状态
   const [backgroundLayer, setBackgroundLayer] = useState({
@@ -671,10 +642,30 @@ export default function EditorPage() {
       const layer = selectedLayerId ? layers.find((l) => l.id === selectedLayerId) : null;
       if (layer?.type === 'image' && layer?.imageUrl) {
         setImageEnhancerSourceUrl(layer.imageUrl);
-        setImageEnhancerComparisonVisible(true);
+        setImageEnhancerComparisonVisible(false);
+        setImageEnhancerEnhancingInProgress(true);
         setOpenAppTabs((prev) => (prev.some((t) => t.id === appId) ? prev : [...prev, { id: appId, label }]));
         setActiveTab(appId);
       } else {
+        setImageEnhancerModalForApp('image-enhancer');
+        setImageEnhancerModalOpen(true);
+      }
+      return;
+    }
+    if (appId === 'background-remover') {
+      const layer = selectedLayerId ? layers.find((l) => l.id === selectedLayerId) : null;
+      if (layer?.type === 'image' && layer?.imageUrl) {
+        if (removeBgTimeoutRef.current) clearTimeout(removeBgTimeoutRef.current);
+        setRemoveBgSourceUrl(layer.imageUrl);
+        setRemoveBgInProgress(true);
+        removeBgTimeoutRef.current = setTimeout(() => {
+          setRemoveBgInProgress(false);
+          setRemoveBgSourceUrl(null);
+          removeBgTimeoutRef.current = null;
+        }, 3000);
+        // 无侧边栏内容页，不打开 tab
+      } else {
+        setImageEnhancerModalForApp('background-remover');
         setImageEnhancerModalOpen(true);
       }
       return;
@@ -703,15 +694,48 @@ export default function EditorPage() {
   const openImageEnhancerWithSource = (url: string, label: string) => {
     setImageEnhancerSourceUrl(url);
     setImageEnhancerModalOpen(false);
-    setImageEnhancerComparisonVisible(true);
+    setImageEnhancerComparisonVisible(false);
+    setImageEnhancerEnhancingInProgress(true);
     const appId = 'image-enhancer';
     setOpenAppTabs((prev) => (prev.some((t) => t.id === appId) ? prev : [...prev, { id: appId, label }]));
     setActiveTab(appId);
   };
 
+  /** Background remover 选图/上传后：先往画板添加图片图层，再复用 Remove BG 生成动画（无侧边栏内容页，不打开 tab） */
+  const openBackgroundRemoverWithSource = (url: string, _label: string) => {
+    setImageEnhancerModalOpen(false);
+    if (removeBgTimeoutRef.current) clearTimeout(removeBgTimeoutRef.current);
+    const newId = `image-${Date.now()}`;
+    setLayers((prev) => [
+      ...prev,
+      {
+        id: newId,
+        name: 'Image',
+        type: 'image' as const,
+        imageUrl: url,
+        visible: true,
+        locked: false,
+        zIndex: prev.length,
+        x: 5 + (prev.length * 3) % 15,
+        y: 5 + (prev.length * 3) % 15,
+        width: 50,
+        height: 50,
+      },
+    ]);
+    setSelectedLayerId(newId);
+    setRemoveBgSourceUrl(url);
+    setRemoveBgInProgress(true);
+    removeBgTimeoutRef.current = setTimeout(() => {
+      setRemoveBgInProgress(false);
+      setRemoveBgSourceUrl(null);
+      removeBgTimeoutRef.current = null;
+    }, 3000);
+  };
+
   /** Image Enhancer 弹窗放弃/确认：关闭对比弹窗、关闭 enhancer tab、返回 Apps */
   const handleImageEnhancerClose = () => {
     setImageEnhancerComparisonVisible(false);
+    setImageEnhancerEnhancingInProgress(false);
     setOpenAppTabs((prev) => prev.filter((t) => t.id !== 'image-enhancer'));
     setActiveTab('apps');
     setImageEnhancerSourceUrl(null);
@@ -778,6 +802,12 @@ export default function EditorPage() {
   };
 
   const handleCloseAppTab = (tabId: string) => {
+    if (tabId === 'background-remover') {
+      if (removeBgTimeoutRef.current) clearTimeout(removeBgTimeoutRef.current);
+      removeBgTimeoutRef.current = null;
+      setRemoveBgInProgress(false);
+      setRemoveBgSourceUrl(null);
+    }
     setOpenAppTabs((prev) => prev.filter((t) => t.id !== tabId));
     setActiveTab((current) => (current === tabId ? 'apps' : current));
   };
@@ -1031,7 +1061,14 @@ export default function EditorPage() {
         open={imageEnhancerModalOpen}
         onClose={() => setImageEnhancerModalOpen(false)}
         layers={layers}
-        onConfirm={openImageEnhancerWithSource}
+        forApp={imageEnhancerModalForApp}
+        onConfirm={(url, label) => {
+          if (imageEnhancerModalForApp === 'background-remover') {
+            openBackgroundRemoverWithSource(url, label);
+          } else {
+            openImageEnhancerWithSource(url, label);
+          }
+        }}
       />
       <AIRemovalModal
         open={aiRemovalModalOpen}
@@ -1113,6 +1150,14 @@ export default function EditorPage() {
           }}
           isLayoutSelectMode={isLayoutSelectMode}
           onCloseAdjust={() => setActiveTab('apps')}
+          onImageEnhancerEnhancingComplete={useCallback(() => {
+            setImageEnhancerEnhancingInProgress(false);
+            setImageEnhancerComparisonVisible(true);
+          }, [])}
+          onImageEnhancerEnhancingStart={useCallback(() => {
+            setImageEnhancerEnhancingInProgress(true);
+            setImageEnhancerComparisonVisible(false);
+          }, [])}
           onTextAdd={(textLayer) => {
             // 创建文本图层
             const newLayer = {
@@ -1234,6 +1279,15 @@ export default function EditorPage() {
                 setAiRemovalHasSelection(false);
                 setOpenAppTabs((prev) => (prev.some((t) => t.id === 'ai-removal') ? prev : [...prev, { id: 'ai-removal', label: 'AI Removal' }]));
                 setActiveTab('ai-removal');
+              } else if (tool === 'remove-bg') {
+                if (removeBgTimeoutRef.current) clearTimeout(removeBgTimeoutRef.current);
+                setRemoveBgSourceUrl(layer.imageUrl);
+                setRemoveBgInProgress(true);
+                removeBgTimeoutRef.current = setTimeout(() => {
+                  setRemoveBgInProgress(false);
+                  setRemoveBgSourceUrl(null);
+                  removeBgTimeoutRef.current = null;
+                }, 3000);
               } else if (tool === 'adjust') {
                 setActiveTab('adjust');
               }
@@ -1242,6 +1296,10 @@ export default function EditorPage() {
             onFlipVertical={() => {}}
             onRotateRight90={() => {}}
             onRotateLeft90={() => {}}
+            imageEnhancerSourceUrl={imageEnhancerSourceUrl}
+            imageEnhancerEnhancingInProgress={imageEnhancerEnhancingInProgress}
+            removeBgSourceUrl={removeBgSourceUrl}
+            removeBgInProgress={removeBgInProgress}
             onLayerResize={(layerId, newSize) => {
               setLayers(layers.map(layer => {
                 if (layer.id === layerId) {

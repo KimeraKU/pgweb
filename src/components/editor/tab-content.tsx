@@ -1,7 +1,7 @@
 'use client';
 
-import { Lock, Search, ChevronDown, Plus, Sparkles, Wand2, Type, AlignLeft, List, Upload, Image as ImageIcon, Eraser, Palette, Crop, Layers, Star, Heart, Circle, Square, Triangle, Hexagon, ChevronRight, Video, Folder, MoreVertical, Trash2, Play, Shirt, Clapperboard, Frame, Smile, Expand, Film, UserCircle, Stamp, BookOpen, Scissors, Sticker, UserMinus, ChevronLeft, Zap, Minus, Check, X, ThumbsUp, ThumbsDown, Download, RotateCcw, Info } from 'lucide-react';
-import { useState, useRef, useEffect } from 'react';
+import { Lock, Search, ChevronDown, Plus, Sparkles, Wand2, Type, AlignLeft, List, Upload, Image as ImageIcon, Eraser, Palette, Crop, Layers, Star, Heart, Circle, Square, Triangle, Hexagon, ChevronRight, Video, Folder, MoreVertical, Trash2, Play, Shirt, Clapperboard, Frame, Smile, Expand, Film, UserCircle, Stamp, BookOpen, Scissors, Sticker, UserMinus, ChevronLeft, Zap, Minus, Check, X, ThumbsUp, ThumbsDown, Download, RotateCcw, Info, Loader2 } from 'lucide-react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { useLanguage } from '@/contexts/language-context';
@@ -78,6 +78,10 @@ interface TabContentProps {
   onAiRemovalRemoveClick?: () => void;
   /** 关闭调整面板时回调（返回 Apps tab） */
   onCloseAdjust?: () => void;
+  /** Image Enhancer 左侧栏「增强中」动画结束后回调，用于显示画板对比弹窗 */
+  onImageEnhancerEnhancingComplete?: () => void;
+  /** Image Enhancer 再次开始增强（如点击 4K）时回调，用于画板显示生成中、隐藏对比弹窗 */
+  onImageEnhancerEnhancingStart?: () => void;
 }
 
 // 包装组件：为每个 tab 内容添加收起/展开按钮
@@ -112,7 +116,7 @@ function TabContentWrapper({
   );
 }
 
-export function TabContent({ activeTab, onOpenApp, canvasSize = { width: 1080, height: 1080 }, onSizeChange, onLayoutSelect, onTextAdd, onImageAdd, onShapeAdd, isLayoutSelectMode = false, isCollapsed = false, onToggleCollapse, selectedLayerId = null, layers = [], imageEnhancerSourceUrl = null, userStatus = 'free', aiRemovalSourceUrl = null, aiRemovalBrushSize = 30, onAiRemovalBrushSizeChange, aiRemovalHasSelection = false, onAiRemovalRemoveClick, onCloseAdjust }: TabContentProps) {
+export function TabContent({ activeTab, onOpenApp, canvasSize = { width: 1080, height: 1080 }, onSizeChange, onLayoutSelect, onTextAdd, onImageAdd, onShapeAdd, isLayoutSelectMode = false, isCollapsed = false, onToggleCollapse, selectedLayerId = null, layers = [], imageEnhancerSourceUrl = null, userStatus = 'free', aiRemovalSourceUrl = null, aiRemovalBrushSize = 30, onAiRemovalBrushSizeChange, aiRemovalHasSelection = false, onAiRemovalRemoveClick, onCloseAdjust, onImageEnhancerEnhancingComplete, onImageEnhancerEnhancingStart }: TabContentProps) {
   const { t } = useLanguage();
   const [unit, setUnit] = useState<'px' | 'in' | 'cm' | 'mm'>('px');
 
@@ -338,7 +342,7 @@ export function TabContent({ activeTab, onOpenApp, canvasSize = { width: 1080, h
   if (activeTab === 'image-enhancer') {
     return (
       <TabContentWrapper isCollapsed={isCollapsed} onToggleCollapse={onToggleCollapse}>
-        <ImageEnhancerTabContent sourceUrl={imageEnhancerSourceUrl} userStatus={userStatus} />
+        <ImageEnhancerTabContent sourceUrl={imageEnhancerSourceUrl} userStatus={userStatus} onEnhancingComplete={onImageEnhancerEnhancingComplete} onEnhancingStart={onImageEnhancerEnhancingStart} />
       </TabContentWrapper>
     );
   }
@@ -3406,15 +3410,67 @@ function AIFilterTabContent({
   );
 }
 
-// Image Enhancer Tab 内容：仅风格选择 + Background Blur（前后对比在画布弹窗中）
+// Image Enhancer Tab 内容：增强中过渡动画 + 风格选择 + Background Blur（前后对比在画布弹窗中）
 const IMAGE_ENHANCER_STYLES = ['standard', 'vivid', 'fresh'] as const;
+const ENHANCING_STEPS = [
+  { key: 'imageEnhancerStepRemoveBlur' as const, id: 1 },
+  { key: 'imageEnhancerStepEnhanceQuality' as const, id: 2 },
+  { key: 'imageEnhancerStepUpscaleImage' as const, id: 3 },
+  { key: 'imageEnhancerStepBoostDetails' as const, id: 4 },
+];
 
-function ImageEnhancerTabContent({ sourceUrl, userStatus = 'free' }: { sourceUrl?: string | null; userStatus?: 'guest' | 'free' | 'pro' }) {
+function ImageEnhancerTabContent({ sourceUrl, userStatus = 'free', onEnhancingComplete, onEnhancingStart }: { sourceUrl?: string | null; userStatus?: 'guest' | 'free' | 'pro'; onEnhancingComplete?: () => void; onEnhancingStart?: () => void }) {
   const { t } = useLanguage();
   const [style, setStyle] = useState<(typeof IMAGE_ENHANCER_STYLES)[number]>('standard');
   const [styleDropdownOpen, setStyleDropdownOpen] = useState(false);
   const [backgroundBlur, setBackgroundBlur] = useState(false);
   const styleDropdownRef = useRef<HTMLDivElement>(null);
+  const [enhancingStep, setEnhancingStep] = useState(1);
+  const [showEnhancingStepper, setShowEnhancingStepper] = useState(false);
+  const [showMainContent, setShowMainContent] = useState(false);
+  const onEnhancingCompleteRef = useRef(onEnhancingComplete);
+  onEnhancingCompleteRef.current = onEnhancingComplete;
+  const animationTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  const runEnhancingAnimation = useCallback(() => {
+    animationTimeoutsRef.current.forEach((id) => clearTimeout(id));
+    animationTimeoutsRef.current = [];
+    setShowEnhancingStepper(true);
+    setShowMainContent(false);
+    setEnhancingStep(1);
+    const t1 = setTimeout(() => setEnhancingStep(2), 800);
+    const t2 = setTimeout(() => setEnhancingStep(3), 1600);
+    const t3 = setTimeout(() => setEnhancingStep(4), 2400);
+    const t4 = setTimeout(() => {
+      setShowEnhancingStepper(false);
+      setShowMainContent(true);
+      onEnhancingCompleteRef.current?.();
+      animationTimeoutsRef.current = [];
+    }, 3200);
+    animationTimeoutsRef.current = [t1, t2, t3, t4];
+  }, []);
+
+  useEffect(() => {
+    if (!sourceUrl) {
+      animationTimeoutsRef.current.forEach((id) => clearTimeout(id));
+      animationTimeoutsRef.current = [];
+      setShowEnhancingStepper(false);
+      setShowMainContent(true);
+      setEnhancingStep(1);
+      return;
+    }
+    runEnhancingAnimation();
+    return () => {
+      animationTimeoutsRef.current.forEach((id) => clearTimeout(id));
+      animationTimeoutsRef.current = [];
+    };
+  }, [sourceUrl, runEnhancingAnimation]);
+
+  const handle4kClick = useCallback(() => {
+    if (!sourceUrl) return;
+    onEnhancingStart?.();
+    runEnhancingAnimation();
+  }, [sourceUrl, onEnhancingStart, runEnhancingAnimation]);
 
   useEffect(() => {
     if (!styleDropdownOpen) return;
@@ -3430,12 +3486,58 @@ function ImageEnhancerTabContent({ sourceUrl, userStatus = 'free' }: { sourceUrl
   const styleLabel = style === 'standard' ? t.imageEnhancerStandard : style === 'vivid' ? t.imageEnhancerVivid : t.imageEnhancerFresh;
 
   return (
-    <div className="w-80 bg-white border-r border-gray-200 flex flex-col h-full">
+    <div className="w-80 bg-white border-r border-gray-200 flex flex-col h-full relative">
       <div className="flex-shrink-0 px-4 py-3 border-b border-gray-200">
         <h3 className="text-sm font-medium text-gray-800">{t.imageEnhancer}</h3>
       </div>
-      <div className="flex-1 overflow-y-auto min-h-0 flex flex-col p-4 gap-4">
+      <div className="flex-1 overflow-y-auto min-h-0 flex flex-col p-4 gap-4 relative">
+        {/* 增强中过渡动画：有图时先展示步骤条，再淡入主内容 */}
+        {sourceUrl && showEnhancingStepper && (
+          <div className="absolute inset-0 z-10 flex flex-col p-4 bg-white transition-opacity duration-300">
+            <h4 className="text-base font-semibold text-gray-900 mb-5">{t.imageEnhancerEnhancing}</h4>
+            <div className="flex flex-col gap-0">
+              {ENHANCING_STEPS.map((step, index) => {
+                const isActive = enhancingStep === step.id;
+                const isPast = enhancingStep > step.id;
+                const isLast = index === ENHANCING_STEPS.length - 1;
+                return (
+                  <div key={step.id} className="flex items-start gap-3">
+                    <div className="flex flex-col items-center flex-shrink-0">
+                      <div
+                        className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors duration-300 ${
+                          isActive ? 'bg-teal-500 text-white' : isPast ? 'bg-teal-500 text-white' : 'bg-gray-200 text-gray-500'
+                        }`}
+                      >
+                        {isActive ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <span className="text-sm font-medium">{isPast ? <Check className="w-4 h-4" /> : step.id}</span>
+                        )}
+                      </div>
+                      {!isLast && (
+                        <div
+                          className={`w-0.5 h-6 transition-colors duration-300 ${
+                            isPast ? 'bg-teal-500' : 'bg-gray-200'
+                          }`}
+                          style={{ width: 2 }}
+                        />
+                      )}
+                    </div>
+                    <p className={`pt-1.5 text-sm font-medium transition-colors duration-300 ${isActive ? 'text-gray-900' : isPast ? 'text-teal-600' : 'text-gray-500'}`}>
+                      {t[step.key]}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {sourceUrl ? (
+          <div
+            className={`flex flex-col gap-4 transition-opacity duration-500 ${showMainContent ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+          >
+            {showMainContent && (
           <>
             {/* 风格选择 */}
             <div className="flex-shrink-0" ref={styleDropdownRef}>
@@ -3485,13 +3587,16 @@ function ImageEnhancerTabContent({ sourceUrl, userStatus = 'free' }: { sourceUrl
               </button>
             </div>
           </>
+            )}
+          </div>
         ) : (
           <p className="text-sm text-gray-500">{t.imageEnhancerNoImageHint}</p>
         )}
-        {/* 左下角 4K 按钮：PRO 角标，不禁用、始终可点 */}
+        {/* 左下角 4K 按钮：点击后再播放一次增强动画完成 4K 增强 */}
         <div className="flex-shrink-0 pt-4 mt-auto">
           <button
             type="button"
+            onClick={handle4kClick}
             className="relative w-full rounded-xl border-2 border-teal-500 bg-white hover:bg-teal-50/50 text-teal-600 text-left px-4 py-3 transition-colors"
           >
             <span className="absolute -top-1.5 left-3 px-2 py-0.5 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 text-white text-[10px] font-bold">
