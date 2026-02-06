@@ -578,7 +578,7 @@ function AIRemovalUnifiedPopup({
       </button>
       <div className="w-full max-w-3xl flex flex-col items-center">
         <div
-          ref={boxRef}
+          ref={boxRef as React.RefObject<HTMLDivElement>}
           className="relative w-full flex-shrink-0 rounded-lg border border-gray-200 overflow-hidden bg-gray-100 shadow-xl"
           style={{ aspectRatio: '3/4', maxHeight: '70vh' }}
         >
