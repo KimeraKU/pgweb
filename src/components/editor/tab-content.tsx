@@ -84,6 +84,8 @@ interface TabContentProps {
   onImageEnhancerEnhancingStart?: () => void;
   /** 有 tab 内容页的 App 侧边栏顶部点击返回时回调，返回 Apps tab */
   onBackToApps?: () => void;
+  /** Background tab 选择色块/纹样后回调，用于更新画板背景 */
+  onBackgroundChange?: (payload: { color?: string; gradient?: string; imageUrl?: string }) => void;
 }
 
 // 包装组件：为每个 tab 内容添加收起/展开按钮
@@ -118,7 +120,7 @@ function TabContentWrapper({
   );
 }
 
-export function TabContent({ activeTab, onOpenApp, canvasSize = { width: 1080, height: 1080 }, onSizeChange, onLayoutSelect, onTextAdd, onImageAdd, onShapeAdd, isLayoutSelectMode = false, isCollapsed = false, onToggleCollapse, selectedLayerId = null, layers = [], imageEnhancerSourceUrl = null, userStatus = 'free', aiRemovalSourceUrl = null, aiRemovalBrushSize = 30, onAiRemovalBrushSizeChange, aiRemovalHasSelection = false, onAiRemovalRemoveClick, onCloseAdjust, onImageEnhancerEnhancingComplete, onImageEnhancerEnhancingStart, onBackToApps }: TabContentProps) {
+export function TabContent({ activeTab, onOpenApp, canvasSize = { width: 1080, height: 1080 }, onSizeChange, onLayoutSelect, onTextAdd, onImageAdd, onShapeAdd, isLayoutSelectMode = false, isCollapsed = false, onToggleCollapse, selectedLayerId = null, layers = [], imageEnhancerSourceUrl = null, userStatus = 'free', aiRemovalSourceUrl = null, aiRemovalBrushSize = 30, onAiRemovalBrushSizeChange, aiRemovalHasSelection = false, onAiRemovalRemoveClick, onCloseAdjust, onImageEnhancerEnhancingComplete, onImageEnhancerEnhancingStart, onBackToApps, onBackgroundChange }: TabContentProps) {
   const { t } = useLanguage();
   const [unit, setUnit] = useState<'px' | 'in' | 'cm' | 'mm'>('px');
 
@@ -299,7 +301,7 @@ export function TabContent({ activeTab, onOpenApp, canvasSize = { width: 1080, h
   if (activeTab === 'background') {
     return (
       <TabContentWrapper isCollapsed={isCollapsed} onToggleCollapse={onToggleCollapse}>
-        <BackgroundTabContent />
+        <BackgroundTabContent onBackgroundChange={onBackgroundChange} />
       </TabContentWrapper>
     );
   }
@@ -1675,8 +1677,8 @@ function TemplatesTabContent({ onLayoutSelect, isLayoutSelectMode = false }: { o
   );
 }
 
-// Background Tab 组件
-function BackgroundTabContent() {
+// Background Tab 组件：点击色块/纹样后通过 onBackgroundChange 更新画板背景
+function BackgroundTabContent({ onBackgroundChange }: { onBackgroundChange?: (payload: { color?: string; gradient?: string; imageUrl?: string }) => void }) {
   const { t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
   const [customBackgrounds, setCustomBackgrounds] = useState<{ id: string; url: string; name: string }[]>([]);
@@ -2038,13 +2040,18 @@ function BackgroundTabContent() {
         {/* 瀑布流内容区域 */}
         <div className="flex-1 overflow-y-auto p-4">
           <div className="columns-2 gap-3">
-            {detailBackgrounds.map((bg) => (
-              <button
-                key={bg.id}
-                className="relative w-full mb-3 rounded-lg overflow-hidden border border-gray-200 hover:border-teal-500 hover:shadow-md transition-all group break-inside-avoid"
-                style={getPatternStyle(bg)}
-              />
-            ))}
+            {detailBackgrounds.map((bg) => {
+              const style = getPatternStyle(bg);
+              return (
+                <button
+                  key={bg.id}
+                  type="button"
+                  onClick={() => onBackgroundChange?.({ gradient: style.background, color: bg.colors[0], imageUrl: undefined })}
+                  className="relative w-full mb-3 rounded-lg overflow-hidden border border-gray-200 hover:border-teal-500 hover:shadow-md transition-all group break-inside-avoid"
+                  style={style}
+                />
+              );
+            })}
           </div>
         </div>
       </div>
@@ -2086,6 +2093,8 @@ function BackgroundTabContent() {
               {customBackgrounds.map((bg) => (
                 <button
                   key={bg.id}
+                  type="button"
+                  onClick={() => onBackgroundChange?.({ imageUrl: bg.url, color: undefined, gradient: undefined })}
                   className="aspect-square rounded-lg border border-gray-200 hover:border-teal-500 hover:shadow-md transition-all overflow-hidden"
                 >
                   <img src={bg.url} alt={bg.name} className="w-full h-full object-cover" />
@@ -2102,6 +2111,17 @@ function BackgroundTabContent() {
             {colorSwatches.map((swatch) => (
               <button
                 key={swatch.id}
+                type="button"
+                onClick={() => {
+                  if (!onBackgroundChange) return;
+                  if (swatch.type === 'color') {
+                    onBackgroundChange({ color: swatch.color, gradient: undefined, imageUrl: undefined });
+                  } else if (swatch.type === 'gradient') {
+                    onBackgroundChange({ gradient: swatch.gradient, color: undefined, imageUrl: undefined });
+                  } else if (swatch.type === 'pattern' && swatch.pattern === 'transparent') {
+                    onBackgroundChange({ color: 'transparent', gradient: undefined, imageUrl: undefined });
+                  }
+                }}
                 className="w-9 h-9 rounded-lg border border-gray-200 hover:border-teal-500 hover:scale-110 transition-all overflow-hidden flex items-center justify-center"
                 style={
                   swatch.type === 'color' 
@@ -2217,13 +2237,18 @@ function BackgroundTabContent() {
                 {/* Backgrounds grid - 只在展开时显示 */}
                 {expandedCategories.has(category.id) && (
                   <div className="grid grid-cols-4 gap-2">
-                    {category.backgrounds.map((bg) => (
-                      <button
-                        key={bg.id}
-                        className="aspect-square rounded-lg border border-gray-200 hover:border-teal-500 hover:shadow-md transition-all overflow-hidden"
-                        style={getPatternStyle(bg)}
-                      />
-                    ))}
+                    {category.backgrounds.map((bg) => {
+                      const style = getPatternStyle(bg);
+                      return (
+                        <button
+                          key={bg.id}
+                          type="button"
+                          onClick={() => onBackgroundChange?.({ gradient: style.background, color: bg.colors[0], imageUrl: undefined })}
+                          className="aspect-square rounded-lg border border-gray-200 hover:border-teal-500 hover:shadow-md transition-all overflow-hidden"
+                          style={style}
+                        />
+                      );
+                    })}
                   </div>
                 )}
               </div>

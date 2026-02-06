@@ -1159,6 +1159,7 @@ export default function EditorPage() {
             setImageEnhancerComparisonVisible(false);
           }, [])}
           onBackToApps={() => setActiveTab('apps')}
+          onBackgroundChange={(payload) => setBackgroundLayer((prev) => ({ ...prev, ...payload }))}
           onTextAdd={(textLayer) => {
             // 创建文本图层
             const newLayer = {
@@ -1269,6 +1270,18 @@ export default function EditorPage() {
             onGroupLayers={handleGroupLayers}
             onUngroupLayers={handleUngroupLayers}
             onLayerToolSelect={(tool) => {
+              if (tool === 'delete') {
+                const idsToDelete = selectedLayerIds.size > 0
+                  ? Array.from(selectedLayerIds).filter((id) => id !== BACKGROUND_LAYER_ID)
+                  : selectedLayerId && selectedLayerId !== BACKGROUND_LAYER_ID
+                    ? [selectedLayerId]
+                    : [];
+                if (idsToDelete.length === 0) return;
+                setLayers((prev) => prev.filter((l) => !idsToDelete.includes(l.id)));
+                setSelectedLayerIds(new Set());
+                setSelectedLayerId((prev) => (prev && idsToDelete.includes(prev) ? null : prev));
+                return;
+              }
               if (!selectedLayerId) return;
               const layer = layers.find((l) => l.id === selectedLayerId);
               if (layer?.type !== 'image' || !layer?.imageUrl) return;

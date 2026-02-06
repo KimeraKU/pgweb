@@ -1256,9 +1256,7 @@ export function EditorCanvas({
                             <LayerToolbar 
                               visible={isSelected && !layer.locked}
                               layerType="layout"
-                              onToolSelect={(tool) => {
-                                console.log('Tool selected:', tool);
-                              }}
+                              onToolSelect={(tool) => onLayerToolSelect?.(tool)}
                               onLayoutSelect={onLayoutSelect}
                             />
                           </>
@@ -1436,9 +1434,7 @@ export function EditorCanvas({
                             <LayerToolbar 
                               visible={isSelected && !layer.locked}
                               layerType="text"
-                              onToolSelect={(tool) => {
-                                console.log('Tool selected:', tool);
-                              }}
+                              onToolSelect={(tool) => onLayerToolSelect?.(tool)}
                             />
                           </>
                         )}
@@ -1810,9 +1806,7 @@ export function EditorCanvas({
                             <LayerToolbar 
                               visible={isSelected && !layer.locked}
                               layerType="shape"
-                              onToolSelect={(tool) => {
-                                console.log('Tool selected:', tool);
-                              }}
+                              onToolSelect={(tool) => onLayerToolSelect?.(tool)}
                             />
                           </>
                         )}
