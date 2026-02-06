@@ -1158,6 +1158,7 @@ export default function EditorPage() {
             setImageEnhancerEnhancingInProgress(true);
             setImageEnhancerComparisonVisible(false);
           }, [])}
+          onBackToApps={() => setActiveTab('apps')}
           onTextAdd={(textLayer) => {
             // 创建文本图层
             const newLayer = {

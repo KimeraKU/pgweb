@@ -82,6 +82,8 @@ interface TabContentProps {
   onImageEnhancerEnhancingComplete?: () => void;
   /** Image Enhancer 再次开始增强（如点击 4K）时回调，用于画板显示生成中、隐藏对比弹窗 */
   onImageEnhancerEnhancingStart?: () => void;
+  /** 有 tab 内容页的 App 侧边栏顶部点击返回时回调，返回 Apps tab */
+  onBackToApps?: () => void;
 }
 
 // 包装组件：为每个 tab 内容添加收起/展开按钮
@@ -116,7 +118,7 @@ function TabContentWrapper({
   );
 }
 
-export function TabContent({ activeTab, onOpenApp, canvasSize = { width: 1080, height: 1080 }, onSizeChange, onLayoutSelect, onTextAdd, onImageAdd, onShapeAdd, isLayoutSelectMode = false, isCollapsed = false, onToggleCollapse, selectedLayerId = null, layers = [], imageEnhancerSourceUrl = null, userStatus = 'free', aiRemovalSourceUrl = null, aiRemovalBrushSize = 30, onAiRemovalBrushSizeChange, aiRemovalHasSelection = false, onAiRemovalRemoveClick, onCloseAdjust, onImageEnhancerEnhancingComplete, onImageEnhancerEnhancingStart }: TabContentProps) {
+export function TabContent({ activeTab, onOpenApp, canvasSize = { width: 1080, height: 1080 }, onSizeChange, onLayoutSelect, onTextAdd, onImageAdd, onShapeAdd, isLayoutSelectMode = false, isCollapsed = false, onToggleCollapse, selectedLayerId = null, layers = [], imageEnhancerSourceUrl = null, userStatus = 'free', aiRemovalSourceUrl = null, aiRemovalBrushSize = 30, onAiRemovalBrushSizeChange, aiRemovalHasSelection = false, onAiRemovalRemoveClick, onCloseAdjust, onImageEnhancerEnhancingComplete, onImageEnhancerEnhancingStart, onBackToApps }: TabContentProps) {
   const { t } = useLanguage();
   const [unit, setUnit] = useState<'px' | 'in' | 'cm' | 'mm'>('px');
 
@@ -324,7 +326,7 @@ export function TabContent({ activeTab, onOpenApp, canvasSize = { width: 1080, h
   if (activeTab === 'ai-image-generator') {
     return (
       <TabContentWrapper isCollapsed={isCollapsed} onToggleCollapse={onToggleCollapse}>
-        <AIImageGeneratorTabContent />
+        <AIImageGeneratorTabContent onBackToApps={onBackToApps} />
       </TabContentWrapper>
     );
   }
@@ -333,7 +335,7 @@ export function TabContent({ activeTab, onOpenApp, canvasSize = { width: 1080, h
   if (activeTab === 'ai-filter') {
     return (
       <TabContentWrapper isCollapsed={isCollapsed} onToggleCollapse={onToggleCollapse}>
-        <AIFilterTabContent selectedLayerId={selectedLayerId} layers={layers} />
+        <AIFilterTabContent selectedLayerId={selectedLayerId} layers={layers} onBackToApps={onBackToApps} />
       </TabContentWrapper>
     );
   }
@@ -342,7 +344,7 @@ export function TabContent({ activeTab, onOpenApp, canvasSize = { width: 1080, h
   if (activeTab === 'image-enhancer') {
     return (
       <TabContentWrapper isCollapsed={isCollapsed} onToggleCollapse={onToggleCollapse}>
-        <ImageEnhancerTabContent sourceUrl={imageEnhancerSourceUrl} userStatus={userStatus} onEnhancingComplete={onImageEnhancerEnhancingComplete} onEnhancingStart={onImageEnhancerEnhancingStart} />
+        <ImageEnhancerTabContent sourceUrl={imageEnhancerSourceUrl} userStatus={userStatus} onEnhancingComplete={onImageEnhancerEnhancingComplete} onEnhancingStart={onImageEnhancerEnhancingStart} onBackToApps={onBackToApps} />
       </TabContentWrapper>
     );
   }
@@ -351,16 +353,26 @@ export function TabContent({ activeTab, onOpenApp, canvasSize = { width: 1080, h
   if (activeTab === 'ai-removal') {
     return (
       <TabContentWrapper isCollapsed={isCollapsed} onToggleCollapse={onToggleCollapse}>
-        <AIRemovalTabContent sourceUrl={aiRemovalSourceUrl} brushSize={aiRemovalBrushSize} onBrushSizeChange={onAiRemovalBrushSizeChange} hasSelection={aiRemovalHasSelection} onRemoveClick={onAiRemovalRemoveClick} />
+        <AIRemovalTabContent sourceUrl={aiRemovalSourceUrl} brushSize={aiRemovalBrushSize} onBrushSizeChange={onAiRemovalBrushSizeChange} hasSelection={aiRemovalHasSelection} onRemoveClick={onAiRemovalRemoveClick} onBackToApps={onBackToApps} />
       </TabContentWrapper>
     );
   }
 
-  // 其他 tab（含 ai-video-generator）占位内容
+  // 其他 App tab（ai-image-generator、ai-filter 等）占位内容，顶部也带返回箭头
   return (
     <TabContentWrapper isCollapsed={isCollapsed} onToggleCollapse={onToggleCollapse}>
-      <div className="w-80 bg-white border-r border-gray-200 p-4 flex items-center justify-center h-full overflow-y-auto">
-        <p className="text-gray-500 text-sm capitalize">{activeTab} content coming soon...</p>
+      <div className="w-80 bg-white border-r border-gray-200 flex flex-col h-full">
+        <div className="flex-shrink-0 px-4 py-3 border-b border-gray-200 flex items-center gap-2">
+          {onBackToApps && (
+            <button type="button" onClick={onBackToApps} className="p-1 rounded hover:bg-gray-100 text-gray-600" aria-label="Back to Apps">
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+          )}
+          <h3 className="text-sm font-medium text-gray-800 capitalize">{String(activeTab).replace(/-/g, ' ')}</h3>
+        </div>
+        <div className="flex-1 p-4 flex items-center justify-center overflow-y-auto">
+          <p className="text-gray-500 text-sm">Content coming soon...</p>
+        </div>
       </div>
     </TabContentWrapper>
   );
@@ -2769,7 +2781,7 @@ const AI_IMAGE_MODELS: { id: string; label: string; icon: React.ComponentType<{ 
 ];
 
 // AI 生图 Tab 内容：一个完整输入框（左上图片区+中部文本+左下魔杖）+ 下方模型/比例/生成
-function AIImageGeneratorTabContent() {
+function AIImageGeneratorTabContent({ onBackToApps }: { onBackToApps?: () => void }) {
   const { t } = useLanguage();
   const [prompt, setPrompt] = useState('');
   const [selectedModelId, setSelectedModelId] = useState(AI_IMAGE_MODELS[0].id);
@@ -2885,7 +2897,12 @@ function AIImageGeneratorTabContent() {
 
   return (
     <div className="w-80 bg-white border-r border-gray-200 flex flex-col h-full">
-      <div className="flex-shrink-0 px-4 py-3 border-b border-gray-200">
+      <div className="flex-shrink-0 px-4 py-3 border-b border-gray-200 flex items-center gap-2">
+        {onBackToApps && (
+          <button type="button" onClick={onBackToApps} className="p-1 rounded hover:bg-gray-100 text-gray-600" aria-label="Back to Apps">
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+        )}
         <h3 className="text-sm font-medium text-gray-800">{t.aiImageGenerator}</h3>
       </div>
 
@@ -3231,9 +3248,11 @@ const AI_FILTER_STYLES = [
 function AIFilterTabContent({
   selectedLayerId = null,
   layers = [],
+  onBackToApps,
 }: {
   selectedLayerId?: string | null;
   layers?: Array<{ id: string; type?: string; imageUrl?: string }>;
+  onBackToApps?: () => void;
 }) {
   const { t } = useLanguage();
   const [activeCategory, setActiveCategory] = useState<string>(AI_FILTER_CATEGORIES[0]);
@@ -3306,7 +3325,12 @@ function AIFilterTabContent({
 
   return (
     <div className="w-80 bg-white border-r border-gray-200 flex flex-col h-full">
-      <div className="flex-shrink-0 px-4 py-3 border-b border-gray-200">
+      <div className="flex-shrink-0 px-4 py-3 border-b border-gray-200 flex items-center gap-2">
+        {onBackToApps && (
+          <button type="button" onClick={onBackToApps} className="p-1 rounded hover:bg-gray-100 text-gray-600" aria-label="Back to Apps">
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+        )}
         <h3 className="text-sm font-medium text-gray-800">{t.aiFilter}</h3>
       </div>
 
@@ -3419,7 +3443,7 @@ const ENHANCING_STEPS = [
   { key: 'imageEnhancerStepBoostDetails' as const, id: 4 },
 ];
 
-function ImageEnhancerTabContent({ sourceUrl, userStatus = 'free', onEnhancingComplete, onEnhancingStart }: { sourceUrl?: string | null; userStatus?: 'guest' | 'free' | 'pro'; onEnhancingComplete?: () => void; onEnhancingStart?: () => void }) {
+function ImageEnhancerTabContent({ sourceUrl, userStatus = 'free', onEnhancingComplete, onEnhancingStart, onBackToApps }: { sourceUrl?: string | null; userStatus?: 'guest' | 'free' | 'pro'; onEnhancingComplete?: () => void; onEnhancingStart?: () => void; onBackToApps?: () => void }) {
   const { t } = useLanguage();
   const [style, setStyle] = useState<(typeof IMAGE_ENHANCER_STYLES)[number]>('standard');
   const [styleDropdownOpen, setStyleDropdownOpen] = useState(false);
@@ -3487,7 +3511,12 @@ function ImageEnhancerTabContent({ sourceUrl, userStatus = 'free', onEnhancingCo
 
   return (
     <div className="w-80 bg-white border-r border-gray-200 flex flex-col h-full relative">
-      <div className="flex-shrink-0 px-4 py-3 border-b border-gray-200">
+      <div className="flex-shrink-0 px-4 py-3 border-b border-gray-200 flex items-center gap-2">
+        {onBackToApps && (
+          <button type="button" onClick={onBackToApps} className="p-1 rounded hover:bg-gray-100 text-gray-600" aria-label="Back to Apps">
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+        )}
         <h3 className="text-sm font-medium text-gray-800">{t.imageEnhancer}</h3>
       </div>
       <div className="flex-1 overflow-y-auto min-h-0 flex flex-col p-4 gap-4 relative">
@@ -3614,14 +3643,19 @@ function ImageEnhancerTabContent({ sourceUrl, userStatus = 'free', onEnhancingCo
 // AI Removal Tab 内容：模式（High Quality / Fast）+ 选择工具（Brush / Magic / Auto Select）+ Size 滑杆 + Remove 按钮
 const AI_REMOVAL_TOOLS = ['brush', 'magic', 'auto-select'] as const;
 
-function AIRemovalTabContent({ sourceUrl, brushSize = 30, onBrushSizeChange, hasSelection = false, onRemoveClick }: { sourceUrl?: string | null; brushSize?: number; onBrushSizeChange?: (size: number) => void; hasSelection?: boolean; onRemoveClick?: () => void }) {
+function AIRemovalTabContent({ sourceUrl, brushSize = 30, onBrushSizeChange, hasSelection = false, onRemoveClick, onBackToApps }: { sourceUrl?: string | null; brushSize?: number; onBrushSizeChange?: (size: number) => void; hasSelection?: boolean; onRemoveClick?: () => void; onBackToApps?: () => void }) {
   const { t } = useLanguage();
   const [mode, setMode] = useState<'high-quality' | 'fast'>('high-quality');
   const [tool, setTool] = useState<(typeof AI_REMOVAL_TOOLS)[number]>('brush');
 
   return (
     <div className="w-80 bg-white border-r border-gray-200 flex flex-col h-full">
-      <div className="flex-shrink-0 px-4 py-3 border-b border-gray-200">
+      <div className="flex-shrink-0 px-4 py-3 border-b border-gray-200 flex items-center gap-2">
+        {onBackToApps && (
+          <button type="button" onClick={onBackToApps} className="p-1 rounded hover:bg-gray-100 text-gray-600" aria-label="Back to Apps">
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+        )}
         <h3 className="text-sm font-medium text-gray-800">{t.aiRemoval}</h3>
       </div>
       <div className="flex-1 overflow-y-auto min-h-0 flex flex-col p-4 gap-4">
