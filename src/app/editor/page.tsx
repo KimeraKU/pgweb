@@ -237,15 +237,17 @@ function ImageEnhancerComparisonPopup({ sourceUrl, onClose }: { sourceUrl: strin
   );
 }
 
-/** 前后对比内容（AI Removal / Image Enhancer 共用）：滑杆 + 左上 Before / 右上 After，渲染在父级提供的 box 内；afterDimensionsMultiplier 用于增强弹窗的 After 尺寸（如 4） */
+/** 前后对比内容（AI Removal / Image Enhancer 共用）：滑杆 + 左上 Before / 右上 After；showDimensions 为 false 时不显示分辨率数字（用于 AI Removal） */
 function ComparisonResultContent({
   sourceUrl,
   containerRef,
   afterDimensionsMultiplier = 1,
+  showDimensions = true,
 }: {
   sourceUrl: string;
   containerRef: React.RefObject<HTMLDivElement | null>;
   afterDimensionsMultiplier?: number;
+  showDimensions?: boolean;
 }) {
   const { t } = useLanguage();
   const [beforeDimensions, setBeforeDimensions] = useState<{ width: number; height: number } | null>(null);
@@ -295,16 +297,12 @@ function ComparisonResultContent({
         style={{ clipPath: `inset(0 ${100 - sliderPosition}% 0 0)` }}
         onLoad={handleImageLoad}
       />
-      {beforeDimensions && (
-        <span className="absolute top-3 left-3 px-2.5 py-1 rounded-md bg-gray-100/95 text-gray-700 text-sm font-medium z-10">
-          {t.imageEnhancerBefore} {beforeDimensions.width} * {beforeDimensions.height}
-        </span>
-      )}
-      {afterDimensions && (
-        <span className="absolute top-3 right-3 px-2.5 py-1 rounded-md bg-gray-100/95 text-gray-700 text-sm font-medium z-10">
-          {t.imageEnhancerAfter} {afterDimensions.width} * {afterDimensions.height}
-        </span>
-      )}
+      <span className="absolute top-3 left-3 px-2.5 py-1 rounded-md bg-gray-100/95 text-gray-700 text-sm font-medium z-10">
+        {t.imageEnhancerBefore}{showDimensions && beforeDimensions ? ` ${beforeDimensions.width} * ${beforeDimensions.height}` : ''}
+      </span>
+      <span className="absolute top-3 right-3 px-2.5 py-1 rounded-md bg-gray-100/95 text-gray-700 text-sm font-medium z-10">
+        {t.imageEnhancerAfter}{showDimensions && afterDimensions ? ` ${afterDimensions.width} * ${afterDimensions.height}` : ''}
+      </span>
       <div
         className="absolute top-0 bottom-0 w-0.5 bg-white shadow-lg z-10 pointer-events-none"
         style={{ left: `${sliderPosition}%`, transform: 'translateX(-50%)' }}
@@ -552,7 +550,7 @@ function AIRemovalUnifiedPopup({
               <span className="text-sm text-gray-500">{t.aiRemovalProcessing}</span>
             </div>
           ) : (
-            <ComparisonResultContent sourceUrl={sourceUrl} containerRef={boxRef} />
+            <ComparisonResultContent sourceUrl={sourceUrl} containerRef={boxRef} showDimensions={false} />
           )}
         </div>
         {comparisonVisible && comparisonImageReady && (
