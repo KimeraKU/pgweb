@@ -18,6 +18,7 @@ type SidebarTab =
   | 'apps'
   | 'ratio'
   | 'templates'
+  | 'layout'
   | 'upload'
   | 'text'
   | 'image'
@@ -261,11 +262,20 @@ export function TabContent({ activeTab, onOpenApp, canvasSize = { width: 1080, h
     );
   }
 
-  // Templates tab 内容（含分类 Layout，tab 为 All / 1 / 2 / 3 …）
+  // Templates tab 内容
   if (activeTab === 'templates') {
     return (
       <TabContentWrapper isCollapsed={isCollapsed} onToggleCollapse={onToggleCollapse}>
-        <TemplatesTabContent onLayoutSelect={onLayoutSelect} isLayoutSelectMode={isLayoutSelectMode} />
+        <TemplatesTabContent />
+      </TabContentWrapper>
+    );
+  }
+
+  // Layout tab 内容（独立布局模板，从 templates 移出）
+  if (activeTab === 'layout') {
+    return (
+      <TabContentWrapper isCollapsed={isCollapsed} onToggleCollapse={onToggleCollapse}>
+        <LayoutTabContent onLayoutSelect={onLayoutSelect} isLayoutSelectMode={isLayoutSelectMode} />
       </TabContentWrapper>
     );
   }
@@ -1088,8 +1098,8 @@ function AssetsTabContent({ onShapeAdd, onImageAdd }: { onShapeAdd?: (shapeLayer
   );
 }
 
-// Templates Tab 组件
-function TemplatesTabContent({ onLayoutSelect, isLayoutSelectMode = false }: { onLayoutSelect?: (layout: any) => void; isLayoutSelectMode?: boolean }) {
+// Templates Tab 组件（不含 Layout，Layout 已独立为 layout 标签）
+function TemplatesTabContent() {
   const { t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryDetail, setCategoryDetail] = useState<{ categoryId: string; categoryTitle: string } | null>(null);
@@ -1098,7 +1108,6 @@ function TemplatesTabContent({ onLayoutSelect, isLayoutSelectMode = false }: { o
   const initialSelectedTags: { [categoryId: string]: string | null } = {
     'marketing': 'All',
     'social': 'All',
-    'layout': 'All',
     'utility': 'All',
     'art': 'All',
     'ai-filter': 'All',
@@ -1110,13 +1119,6 @@ function TemplatesTabContent({ onLayoutSelect, isLayoutSelectMode = false }: { o
   const [selectedTags, setSelectedTags] = useState<{ [categoryId: string]: string | null }>(initialSelectedTags);
   const tagScrollRefs = React.useRef<{ [categoryId: string]: HTMLDivElement | null }>({});
   const [tagScrollStates, setTagScrollStates] = useState<{ [categoryId: string]: { canScrollLeft: boolean; canScrollRight: boolean } }>({});
-
-  // 布局选择模式下进入 Templates 时自动打开 Layout 分类
-  useEffect(() => {
-    if (isLayoutSelectMode && !categoryDetail) {
-      setCategoryDetail({ categoryId: 'layout', categoryTitle: t.templateCategoryLayout });
-    }
-  }, [isLayoutSelectMode, t.templateCategoryLayout]);
 
   // 检查标签滚动位置
   const checkTagScrollPosition = (categoryId: string) => {
@@ -1163,14 +1165,8 @@ function TemplatesTabContent({ onLayoutSelect, isLayoutSelectMode = false }: { o
     { id: 'ai-image', icon: ImageIcon, label: 'AI Image', color: 'bg-pink-100', iconColor: 'text-pink-600' },
   ];
 
-  // Template categories with items（Layout 置顶）
+  // Template categories with items
   const templateCategories = [
-    {
-      id: 'layout',
-      titleKey: 'templateCategoryLayout' as keyof typeof t,
-      tags: ['All', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14'],
-      templates: [],
-    },
     {
       id: 'marketing',
       titleKey: 'templateCategoryMarketing' as keyof typeof t,
@@ -1333,7 +1329,7 @@ function TemplatesTabContent({ onLayoutSelect, isLayoutSelectMode = false }: { o
     }
   };
 
-  // 进入详情页时重置当前分类的选中标签（避免从其他分类带来的 tag 导致 layout 无数据）
+  // 进入详情页时重置当前分类的选中标签
   React.useEffect(() => {
     if (categoryDetail) {
       setDetailSelectedTag('All');
@@ -1363,14 +1359,9 @@ function TemplatesTabContent({ onLayoutSelect, isLayoutSelectMode = false }: { o
     const detailTemplates = currentCategory ? generateMoreTemplates(categoryDetail.categoryId, currentCategory.templates) : [];
 
     return (
-      <div className={`w-80 bg-white border-r border-gray-200 flex flex-col h-full relative ${categoryDetail.categoryId === 'layout' && isLayoutSelectMode ? 'z-40' : ''}`}>
-        {categoryDetail.categoryId === 'layout' && isLayoutSelectMode && (
-          <div className="absolute top-0 left-0 right-0 bg-amber-500 text-white px-4 py-2 text-sm font-medium z-10 flex items-center justify-center gap-2">
-            <span>{t.selectLayoutTemplateHint}</span>
-          </div>
-        )}
+      <div className="w-80 bg-white border-r border-gray-200 flex flex-col h-full relative">
         {/* 顶部导航栏 */}
-        <div className={`flex-shrink-0 px-4 py-3 border-b border-gray-200 ${categoryDetail.categoryId === 'layout' && isLayoutSelectMode ? 'pt-12' : ''}`}>
+        <div className="flex-shrink-0 px-4 py-3 border-b border-gray-200">
           <div className="flex items-center gap-3 mb-3">
             <button
               onClick={() => setCategoryDetail(null)}
@@ -1448,62 +1439,26 @@ function TemplatesTabContent({ onLayoutSelect, isLayoutSelectMode = false }: { o
           </div>
         )}
 
-        {/* 内容区域：Layout 分类为布局模板网格，其他为瀑布流 */}
+        {/* 内容区域：瀑布流模板列表 */}
         <div className="flex-1 overflow-y-auto p-4">
-          {categoryDetail.categoryId === 'layout' ? (() => {
-            const layoutCategory = detailSelectedTag === 'All' ? 'featured' : detailSelectedTag;
-            const layouts = generateLayoutTemplates(layoutCategory);
-            const renderLayoutPreview = (layout: LayoutTemplate) => (
-              <div className="w-full aspect-square min-h-[80px] bg-gray-50 rounded border border-gray-200 relative overflow-hidden">
-                {layout.frames.map((frame) => (
-                  <div
-                    key={frame.id}
-                    className="absolute bg-gray-300 border border-gray-400 rounded-sm"
-                    style={{
-                      left: `${frame.x}%`,
-                      top: `${frame.y}%`,
-                      width: `${frame.width}%`,
-                      height: `${frame.height}%`,
-                    }}
-                  />
-                ))}
-              </div>
-            );
-            return (
-              <div className="grid grid-cols-2 gap-3">
-                {layouts.map((layout) => (
-                  <button
-                    key={layout.id}
-                    type="button"
-                    onClick={() => onLayoutSelect?.(layout)}
-                    className="flex flex-col items-stretch p-3 rounded-lg border border-gray-200 hover:border-teal-500 hover:bg-teal-50 transition-colors"
-                  >
-                    {renderLayoutPreview(layout)}
-                    <p className="text-xs font-medium text-gray-900 text-center mt-2">{layout.name}</p>
-                  </button>
-                ))}
-              </div>
-            );
-          })() : (
-            <div className="columns-2 gap-3">
-              {detailTemplates.map((template) => (
-                <button
-                  key={template.id}
-                  className="relative w-full mb-3 rounded-lg overflow-hidden border border-gray-200 hover:border-teal-500 hover:shadow-md transition-all group break-inside-avoid"
-                >
-                  <div className={`w-full aspect-square ${template.color} flex items-center justify-center`}>
-                    <span className="text-[10px] text-gray-600 font-medium text-center px-1">{template.label}</span>
-                  </div>
-                  {template.badge && (
-                    <span className="absolute top-1 left-1 bg-purple-600 text-white text-[8px] font-bold px-1.5 py-0.5 rounded">
-                      {template.badge}
-                    </span>
-                  )}
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
-                </button>
-              ))}
-            </div>
-          )}
+          <div className="columns-2 gap-3">
+            {detailTemplates.map((template) => (
+              <button
+                key={template.id}
+                className="relative w-full mb-3 rounded-lg overflow-hidden border border-gray-200 hover:border-teal-500 hover:shadow-md transition-all group break-inside-avoid"
+              >
+                <div className={`w-full aspect-square ${template.color} flex items-center justify-center`}>
+                  <span className="text-[10px] text-gray-600 font-medium text-center px-1">{template.label}</span>
+                </div>
+                {template.badge && (
+                  <span className="absolute top-1 left-1 bg-purple-600 text-white text-[8px] font-bold px-1.5 py-0.5 rounded">
+                    {template.badge}
+                  </span>
+                )}
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -1619,54 +1574,24 @@ function TemplatesTabContent({ onLayoutSelect, isLayoutSelectMode = false }: { o
                     )}
                   </div>
                 )}
-                {/* Templates grid：Layout 分类用布局预览缩略图，其他用 template 列表 */}
+                {/* Templates grid */}
                 <div className="grid grid-cols-3 gap-2">
-                  {category.id === 'layout' ? (
-                    (() => {
-                      const layoutPreviews = generateLayoutTemplates('featured').slice(0, 3);
-                      return layoutPreviews.map((layout) => (
-                        <button
-                          key={layout.id}
-                          type="button"
-                          onClick={() => setCategoryDetail({ categoryId: 'layout', categoryTitle: t.templateCategoryLayout })}
-                          className="relative aspect-square rounded-lg overflow-hidden border border-gray-200 hover:border-teal-500 hover:shadow-md transition-all group"
-                        >
-                          <div className="w-full h-full bg-gray-50 p-1 relative">
-                            {layout.frames.map((frame) => (
-                              <div
-                                key={frame.id}
-                                className="absolute bg-gray-300 border border-gray-400 rounded-sm"
-                                style={{
-                                  left: `${frame.x}%`,
-                                  top: `${frame.y}%`,
-                                  width: `${frame.width}%`,
-                                  height: `${frame.height}%`,
-                                }}
-                              />
-                            ))}
-                          </div>
-                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
-                        </button>
-                      ));
-                    })()
-                  ) : (
-                    category.templates.map((template) => (
-                      <button
-                        key={template.id}
-                        className="relative aspect-square rounded-lg overflow-hidden border border-gray-200 hover:border-teal-500 hover:shadow-md transition-all group"
-                      >
-                        <div className={`w-full h-full ${template.color} flex items-center justify-center`}>
-                          <span className="text-[10px] text-gray-600 font-medium text-center px-1">{template.label}</span>
-                        </div>
-                        {template.badge && (
-                          <span className="absolute top-1 left-1 bg-purple-600 text-white text-[8px] font-bold px-1.5 py-0.5 rounded">
-                            {template.badge}
-                          </span>
-                        )}
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
-                      </button>
-                    ))
-                  )}
+                  {category.templates.map((template) => (
+                    <button
+                      key={template.id}
+                      className="relative aspect-square rounded-lg overflow-hidden border border-gray-200 hover:border-teal-500 hover:shadow-md transition-all group"
+                    >
+                      <div className={`w-full h-full ${template.color} flex items-center justify-center`}>
+                        <span className="text-[10px] text-gray-600 font-medium text-center px-1">{template.label}</span>
+                      </div>
+                      {template.badge && (
+                        <span className="absolute top-1 left-1 bg-purple-600 text-white text-[8px] font-bold px-1.5 py-0.5 rounded">
+                          {template.badge}
+                        </span>
+                      )}
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                    </button>
+                  ))}
                 </div>
               </div>
             ))}
@@ -2482,11 +2407,11 @@ function LayoutTabContent({ onLayoutSelect, isLayoutSelectMode = false }: { onLa
 // Upload Tab 组件
 function UploadTabContent({ onImageAdd }: { onImageAdd?: (imageLayer: ImageLayer) => void }) {
   const { t } = useLanguage();
-  const [uploadedImages, setUploadedImages] = useState<{ id: string; url: string; name: string; type: 'image' | 'video' | 'font' }[]>([]);
-  const [activeSection, setActiveSection] = useState<'all' | 'images' | 'videos' | 'fonts'>('all');
+  const [uploadedImages, setUploadedImages] = useState<{ id: string; url: string; name: string; type: 'image' | 'font' }[]>([]);
+  const [activeSection, setActiveSection] = useState<'all' | 'images' | 'fonts'>('all');
 
   // 处理文件上传
-  const handleUpload = (acceptType: string = 'image/*,video/*') => {
+  const handleUpload = (acceptType: string = 'image/*') => {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = acceptType;
@@ -2496,9 +2421,8 @@ function UploadTabContent({ onImageAdd }: { onImageAdd?: (imageLayer: ImageLayer
       if (files) {
         Array.from(files).forEach(file => {
           const url = URL.createObjectURL(file);
-          const isVideo = file.type.startsWith('video/');
-          const isFont = file.type === 'font/ttf' || 
-                         file.type === 'font/otf' || 
+          const isFont = file.type === 'font/ttf' ||
+                         file.type === 'font/otf' ||
                          file.type === 'application/font-woff' ||
                          file.type === 'application/font-woff2' ||
                          file.name.endsWith('.ttf') ||
@@ -2509,7 +2433,7 @@ function UploadTabContent({ onImageAdd }: { onImageAdd?: (imageLayer: ImageLayer
             id: `upload-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             url,
             name: file.name,
-            type: isFont ? 'font' : (isVideo ? 'video' : 'image'),
+            type: isFont ? 'font' : 'image',
           }]);
         });
       }
@@ -2518,7 +2442,7 @@ function UploadTabContent({ onImageAdd }: { onImageAdd?: (imageLayer: ImageLayer
   };
 
   // 处理添加到画布
-  const handleAddToCanvas = (item: { id: string; url: string; name: string; type: 'image' | 'video' | 'font' }) => {
+  const handleAddToCanvas = (item: { id: string; url: string; name: string; type: 'image' | 'font' }) => {
     if (item.type === 'image') {
       onImageAdd?.({
         id: `image-${Date.now()}`,
@@ -2526,7 +2450,6 @@ function UploadTabContent({ onImageAdd }: { onImageAdd?: (imageLayer: ImageLayer
         name: item.name,
       });
     }
-    // Video support can be added later
   };
 
   // 处理删除
@@ -2538,13 +2461,11 @@ function UploadTabContent({ onImageAdd }: { onImageAdd?: (imageLayer: ImageLayer
   const filteredItems = uploadedImages.filter(item => {
     if (activeSection === 'all') return true;
     if (activeSection === 'images') return item.type === 'image';
-    if (activeSection === 'videos') return item.type === 'video';
     if (activeSection === 'fonts') return item.type === 'font';
     return true;
   });
 
   const imageCount = uploadedImages.filter(item => item.type === 'image').length;
-  const videoCount = uploadedImages.filter(item => item.type === 'video').length;
   const fontCount = uploadedImages.filter(item => item.type === 'font').length;
 
   return (
@@ -2572,17 +2493,6 @@ function UploadTabContent({ onImageAdd }: { onImageAdd?: (imageLayer: ImageLayer
           >
             <ImageIcon className="w-4 h-4" />
             <span>{imageCount}</span>
-          </button>
-          <button
-            onClick={() => setActiveSection('videos')}
-            className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-1 ${
-              activeSection === 'videos' 
-                ? 'bg-teal-50 text-teal-600 border border-teal-200' 
-                : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
-            }`}
-          >
-            <Video className="w-4 h-4" />
-            <span>{videoCount}</span>
           </button>
           <button
             onClick={() => setActiveSection('fonts')}
@@ -2651,59 +2561,6 @@ function UploadTabContent({ onImageAdd }: { onImageAdd?: (imageLayer: ImageLayer
               </div>
             )}
 
-            {/* Videos Section */}
-            {(activeSection === 'all' || activeSection === 'videos') && videoCount > 0 && (
-              <div>
-                {activeSection === 'all' && (
-                  <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                    <Video className="w-4 h-4" />
-                    {t.videos} ({videoCount})
-                  </h3>
-                )}
-                <div className="grid grid-cols-2 gap-2">
-                  {filteredItems
-                    .filter(item => item.type === 'video')
-                    .map((item) => (
-                      <div
-                        key={item.id}
-                        className="group relative aspect-video rounded-lg overflow-hidden border border-gray-200 hover:border-teal-500 transition-all cursor-pointer bg-gray-900"
-                      >
-                        <video
-                          src={item.url}
-                          className="w-full h-full object-cover"
-                          muted
-                          onMouseEnter={(e) => e.currentTarget.play()}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.pause();
-                            e.currentTarget.currentTime = 0;
-                          }}
-                        />
-                        {/* Video icon overlay */}
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                          <div className="w-10 h-10 rounded-full bg-black/50 flex items-center justify-center">
-                            <Video className="w-5 h-5 text-white" />
-                          </div>
-                        </div>
-                        {/* Delete button */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDelete(item.id);
-                          }}
-                          className="absolute top-1 right-1 p-1 bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500"
-                        >
-                          <Trash2 className="w-3 h-3 text-white" />
-                        </button>
-                        {/* File name */}
-                        <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/70 to-transparent">
-                          <p className="text-xs text-white truncate">{item.name}</p>
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              </div>
-            )}
-
             {/* Fonts Section */}
             {(activeSection === 'all' || activeSection === 'fonts') && fontCount > 0 && (
               <div>
@@ -2757,10 +2614,8 @@ function UploadTabContent({ onImageAdd }: { onImageAdd?: (imageLayer: ImageLayer
               handleUpload('.ttf,.otf,.woff,.woff2');
             } else if (activeSection === 'images') {
               handleUpload('image/*');
-            } else if (activeSection === 'videos') {
-              handleUpload('video/*');
             } else {
-              handleUpload();
+              handleUpload('image/*');
             }
           }}
           className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-teal-500 hover:bg-teal-600 text-white rounded-lg transition-colors font-medium"
@@ -2773,8 +2628,6 @@ function UploadTabContent({ onImageAdd }: { onImageAdd?: (imageLayer: ImageLayer
             ? t.supportFonts 
             : activeSection === 'images'
             ? t.supportImages
-            : activeSection === 'videos'
-            ? t.supportVideos
             : t.supportAllFiles}
         </p>
       </div>

@@ -31,6 +31,7 @@ type SidebarTab =
   | 'apps'
   | 'ratio'
   | 'templates'
+  | 'layout'
   | 'upload'
   | 'text'
   | 'image'
@@ -76,6 +77,7 @@ export function LeftSidebar({ activeTab, onTabChange, openAppTabs = [], onCloseA
     { id: 'apps', label: t.apps, icon: AIToolsIcon },
     { id: 'ratio', label: t.ratio, icon: RatioIcon },
     { id: 'templates', label: t.templates, icon: TemplatesIcon },
+    { id: 'layout', label: t.layout, icon: Layers },
     { id: 'upload', label: t.upload, icon: Upload },
     { id: 'text', label: t.text, icon: TextIcon },
     { id: 'image', label: t.image, icon: ImageIcon },

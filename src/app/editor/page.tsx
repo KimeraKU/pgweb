@@ -14,6 +14,7 @@ type SidebarTab =
   | 'apps'
   | 'ratio'
   | 'templates'
+  | 'layout'
   | 'upload'
   | 'text'
   | 'image'
@@ -833,7 +834,7 @@ export default function EditorPage() {
       case 'shape':
         return 'assets';
       case 'layout':
-        return 'templates';
+        return 'layout';
       default:
         return null;
     }
@@ -1007,7 +1008,7 @@ export default function EditorPage() {
   // 处理 layout 选择模式
   const handleLayoutSelect = () => {
     setIsLayoutSelectMode(true);
-    setActiveTab('templates');
+    setActiveTab('layout');
   };
 
   // 处理 layout 选择（从左侧 layout 页面选择）
@@ -1101,7 +1102,7 @@ export default function EditorPage() {
           onTabChange={handleTabChange}
           openAppTabs={openAppTabs}
           onCloseAppTab={handleCloseAppTab}
-          highlightTab={isLayoutSelectMode ? 'templates' : undefined}
+          highlightTab={isLayoutSelectMode ? 'layout' : undefined}
           className={isLayoutSelectMode ? 'relative z-40' : ''}
         />
 
@@ -1269,18 +1270,53 @@ export default function EditorPage() {
             onUngroupLayers={handleUngroupLayers}
             onLayerToolSelect={(tool) => {
               if (tool === 'delete') {
+                if (selectedLayerId === BACKGROUND_LAYER_ID) {
+                  setBackgroundLayer((prev) => ({ ...prev, imageUrl: undefined, gradient: undefined }));
+                  return;
+                }
                 const idsToDelete = selectedLayerIds.size > 0
                   ? Array.from(selectedLayerIds).filter((id) => id !== BACKGROUND_LAYER_ID)
                   : selectedLayerId && selectedLayerId !== BACKGROUND_LAYER_ID
                     ? [selectedLayerId]
                     : [];
                 if (idsToDelete.length === 0) return;
+                const deletedIncludesSelectedLayout = idsToDelete.some((id) => {
+                  const l = layers.find((x) => x.id === id);
+                  return l?.type === 'layout' && l?.layout?.id === selectedLayout?.id;
+                });
+                if (deletedIncludesSelectedLayout) setSelectedLayout(null);
                 setLayers((prev) => prev.filter((l) => !idsToDelete.includes(l.id)));
                 setSelectedLayerIds(new Set());
                 setSelectedLayerId((prev) => (prev && idsToDelete.includes(prev) ? null : prev));
                 return;
               }
               if (!selectedLayerId) return;
+              if (selectedLayerId === BACKGROUND_LAYER_ID) {
+                const bgImageUrl = backgroundLayer?.imageUrl;
+                if (tool === 'enhance' && bgImageUrl) {
+                  openImageEnhancerWithSource(bgImageUrl, 'Image enhancer');
+                } else if (tool === 'remove-bg' && bgImageUrl) {
+                  if (removeBgTimeoutRef.current) clearTimeout(removeBgTimeoutRef.current);
+                  setRemoveBgSourceUrl(bgImageUrl);
+                  setRemoveBgInProgress(true);
+                  removeBgTimeoutRef.current = setTimeout(() => {
+                    setRemoveBgInProgress(false);
+                    setRemoveBgSourceUrl(null);
+                    removeBgTimeoutRef.current = null;
+                  }, 3000);
+                } else if (tool === 'ai-removal' && bgImageUrl) {
+                  setAiRemovalSourceUrl(bgImageUrl);
+                  setAiRemovalSourceLayerId(BACKGROUND_LAYER_ID);
+                  setAiRemovalHasSelection(false);
+                  setOpenAppTabs((prev) => (prev.some((t) => t.id === 'ai-removal') ? prev : [...prev, { id: 'ai-removal', label: 'AI Removal' }]));
+                  setActiveTab('ai-removal');
+                } else if (tool === 'replace') {
+                  setActiveTab('upload');
+                } else if (tool === 'adjust') {
+                  setActiveTab('adjust');
+                }
+                return;
+              }
               const layer = layers.find((l) => l.id === selectedLayerId);
               if (layer?.type !== 'image' || !layer?.imageUrl) return;
               if (tool === 'enhance') {

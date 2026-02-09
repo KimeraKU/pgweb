@@ -124,25 +124,30 @@ export function EditorCanvas({
     };
   };
 
+  // 画布显示比例：略小于容器，为背景图层悬浮 toolbar（约 60px 在上方）留出空间，避免被常驻 toolbar 挡住
+  const DISPLAY_SCALE = 0.88;
+
   useEffect(() => {
     const updateDisplaySize = () => {
       if (containerRef.current) {
         const containerWidth = containerRef.current.clientWidth - 64; // 减去 padding
         const containerHeight = containerRef.current.clientHeight - 64;
         const aspectRatio = canvasSize.width / canvasSize.height;
-        
-        let displayWidth = containerWidth;
+        const maxWidth = containerWidth * DISPLAY_SCALE;
+        const maxHeight = containerHeight * DISPLAY_SCALE;
+
+        let displayWidth = maxWidth;
         let displayHeight = displayWidth / aspectRatio;
-        
-        if (displayHeight > containerHeight) {
-          displayHeight = containerHeight;
+
+        if (displayHeight > maxHeight) {
+          displayHeight = maxHeight;
           displayWidth = displayHeight * aspectRatio;
         }
-        
+
         setDisplaySize({ width: displayWidth, height: displayHeight });
       }
     };
-    
+
     updateDisplaySize();
     window.addEventListener('resize', updateDisplaySize);
     return () => window.removeEventListener('resize', updateDisplaySize);
@@ -890,6 +895,19 @@ export function EditorCanvas({
               {selectedLayerId === backgroundLayer?.id && (
                 <div className="absolute inset-0 border-2 border-teal-500 pointer-events-none z-50" />
               )}
+              {/* 背景图层选中时显示悬浮工具栏（无 crop / align / copy / download） */}
+              {selectedLayerId === backgroundLayer?.id && (
+                <LayerToolbar
+                  visible={true}
+                  layerType="background"
+                  canvasZoom={zoom}
+                  onToolSelect={(tool) => onLayerToolSelect?.(tool)}
+                  onFlipHorizontal={onFlipHorizontal}
+                  onFlipVertical={onFlipVertical}
+                  onRotateRight90={onRotateRight90}
+                  onRotateLeft90={onRotateLeft90}
+                />
+              )}
               {/* 渲染所有图层 - 按 zIndex 排序 */}
               {layers
                 .filter(layer => layer.visible !== false && !layer.isGroup) // 不渲染 group 图层本身，只渲染其子图层
@@ -1256,6 +1274,7 @@ export function EditorCanvas({
                             <LayerToolbar 
                               visible={isSelected && !layer.locked}
                               layerType="layout"
+                              canvasZoom={zoom}
                               onToolSelect={(tool) => onLayerToolSelect?.(tool)}
                               onLayoutSelect={onLayoutSelect}
                             />
@@ -1434,6 +1453,7 @@ export function EditorCanvas({
                             <LayerToolbar 
                               visible={isSelected && !layer.locked}
                               layerType="text"
+                              canvasZoom={zoom}
                               onToolSelect={(tool) => onLayerToolSelect?.(tool)}
                             />
                           </>
@@ -1615,6 +1635,7 @@ export function EditorCanvas({
                             <LayerToolbar 
                               visible={isSelected && !layer.locked}
                               layerType="image"
+                              canvasZoom={zoom}
                               onToolSelect={(tool) => {
                                 onLayerToolSelect?.(tool);
                               }}
@@ -1806,6 +1827,7 @@ export function EditorCanvas({
                             <LayerToolbar 
                               visible={isSelected && !layer.locked}
                               layerType="shape"
+                              canvasZoom={zoom}
                               onToolSelect={(tool) => onLayerToolSelect?.(tool)}
                             />
                           </>
@@ -1946,7 +1968,7 @@ export function EditorCanvas({
             </div>
           ) : imageUrl ? (
             <div 
-              className="shadow-lg p-4"
+              className="shadow-lg p-4 relative"
               style={{ 
                 width: displaySize.width, 
                 height: displaySize.height,
@@ -1968,6 +1990,19 @@ export function EditorCanvas({
               {selectedLayerId === backgroundLayer?.id && (
                 <div className="absolute inset-0 border-2 border-teal-500 pointer-events-none" />
               )}
+              {/* 无其他图层时，背景选中也显示 toolbar */}
+              {selectedLayerId === backgroundLayer?.id && (
+                <LayerToolbar
+                  visible={true}
+                  layerType="background"
+                  canvasZoom={zoom}
+                  onToolSelect={(tool) => onLayerToolSelect?.(tool)}
+                  onFlipHorizontal={onFlipHorizontal}
+                  onFlipVertical={onFlipVertical}
+                  onRotateRight90={onRotateRight90}
+                  onRotateLeft90={onRotateLeft90}
+                />
+              )}
             </div>
           ) : (
             <div 
@@ -1987,6 +2022,19 @@ export function EditorCanvas({
               {/* 背景图层选中边框 */}
               {selectedLayerId === backgroundLayer?.id && (
                 <div className="absolute inset-0 border-2 border-teal-500 pointer-events-none" />
+              )}
+              {/* 无其他图层时，背景选中也显示 toolbar */}
+              {selectedLayerId === backgroundLayer?.id && (
+                <LayerToolbar
+                  visible={true}
+                  layerType="background"
+                  canvasZoom={zoom}
+                  onToolSelect={(tool) => onLayerToolSelect?.(tool)}
+                  onFlipHorizontal={onFlipHorizontal}
+                  onFlipVertical={onFlipVertical}
+                  onRotateRight90={onRotateRight90}
+                  onRotateLeft90={onRotateLeft90}
+                />
               )}
             </div>
           )}

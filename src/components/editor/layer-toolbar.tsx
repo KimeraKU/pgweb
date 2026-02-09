@@ -61,6 +61,8 @@ interface ToolItem {
 interface LayerToolbarProps {
   visible: boolean;
   layerType?: LayerType;
+  /** 画布当前缩放比例，用于反缩放使 toolbar 视觉大小不随画布缩放 */
+  canvasZoom?: number;
   onToolSelect?: (tool: string) => void;
   onLayoutSelect?: () => void;
   onFlipHorizontal?: () => void;
@@ -72,6 +74,7 @@ interface LayerToolbarProps {
 export function LayerToolbar({
   visible,
   layerType = 'image',
+  canvasZoom = 1,
   onToolSelect,
   onLayoutSelect,
   onFlipHorizontal,
@@ -237,9 +240,13 @@ export function LayerToolbar({
       case 'background':
         return {
           main: [
-            { id: 'change-color', icon: Palette, label: t.changeColor },
-            { id: 'upload-bg', icon: ImageIcon, label: t.uploadBg },
-            { id: 'gradient', icon: Palette, label: t.gradient },
+            { id: 'enhance', icon: Wand2, label: t.enhance },
+            { id: 'remove-bg', icon: UserMinus, label: t.removeBg },
+            { id: 'ai-removal', icon: QuickRemovalIcon, label: t.aiRemoval },
+            { id: 'replace', icon: RefreshCw, label: t.replace },
+            { id: 'adjust', icon: Sliders, label: t.adjust },
+            { id: 'flip-rotate', icon: RotateCw, label: t.flipRotate },
+            { id: 'delete', icon: Trash2, label: t.delete },
           ],
           more: [],
         };
@@ -254,10 +261,13 @@ export function LayerToolbar({
   const moreTools: ToolItem[] = toolConfig.more;
   const hasMoreMenu = moreTools.length > 0;
 
+  const counterScale = canvasZoom !== 1 ? { transform: `translateX(-50%) scale(${1 / canvasZoom})`, transformOrigin: 'bottom center' as const } : undefined;
+
   return (
     <div 
       ref={toolbarRef}
       className="absolute -top-[60px] left-1/2 -translate-x-1/2 bg-white rounded-lg shadow-lg border border-gray-200 z-50 max-w-[90vw]"
+      style={counterScale}
     >
       <div 
         className="flex items-center px-2 py-1 overflow-x-auto"
