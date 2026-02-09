@@ -1,6 +1,6 @@
 'use client';
 
-import { Lock, Search, ChevronDown, Plus, Sparkles, Wand2, Type, AlignLeft, List, Upload, Image as ImageIcon, Eraser, Palette, Crop, Layers, Star, Heart, Circle, Square, Triangle, Hexagon, ChevronRight, Video, Folder, MoreVertical, Trash2, Play, Shirt, Clapperboard, Frame, Smile, Expand, Film, UserCircle, Stamp, BookOpen, Scissors, Sticker, UserMinus, ChevronLeft, Zap, Minus, Check, X, ThumbsUp, ThumbsDown, Download, RotateCcw, Info, Loader2 } from 'lucide-react';
+import { Lock, Search, ChevronDown, Plus, Sparkles, Wand2, Type, AlignLeft, List, Upload, Image as ImageIcon, Eraser, Palette, Crop, Layers, Star, Heart, Circle, Square, Triangle, Hexagon, ChevronRight, Video, Folder, MoreVertical, Trash2, Play, Shirt, Clapperboard, Frame, Smile, Expand, Film, UserCircle, Stamp, BookOpen, Scissors, Sticker, UserMinus, ChevronLeft, Zap, Minus, Check, X, ThumbsUp, ThumbsDown, Download, RotateCcw, Info, Loader2, Shuffle } from 'lucide-react';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import React from 'react';
 import { createPortal } from 'react-dom';
@@ -2805,28 +2805,99 @@ const AI_IMAGE_MODELS: { id: string; label: string; icon: React.ComponentType<{ 
   { id: 'wan2.6', label: 'wan2.6', icon: Hexagon, iconBg: 'bg-violet-500' },
 ];
 
-// AI 生图 Tab 内容：一个完整输入框（左上图片区+中部文本+左下魔杖）+ 下方模型/比例/生成
+const ASPECT_RATIOS = ['1:1', '3:2', '2:3', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9'];
+const SIZE_1K_2K_4K = ['1K', '2K', '4K'];
+const SEEDREAM_45_SIZES = ['2K', '4K', '2048x2048', '2304x1728', '1728x2304', '2560x1440', '1440x2560', '2496x1664', '1664x2496', '3024x1296'];
+const SEEDREAM_40_SIZES = ['1K', '2K', '4K', '2048x2048', '2304x1728', '1728x2304', '2560x1440', '1440x2560', '2496x1664', '1664x2496', '3024x1296'];
+const MIDJOURNEY_RESOLUTIONS = ['480p', '720p'];
+const WAN26_SIZES = ['1280x1280', '800x1200', '1200x800', '960x1280', '1280x960', '720x1280', '1280x720', '1344x576'];
+
+type ParamDefPills = { key: string; label: string; type: 'pills'; options: string[] };
+type ParamDefTextarea = { key: string; label: string; type: 'textarea'; maxLength: number };
+type ParamDefToggle = { key: string; label: string; type: 'toggle' };
+type ParamDefNumber = { key: string; label: string; type: 'number'; placeholder?: string; showInfo?: boolean };
+type ParamDefSlider = { key: string; label: string; type: 'slider'; min: number; max: number };
+type ParamDef = ParamDefPills | ParamDefTextarea | ParamDefToggle | ParamDefNumber | ParamDefSlider;
+
+type ModelParams = Record<string, string | number | boolean>;
+
+const AI_IMAGE_MODEL_PARAM_SCHEMAS: Record<string, { defaults: ModelParams; params: ParamDef[] }> = {
+  'nano-banana-pro': {
+    defaults: { aspectRatio: '1:1', size: '1K' },
+    params: [
+      { key: 'aspectRatio', label: 'Aspect_ratio', type: 'pills', options: ASPECT_RATIOS },
+      { key: 'size', label: 'Size', type: 'pills', options: SIZE_1K_2K_4K },
+    ],
+  },
+  'seedream-4.5': {
+    defaults: { size: '2K' },
+    params: [{ key: 'size', label: 'Size', type: 'pills', options: SEEDREAM_45_SIZES }],
+  },
+  midjourney: {
+    defaults: { resolution: '480p' },
+    params: [{ key: 'resolution', label: 'Resolution', type: 'pills', options: MIDJOURNEY_RESOLUTIONS }],
+  },
+  'seedream-4.0': {
+    defaults: { size: '1K' },
+    params: [{ key: 'size', label: 'Size', type: 'pills', options: SEEDREAM_40_SIZES }],
+  },
+  'nano-banana': {
+    defaults: { aspectRatio: '1:1' },
+    params: [{ key: 'aspectRatio', label: 'Aspect_ratio', type: 'pills', options: ASPECT_RATIOS }],
+  },
+  'wan2.6': {
+    defaults: { negativePrompt: '', promptExtend: false, seed: -1, size: '1280x1280', N: 1 },
+    params: [
+      { key: 'negativePrompt', label: 'Negative_prompt', type: 'textarea', maxLength: 500 },
+      { key: 'promptExtend', label: 'Prompt_extend', type: 'toggle' },
+      { key: 'seed', label: 'Seed', type: 'number', placeholder: '-1', showInfo: true },
+      { key: 'size', label: 'Size', type: 'pills', options: WAN26_SIZES },
+      { key: 'N', label: 'N', type: 'slider', min: 1, max: 4 },
+    ],
+  },
+};
+
+function getDefaultModelParams(modelId: string): ModelParams {
+  const schema = AI_IMAGE_MODEL_PARAM_SCHEMAS[modelId];
+  return schema ? { ...schema.defaults } : { size: '1K', aspectRatio: '1:1' };
+}
+
+/** 单模型时用于展示的参数字符串（如 "1:1 · 1K"、"480p"） */
+function getModelParamSummary(modelId: string, params: ModelParams): string {
+  const schema = AI_IMAGE_MODEL_PARAM_SCHEMAS[modelId];
+  if (!schema) return '';
+  const parts: string[] = [];
+  for (const def of schema.params) {
+    if (def.type === 'pills' && params[def.key] !== undefined && params[def.key] !== '') {
+      parts.push(String(params[def.key]));
+    }
+    if (def.type === 'slider' && params[def.key] !== undefined) {
+      parts.push(`${def.label}: ${params[def.key]}`);
+    }
+  }
+  return parts.join(' · ') || '—';
+}
+
+// AI 生图 Tab 内容：多选模型 + 每模型独立参数，生成时每个选中模型各生成一条任务
 function AIImageGeneratorTabContent({ onBackToApps }: { onBackToApps?: () => void }) {
   const { t } = useLanguage();
   const [prompt, setPrompt] = useState('');
-  const [selectedModelId, setSelectedModelId] = useState(AI_IMAGE_MODELS[0].id);
+  const [selectedModelIds, setSelectedModelIds] = useState<Set<string>>(new Set([AI_IMAGE_MODELS[0].id]));
+  const [modelParams, setModelParams] = useState<Record<string, ModelParams>>(() =>
+    Object.fromEntries(AI_IMAGE_MODELS.map((m) => [m.id, getDefaultModelParams(m.id)]))
+  );
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
-  const [selectedSize, setSelectedSize] = useState<'1K' | '2K' | '4K'>('1K');
-  const [selectedAspectRatio, setSelectedAspectRatio] = useState('1:1');
-  const [referenceImages, setReferenceImages] = useState<{ id: string }[]>([]);
-
-  const ASPECT_RATIOS = ['1:1', '3:2', '2:3', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9'];
-  const modelDropdownRef = React.useRef<HTMLDivElement>(null);
-  const [dropdownPosition, setDropdownPosition] = React.useState<{ bottom: number; left: number } | null>(null);
-
-  const paramsDropdownRef = React.useRef<HTMLDivElement>(null);
   const [paramsDropdownOpen, setParamsDropdownOpen] = useState(false);
-  const [paramsDropdownPosition, setParamsDropdownPosition] = useState<{ bottom: number; left: number } | null>(null);
+  const [referenceImages, setReferenceImages] = useState<{ id: string }[]>([]);
+  const modelDropdownRef = React.useRef<HTMLDivElement>(null);
+  const paramsDropdownRef = React.useRef<HTMLDivElement>(null);
+  const [modelDropdownPosition, setModelDropdownPosition] = React.useState<{ bottom: number; left: number } | null>(null);
+  const [paramsDropdownPosition, setParamsDropdownPosition] = React.useState<{ bottom: number; left: number } | null>(null);
   const [presetModalOpen, setPresetModalOpen] = useState(false);
   const [presetModalPosition, setPresetModalPosition] = useState<{ bottom: number; left: number } | null>(null);
   const presetMoreRef = React.useRef<HTMLButtonElement>(null);
 
-  const [generatedImages, setGeneratedImages] = useState<{ id: string; createdAt: number; url?: string; modelName: string }[]>([]);
+  const [generatedImages, setGeneratedImages] = useState<{ id: string; createdAt: number; url?: string; modelName: string; modelId?: string }[]>([]);
   const generatedListRef = React.useRef<HTMLDivElement>(null);
 
   const [inputBoxHeight, setInputBoxHeight] = useState(160);
@@ -2852,14 +2923,15 @@ function AIImageGeneratorTabContent({ onBackToApps }: { onBackToApps?: () => voi
     document.addEventListener('mouseup', onUp);
   };
 
-  const selectedModel = AI_IMAGE_MODELS.find((m) => m.id === selectedModelId) ?? AI_IMAGE_MODELS[0];
-  const SelectedModelIcon = selectedModel.icon;
+  const selectedModelsList = AI_IMAGE_MODELS.filter((m) => selectedModelIds.has(m.id));
+  const firstSelectedModel = selectedModelsList[0];
+  const FirstSelectedIcon = firstSelectedModel?.icon;
 
   // 模型下拉：打开时在按钮上方显示（向上展开）
   React.useEffect(() => {
     if (!modelDropdownOpen || typeof window === 'undefined' || !modelDropdownRef.current) return;
     const rect = modelDropdownRef.current.getBoundingClientRect();
-    setDropdownPosition({ bottom: window.innerHeight - rect.top + 4, left: rect.left });
+    setModelDropdownPosition({ bottom: window.innerHeight - rect.top + 4, left: rect.left });
   }, [modelDropdownOpen]);
 
   // 参数下拉：打开时在按钮上方显示
@@ -2899,14 +2971,43 @@ function AIImageGeneratorTabContent({ onBackToApps }: { onBackToApps?: () => voi
   };
 
   const handleGenerate = () => {
-    setGeneratedImages((prev) => [...prev, { id: `gen-${Date.now()}`, createdAt: Date.now(), modelName: selectedModel.label }]);
+    const ids = Array.from(selectedModelIds);
+    if (ids.length === 0) return;
+    const baseTime = Date.now();
+    const newEntries = ids.map((modelId, i) => {
+      const model = AI_IMAGE_MODELS.find((m) => m.id === modelId)!;
+      return { id: `gen-${baseTime}-${i}-${modelId}`, createdAt: baseTime, modelName: model.label, modelId };
+    });
+    setGeneratedImages((prev) => [...prev, ...newEntries]);
   };
 
-  const handleRegenerate = (id: string) => {
+  const handleRegenerate = (id: string, modelId?: string) => {
+    const useModelId = modelId ?? selectedModelsList[0]?.id ?? AI_IMAGE_MODELS[0].id;
+    const model = AI_IMAGE_MODELS.find((m) => m.id === useModelId)!;
     setGeneratedImages((prev) => [
       ...prev.filter((img) => img.id !== id),
-      { id: `gen-${Date.now()}`, createdAt: Date.now(), modelName: selectedModel.label },
+      { id: `gen-${Date.now()}`, createdAt: Date.now(), modelName: model.label, modelId: useModelId },
     ]);
+  };
+
+  const toggleModelSelected = (modelId: string) => {
+    setSelectedModelIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(modelId)) {
+        if (next.size <= 1) return prev;
+        next.delete(modelId);
+      } else {
+        next.add(modelId);
+      }
+      return next;
+    });
+  };
+
+  const setParamsForModel = (modelId: string, patch: Partial<ModelParams>) => {
+    setModelParams((prev) => ({
+      ...prev,
+      [modelId]: { ...getDefaultModelParams(modelId), ...prev[modelId], ...patch },
+    }));
   };
 
   // 生成图列表新增后滚动到底部（最新一条）
@@ -2949,13 +3050,13 @@ function AIImageGeneratorTabContent({ onBackToApps }: { onBackToApps?: () => voi
                     <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">生成中...</div>
                   )}
                   <span className="absolute left-1.5 top-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-black/50 text-white truncate max-w-[80%]">
-                    {img.modelName ?? selectedModel.label}
+                    {img.modelName}
                   </span>
                 </div>
                 <div className="flex items-center justify-between px-2 py-1.5 bg-white border-t border-gray-100">
                   <button
                     type="button"
-                    onClick={() => handleRegenerate(img.id)}
+                    onClick={() => handleRegenerate(img.id, img.modelId)}
                     className="flex items-center gap-1 text-xs text-gray-600 hover:text-teal-600 hover:bg-teal-50 rounded px-2 py-1 transition-colors"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
@@ -3100,38 +3201,62 @@ function AIImageGeneratorTabContent({ onBackToApps }: { onBackToApps?: () => voi
           </div>
         </div>
 
-        {/* 输入框下方：模型（优先宽度以完整显示名称）+ 参数 */}
+        {/* 输入框下方：第一个下拉只选模型（多选），第二个下拉配置多个已选模型的参数 */}
         <div className="flex gap-2">
           <div className="min-w-0 flex-[1.8] basis-0 relative" ref={modelDropdownRef} style={{ minWidth: '10.5rem' }}>
             <button
               type="button"
+              data-ai-model-dropdown
               onClick={() => setModelDropdownOpen((v) => !v)}
               className="w-full h-9 flex items-center gap-2 px-2.5 rounded-lg border border-gray-300 bg-white text-gray-800 hover:bg-gray-50 min-h-0"
             >
-              <span className={`w-5 h-5 shrink-0 rounded-full flex items-center justify-center overflow-hidden border border-gray-200 ${selectedModel.iconBg ?? 'bg-gray-100'}`}>
-                <SelectedModelIcon className="w-3 h-3 text-gray-600" />
-              </span>
-              <span className="flex-1 text-xs text-left min-w-0 overflow-hidden text-ellipsis whitespace-nowrap" title={selectedModel.label}>{selectedModel.label}</span>
+              {selectedModelIds.size === 0 ? (
+                <span className="flex-1 text-xs text-left text-gray-500">选择模型</span>
+              ) : selectedModelIds.size === 1 && firstSelectedModel && FirstSelectedIcon ? (
+                <>
+                  <span className={`w-5 h-5 shrink-0 rounded-full flex items-center justify-center overflow-hidden border border-gray-200 ${firstSelectedModel.iconBg ?? 'bg-gray-100'}`}>
+                    <FirstSelectedIcon className="w-3 h-3 text-gray-600" />
+                  </span>
+                  <span className="flex-1 text-xs text-left min-w-0 overflow-hidden text-ellipsis whitespace-nowrap" title={firstSelectedModel.label}>
+                    {firstSelectedModel.label}
+                  </span>
+                </>
+              ) : (
+                <span className="flex-1 flex items-center justify-center gap-0">
+                  {selectedModelsList.slice(0, 4).map((model, i) => {
+                    const Icon = model.icon;
+                    return (
+                      <span
+                        key={model.id}
+                        className={`w-6 h-6 shrink-0 rounded-full flex items-center justify-center overflow-hidden border-2 border-white bg-white shadow-sm ${i === 0 ? '' : '-ml-2'}`}
+                        style={{ zIndex: selectedModelsList.length - i }}
+                        title={model.label}
+                      >
+                        <span className={`w-full h-full rounded-full flex items-center justify-center ${model.iconBg ?? 'bg-gray-100'}`}>
+                          <Icon className="w-3 h-3 text-gray-600" />
+                        </span>
+                      </span>
+                    );
+                  })}
+                </span>
+              )}
               <ChevronDown className="w-4 h-4 shrink-0 text-gray-500" />
             </button>
-            {modelDropdownOpen && dropdownPosition && typeof document !== 'undefined' &&
+            {modelDropdownOpen && modelDropdownPosition && typeof document !== 'undefined' &&
               createPortal(
                 <div
                   data-ai-model-dropdown
                   className="fixed z-[100] w-52 rounded-lg bg-white border border-gray-300 shadow-lg py-1"
-                  style={{ bottom: dropdownPosition.bottom, left: dropdownPosition.left }}
+                  style={{ bottom: modelDropdownPosition.bottom, left: modelDropdownPosition.left }}
                 >
                   {AI_IMAGE_MODELS.map((m) => {
                     const Icon = m.icon;
-                    const isSelected = m.id === selectedModelId;
+                    const isSelected = selectedModelIds.has(m.id);
                     return (
                       <button
                         key={m.id}
                         type="button"
-                        onClick={() => {
-                          setSelectedModelId(m.id);
-                          setModelDropdownOpen(false);
-                        }}
+                        onClick={() => toggleModelSelected(m.id)}
                         className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-gray-800 hover:bg-gray-50 transition-colors"
                       >
                         <span className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border border-gray-200 overflow-hidden ${m.iconBg ?? 'bg-gray-100'}`}>
@@ -3148,15 +3273,19 @@ function AIImageGeneratorTabContent({ onBackToApps }: { onBackToApps?: () => voi
                 document.body
               )}
           </div>
-          {/* 参数设置下拉：剩余宽度 */}
           <div className="flex-1 min-w-[4.5rem] basis-0 relative" ref={paramsDropdownRef}>
             <button
               type="button"
+              data-ai-params-dropdown
               onClick={() => setParamsDropdownOpen((v) => !v)}
               className="w-full h-9 flex items-center gap-2 px-2.5 rounded-lg border border-gray-300 bg-white text-gray-800 hover:bg-gray-50 min-h-0"
             >
-              <span className="flex-1 text-xs text-left truncate min-w-0" title={`${selectedSize} · ${selectedAspectRatio}`}>
-                {selectedSize} · {selectedAspectRatio}
+              <span className="flex-1 text-xs text-left truncate min-w-0" title={selectedModelIds.size === 0 ? '—' : selectedModelIds.size === 1 && firstSelectedModel ? getModelParamSummary(firstSelectedModel.id, modelParams[firstSelectedModel.id] ?? getDefaultModelParams(firstSelectedModel.id)) : 'Parameters'}>
+                {selectedModelIds.size === 0
+                  ? '—'
+                  : selectedModelIds.size === 1 && firstSelectedModel
+                    ? getModelParamSummary(firstSelectedModel.id, modelParams[firstSelectedModel.id] ?? getDefaultModelParams(firstSelectedModel.id))
+                    : 'Parameters'}
               </span>
               <ChevronDown className="w-4 h-4 text-gray-500 shrink-0" />
             </button>
@@ -3164,54 +3293,165 @@ function AIImageGeneratorTabContent({ onBackToApps }: { onBackToApps?: () => voi
               createPortal(
                 <div
                   data-ai-params-dropdown
-                  className="fixed z-[100] w-52 rounded-lg bg-white border border-gray-300 shadow-lg p-3 max-h-80 overflow-y-auto"
+                  className="fixed z-[100] w-64 rounded-lg bg-white border border-gray-300 shadow-lg py-2 max-h-[min(70vh,420px)] overflow-y-auto"
                   style={{ bottom: paramsDropdownPosition.bottom, left: paramsDropdownPosition.left }}
                 >
-                  <p className="text-xs font-medium text-gray-700 mb-1.5">{t.aiImageSize}</p>
-                  <div className="flex flex-wrap gap-1.5 mb-3">
-                    {(['1K', '2K', '4K'] as const).map((size) => (
-                      <button
-                        key={size}
-                        type="button"
-                        onClick={() => setSelectedSize(size)}
-                        className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                          selectedSize === size
-                            ? 'border-2 border-teal-500 bg-teal-50 text-teal-700'
-                            : 'border border-gray-300 bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }`}
-                      >
-                        {size}
-                      </button>
-                    ))}
-                  </div>
-                  <p className="text-xs font-medium text-gray-700 mb-1.5">{t.aiImageAspectRatio}</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {ASPECT_RATIOS.map((ar) => (
-                      <button
-                        key={ar}
-                        type="button"
-                        onClick={() => setSelectedAspectRatio(ar)}
-                        className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                          selectedAspectRatio === ar
-                            ? 'border-2 border-teal-500 bg-teal-50 text-teal-700'
-                            : 'border border-gray-300 bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }`}
-                      >
-                        {ar}
-                      </button>
-                    ))}
-                  </div>
+                  {selectedModelsList.length === 0 ? (
+                    <p className="px-3 py-4 text-sm text-gray-500">请先在左侧选择模型</p>
+                  ) : (
+                    selectedModelsList.map((m) => {
+                      const Icon = m.icon;
+                      const schema = AI_IMAGE_MODEL_PARAM_SCHEMAS[m.id];
+                      const params = modelParams[m.id] ?? getDefaultModelParams(m.id);
+                      if (!schema) return null;
+                      return (
+                        <div key={m.id} className="border-b border-gray-100 last:border-b-0">
+                          <div className="flex items-center gap-2 px-3 py-2">
+                            <span className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border border-gray-200 overflow-hidden ${m.iconBg ?? 'bg-gray-100'}`}>
+                              <Icon className="w-4 h-4 text-gray-600" />
+                            </span>
+                            <span className="text-sm font-medium text-gray-800 truncate">{m.label}</span>
+                          </div>
+                          <div className="px-3 pb-3 pl-11 space-y-3">
+                            {schema.params.map((def) => {
+                              if (def.type === 'pills') {
+                                const value = (params[def.key] as string) ?? def.options[0];
+                                return (
+                                  <div key={def.key}>
+                                    <p className="text-xs font-medium text-gray-600 mb-1">{def.label}</p>
+                                    <div className="flex flex-wrap gap-1">
+                                      {def.options.map((opt) => (
+                                        <button
+                                          key={opt}
+                                          type="button"
+                                          onClick={() => setParamsForModel(m.id, { [def.key]: opt })}
+                                          className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                                            value === opt ? 'border-2 border-teal-500 bg-teal-50 text-teal-700' : 'border border-gray-300 bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                          }`}
+                                        >
+                                          {opt}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                );
+                              }
+                              if (def.type === 'textarea') {
+                                const value = String(params[def.key] ?? '');
+                                return (
+                                  <div key={def.key}>
+                                    <p className="text-xs font-medium text-gray-600 mb-1">{def.label}</p>
+                                    <div className="relative">
+                                      <textarea
+                                        value={value}
+                                        onChange={(e) => setParamsForModel(m.id, { [def.key]: e.target.value.slice(0, def.maxLength) })}
+                                        placeholder="Type your message here."
+                                        maxLength={def.maxLength}
+                                        className="w-full min-h-[80px] px-3 py-2 text-sm border border-gray-300 rounded-lg resize-y focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                                      />
+                                      <span className="absolute bottom-2 right-2 text-xs text-gray-400">{value.length}/{def.maxLength}</span>
+                                    </div>
+                                  </div>
+                                );
+                              }
+                              if (def.type === 'toggle') {
+                                const value = Boolean(params[def.key]);
+                                return (
+                                  <div key={def.key} className="flex items-center justify-between">
+                                    <p className="text-xs font-medium text-gray-600">{def.label}</p>
+                                    <button
+                                      type="button"
+                                      role="switch"
+                                      aria-checked={value}
+                                      onClick={() => setParamsForModel(m.id, { [def.key]: !value })}
+                                      className={`relative w-10 h-5 rounded-full transition-colors ${value ? 'bg-teal-500' : 'bg-gray-300'}`}
+                                    >
+                                      <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${value ? 'left-[1.25rem]' : 'left-0.5'}`} />
+                                    </button>
+                                  </div>
+                                );
+                              }
+                              if (def.type === 'number') {
+                                const raw = params[def.key];
+                                const value = raw !== undefined && raw !== '' ? String(raw) : (def.placeholder ?? '');
+                                return (
+                                  <div key={def.key}>
+                                    <div className="flex items-center gap-1 mb-1">
+                                      <p className="text-xs font-medium text-gray-600">{def.label}</p>
+                                      {def.showInfo && (
+                                        <button type="button" className="text-gray-400 hover:text-gray-600" aria-label="信息">
+                                          <Info className="w-3.5 h-3.5" />
+                                        </button>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                      <input
+                                        type="text"
+                                        inputMode="numeric"
+                                        value={value}
+                                        onChange={(e) => {
+                                          const v = e.target.value;
+                                          if (v === '' || v === '-') {
+                                            setParamsForModel(m.id, { [def.key]: def.key === 'seed' ? -1 : 0 });
+                                            return;
+                                          }
+                                          const num = Number(v);
+                                          if (!Number.isNaN(num)) setParamsForModel(m.id, { [def.key]: num });
+                                        }}
+                                        placeholder={def.placeholder}
+                                        className="flex-1 min-w-0 h-8 px-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => setParamsForModel(m.id, { [def.key]: -1 })}
+                                        className="w-8 h-8 flex items-center justify-center rounded-md border border-gray-300 text-gray-500 hover:bg-gray-100"
+                                        aria-label="随机"
+                                      >
+                                        <Shuffle className="w-4 h-4" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              }
+                              if (def.type === 'slider') {
+                                const value = Number(params[def.key] ?? def.min);
+                                const clamped = Math.min(def.max, Math.max(def.min, value));
+                                return (
+                                  <div key={def.key}>
+                                    <p className="text-xs font-medium text-gray-600 mb-1">{def.label}</p>
+                                    <div className="flex items-center gap-2">
+                                      <input
+                                        type="range"
+                                        min={def.min}
+                                        max={def.max}
+                                        value={clamped}
+                                        onChange={(e) => setParamsForModel(m.id, { [def.key]: Number(e.target.value) })}
+                                        className="flex-1 h-2 rounded-full appearance-none bg-gray-200 accent-teal-500"
+                                      />
+                                      <span className="text-xs text-gray-600 w-6">{clamped}</span>
+                                    </div>
+                                  </div>
+                                );
+                              }
+                              return null;
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>,
                 document.body
               )}
           </div>
         </div>
 
-        {/* Generate 按钮（与 Upload 一致：teal 全宽） */}
+        {/* Generate 按钮：选中至少一个模型时可点，一次为每个选中模型各生成一条任务 */}
         <button
           type="button"
           onClick={handleGenerate}
-          className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-teal-500 hover:bg-teal-600 text-white rounded-lg transition-colors font-medium"
+          disabled={selectedModelIds.size === 0}
+          className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-teal-500 hover:bg-teal-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition-colors font-medium"
         >
           <Zap className="w-5 h-5" />
           <span>{t.aiImageGenerate}</span>
