@@ -2857,10 +2857,16 @@ function AIImageGeneratorTabContent({ onBackToApps }: { onBackToApps?: () => voi
   };
 
   const setParamsForModel = (modelId: string, patch: Partial<ModelParams>) => {
-    setModelParams((prev) => ({
-      ...prev,
-      [modelId]: { ...getDefaultModelParams(modelId), ...prev[modelId], ...patch },
-    }));
+    setModelParams((prev) => {
+      const base = getDefaultModelParams(modelId);
+      const current = prev[modelId] ?? {};
+      const next: ModelParams = { ...base, ...current };
+      for (const k of Object.keys(patch)) {
+        const v = patch[k];
+        if (v !== undefined) next[k] = v;
+      }
+      return { ...prev, [modelId]: next };
+    });
   };
 
   // 生成图列表新增后滚动到底部（最新一条）
