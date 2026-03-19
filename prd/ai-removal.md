@@ -2,7 +2,7 @@
 
 > **文档版本**: V1.0  
 > **创建日期**: 2026-02-02  
-> **最后更新**: 2026-02-02  
+> **最后更新**: 2026-02-12  
 > **产品名称**: AI Removal（物体擦除）  
 > **所属模块**: Aggregation Editor - Apps Tab  
 > **参考**: [Aggregation Editor PRD](./aggregation-editor-prd.md)

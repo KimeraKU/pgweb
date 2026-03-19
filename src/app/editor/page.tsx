@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { LanguageProvider, useLanguage } from '@/contexts/language-context';
 import { Upload, X, ArrowLeftRight, Check, Loader2 } from 'lucide-react';
 import { EditorHeader } from '@/components/editor/editor-header';
@@ -636,7 +637,12 @@ export default function EditorPage() {
     setActiveTab(tab);
   };
 
+  const router = useRouter();
   const handleOpenAppTab = (appId: string, label: string) => {
+    if (appId === 'ai-video') {
+      router.push('/ai-video');
+      return;
+    }
     if (appId === 'image-enhancer') {
       const layer = selectedLayerId ? layers.find((l) => l.id === selectedLayerId) : null;
       if (layer?.type === 'image' && layer?.imageUrl) {

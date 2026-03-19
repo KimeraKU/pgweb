@@ -13,6 +13,7 @@ import { QuickRemovalIcon } from '@/components/icons/quick-removal-icon';
 import { AIBackgroundIcon } from '@/components/icons/ai-background-icon';
 import { AIEditorIcon } from '@/components/icons/ai-editor-icon';
 import { AdjustPanel } from '@/components/adjust-modal';
+import { uploadCrevibeImages } from '@/lib/crevibe-upload';
 
 type SidebarTab =
   | 'apps'
@@ -2741,7 +2742,9 @@ function AIImageGeneratorTabContent({ onBackToApps }: { onBackToApps?: () => voi
   );
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
   const [paramsDropdownOpen, setParamsDropdownOpen] = useState(false);
-  const [referenceImages, setReferenceImages] = useState<{ id: string }[]>([]);
+  const [referenceImages, setReferenceImages] = useState<{ id: string; url: string }[]>([]);
+  const [referenceUploading, setReferenceUploading] = useState(false);
+  const [referenceUploadError, setReferenceUploadError] = useState<string | null>(null);
   const modelDropdownRef = React.useRef<HTMLDivElement>(null);
   const paramsDropdownRef = React.useRef<HTMLDivElement>(null);
   const [modelDropdownPosition, setModelDropdownPosition] = React.useState<{ bottom: number; left: number } | null>(null);
@@ -2750,7 +2753,17 @@ function AIImageGeneratorTabContent({ onBackToApps }: { onBackToApps?: () => voi
   const [presetModalPosition, setPresetModalPosition] = useState<{ bottom: number; left: number } | null>(null);
   const presetMoreRef = React.useRef<HTMLButtonElement>(null);
 
-  const [generatedImages, setGeneratedImages] = useState<{ id: string; createdAt: number; url?: string; modelName: string; modelId?: string }[]>([]);
+  const [generatedImages, setGeneratedImages] = useState<
+    {
+      id: string;
+      createdAt: number;
+      url?: string;
+      modelName: string;
+      modelId?: string;
+      remoteTaskId?: string;
+      errorMessage?: string;
+    }[]
+  >([]);
   const generatedListRef = React.useRef<HTMLDivElement>(null);
 
   const [inputBoxHeight, setInputBoxHeight] = useState(160);
@@ -2815,15 +2828,98 @@ function AIImageGeneratorTabContent({ onBackToApps }: { onBackToApps?: () => voi
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [modelDropdownOpen, paramsDropdownOpen]);
 
-  const addImage = () => {
-    if (referenceImages.length >= MAX_REFERENCE_IMAGES) return;
-    setReferenceImages((prev) => [...prev, { id: `img-${Date.now()}` }]);
+  const addReferenceImages = () => {
+    if (referenceImages.length >= MAX_REFERENCE_IMAGES || referenceUploading) return;
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.multiple = true;
+    input.onchange = async (e) => {
+      const files = Array.from((e.target as HTMLInputElement).files || []).filter((f) =>
+        f.type.startsWith('image/')
+      );
+      if (!files.length) return;
+      const room = MAX_REFERENCE_IMAGES - referenceImages.length;
+      const slice = files.slice(0, room);
+      setReferenceUploadError(null);
+      setReferenceUploading(true);
+      try {
+        const urls = await uploadCrevibeImages(slice);
+        if (urls.length < slice.length) {
+          setReferenceUploadError(`已上传 ${urls.length}/${slice.length} 张，请检查上游返回条数`);
+        }
+        setReferenceImages((prev) => [
+          ...prev,
+          ...urls.map((url, i) => ({ id: `ref-${Date.now()}-${i}`, url })),
+        ]);
+      } catch (err) {
+        setReferenceUploadError(err instanceof Error ? err.message : '上传失败');
+      } finally {
+        setReferenceUploading(false);
+      }
+    };
+    input.click();
   };
   const removeImage = (id: string) => {
     setReferenceImages((prev) => prev.filter((img) => img.id !== id));
   };
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
+    const promptText = prompt.trim();
+    if (referenceImages.length > 0) {
+      if (!promptText) return;
+      const id = `gen-gemini-${Date.now()}`;
+      const firstModelId = Array.from(selectedModelIds)[0] ?? AI_IMAGE_MODELS[0].id;
+      const aspectRaw = (modelParams[firstModelId] as { aspectRatio?: string })?.aspectRatio || '16:9';
+      const aspectRatio = aspectRaw.includes(':') ? aspectRaw : '16:9';
+      setGeneratedImages((prev) => [
+        ...prev,
+        {
+          id,
+          createdAt: Date.now(),
+          modelName: 'Gemini 2.5 Flash Image',
+          modelId: 'gemini-2.5-flash-image',
+        },
+      ]);
+      try {
+        const res = await fetch('/api/task/google-ai/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id_task: id,
+            prompt: promptText,
+            input_img_urls: referenceImages.map((r) => r.url),
+            parameters: { aspectRatio },
+          }),
+        });
+        const j = (await res.json()) as { error?: string; task_id?: string; image_url?: string | null };
+        if (!res.ok) {
+          setGeneratedImages((prev) =>
+            prev.map((x) => (x.id === id ? { ...x, errorMessage: j.error || `失败 (${res.status})` } : x))
+          );
+          return;
+        }
+        setGeneratedImages((prev) =>
+          prev.map((x) =>
+            x.id === id
+              ? {
+                  ...x,
+                  remoteTaskId: j.task_id,
+                  url: j.image_url || x.url,
+                }
+              : x
+          )
+        );
+      } catch (e) {
+        setGeneratedImages((prev) =>
+          prev.map((x) =>
+            x.id === id ? { ...x, errorMessage: e instanceof Error ? e.message : '网络错误' } : x
+          )
+        );
+      }
+      return;
+    }
+
     const ids = Array.from(selectedModelIds);
     if (ids.length === 0) return;
     const baseTime = Date.now();
@@ -2903,10 +2999,19 @@ function AIImageGeneratorTabContent({ onBackToApps }: { onBackToApps?: () => voi
                 className="flex-shrink-0 w-full rounded-lg border border-gray-200 bg-gray-100 overflow-hidden flex flex-col"
               >
                 <div className="relative w-full aspect-square max-h-48">
-                  {img.url ? (
+                  {img.errorMessage ? (
+                    <div className="w-full h-full flex flex-col items-center justify-center gap-1 px-2 bg-red-50 text-red-600 text-[10px] text-center">
+                      {img.errorMessage}
+                    </div>
+                  ) : img.url ? (
                     <img src={img.url} alt="" className="w-full h-full object-cover" />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">生成中...</div>
+                    <div className="w-full h-full flex flex-col items-center justify-center gap-1 text-gray-400 text-[10px] px-2 text-center">
+                      <span>生成中…</span>
+                      {img.remoteTaskId && (
+                        <span className="text-gray-500 break-all font-mono">task: {img.remoteTaskId}</span>
+                      )}
+                    </div>
                   )}
                   <span className="absolute left-1.5 top-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-black/50 text-white truncate max-w-[80%]">
                     {img.modelName}
@@ -2965,11 +3070,16 @@ function AIImageGeneratorTabContent({ onBackToApps }: { onBackToApps?: () => voi
           <div className="flex-shrink-0 p-2 flex flex-wrap gap-1.5 relative">
             <button
               type="button"
-              onClick={addImage}
-              disabled={referenceImages.length >= MAX_REFERENCE_IMAGES}
+              onClick={addReferenceImages}
+              disabled={referenceImages.length >= MAX_REFERENCE_IMAGES || referenceUploading}
               className="w-11 h-11 flex-shrink-0 rounded border border-dashed border-gray-300 bg-gray-50 flex flex-col items-center justify-center gap-0.5 text-gray-500 hover:bg-gray-100 hover:border-gray-400 disabled:opacity-50 disabled:pointer-events-none transition-colors"
+              title="上传到 Crevibe，返回 URL 供图生图请求使用"
             >
-              <Plus className="w-4 h-4" />
+              {referenceUploading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Plus className="w-4 h-4" />
+              )}
               <span className="text-[10px]">{t.aiImageAdd}</span>
             </button>
             {referenceImages.map((img) => (
@@ -2977,6 +3087,7 @@ function AIImageGeneratorTabContent({ onBackToApps }: { onBackToApps?: () => voi
                 key={img.id}
                 className="relative w-11 h-11 flex-shrink-0 rounded border border-gray-200 bg-gray-100 overflow-hidden"
               >
+                <img src={img.url} alt="" className="w-full h-full object-cover" />
                 <button
                   type="button"
                   onClick={() => removeImage(img.id)}
@@ -2987,6 +3098,9 @@ function AIImageGeneratorTabContent({ onBackToApps }: { onBackToApps?: () => voi
                 </button>
               </div>
             ))}
+            {referenceUploadError && (
+              <p className="w-full basis-full text-[10px] text-red-500 px-0.5">{referenceUploadError}</p>
+            )}
             {/* 右上角：高度缩放手柄（与图片添加区同容器） */}
             <div
               role="slider"
@@ -3305,11 +3419,14 @@ function AIImageGeneratorTabContent({ onBackToApps }: { onBackToApps?: () => voi
           </div>
         </div>
 
-        {/* Generate 按钮：选中至少一个模型时可点，一次为每个选中模型各生成一条任务 */}
+        {/* 有参考图时走 Gemini 图生图；否则按选中模型占位生成 */}
         <button
           type="button"
-          onClick={handleGenerate}
-          disabled={selectedModelIds.size === 0}
+          onClick={() => void handleGenerate()}
+          disabled={
+            selectedModelIds.size === 0 ||
+            (referenceImages.length > 0 && !prompt.trim())
+          }
           className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-teal-500 hover:bg-teal-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition-colors font-medium"
         >
           <Zap className="w-5 h-5" />
@@ -3883,8 +4000,8 @@ function AppsTabContent({ onOpenApp }: { onOpenApp?: (appId: string, label: stri
   const { t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
 
-  // 首期可点击的 app id（5 个）
-  const AVAILABLE_APP_IDS = ['ai-image-generator', 'ai-filter', 'image-enhancer', 'background-remover', 'ai-removal'];
+  // 首期可点击的 app id（含 ai-video：跳转独立页）
+  const AVAILABLE_APP_IDS = ['ai-image-generator', 'ai-filter', 'image-enhancer', 'background-remover', 'ai-removal', 'ai-video'];
 
   // App 列表：前 5 个为首期可点击，其余为 2 期（置灰 + 2.1～2.8 徽标）
   const apps = [
@@ -3893,7 +4010,7 @@ function AppsTabContent({ onOpenApp }: { onOpenApp?: (appId: string, label: stri
     { id: 'image-enhancer', name: 'Image enhancer', color: 'from-amber-200 to-orange-200', icon: HighQualityIcon },
     { id: 'background-remover', name: 'Background remover', color: 'from-sky-200 to-blue-100', icon: AIBackgroundIcon },
     { id: 'ai-removal', name: 'AI Removal', color: 'from-gray-200 to-slate-200', icon: QuickRemovalIcon },
-    { id: 'ai-video', name: 'AI video', color: 'from-teal-300 to-green-200', icon: Clapperboard, hasVideo: true, phase2: true, badge: '2.1' },
+    { id: 'ai-video', name: 'AI video', color: 'from-teal-300 to-green-200', icon: Clapperboard, hasVideo: true },
     { id: 'ai-expand', name: 'AIExpand', color: 'from-gray-100 to-slate-100', icon: Expand, phase2: true, badge: '2.2' },
     { id: 'ai-replace', name: 'AIReplace', color: 'from-indigo-200 to-purple-100', icon: ImageIcon, phase2: true, badge: '2.3' },
     { id: 'ai-detach', name: 'aiDetach', color: 'from-rose-200 to-pink-100', icon: Scissors, phase2: true, badge: '2.4' },
@@ -3930,7 +4047,7 @@ function AppsTabContent({ onOpenApp }: { onOpenApp?: (appId: string, label: stri
           {filteredApps.map((app) => {
             const IconComponent = app.icon;
             const isAvailable = AVAILABLE_APP_IDS.includes(app.id);
-            const label = app.id === 'ai-image-generator' ? t.aiImageGenerator : app.id === 'ai-filter' ? t.aiFilter : app.id === 'image-enhancer' ? t.imageEnhancer : app.id === 'ai-removal' ? t.aiRemoval : app.name;
+            const label = app.id === 'ai-image-generator' ? t.aiImageGenerator : app.id === 'ai-filter' ? t.aiFilter : app.id === 'image-enhancer' ? t.imageEnhancer : app.id === 'ai-removal' ? t.aiRemoval : app.id === 'ai-video' ? t.aiVideoGenerator : app.name;
             return (
               <button
                 key={app.id}

@@ -2,7 +2,7 @@
 
 > **文档版本**: V1.2  
 > **创建日期**: 2026-02-02  
-> **最后更新**: 2026-02-06  
+> **最后更新**: 2026-02-12  
 > **产品名称**: Image Enhancer（画质增强）  
 > **所属模块**: Aggregation Editor - Apps Tab / 图层工具栏  
 > **参考**: [Aggregation Editor PRD](./aggregation-editor-prd.md)

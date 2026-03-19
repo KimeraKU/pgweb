@@ -97,6 +97,65 @@ yarn dev
 
 访问 [http://localhost:3000](http://localhost:3000) 查看应用。
 
+### AI 视频页 · LinkV AIGC（`/ai-video`）
+
+创建任务走 **`POST /api/video/kling-o1`**，由服务端转发到 **Artface / LinkV** 接口（默认与下列 curl 一致）：
+
+`POST https://artface.linkv.live/api/v1/aigc/task/create`
+
+**不想改 `.env` 时**：在 **`/ai-video` 顶栏「接口设置」** 填写 `callback_url`、`user_id` 等，配置保存在浏览器 **localStorage**（键 `ai-video-aigc-config-v1`），请求体优先于环境变量。轮询地址也可在弹窗里填（含 `{task_id}`），会通过查询参数 `poll_url` 传给 **`GET /api/video/kling-o1`**。
+
+**`.env.local` 必填 / 建议（与页面二选一即可）：**
+
+| 变量 | 说明 |
+|------|------|
+| **`AIGC_CALLBACK_URL`** | **必填**。任务完成时上游会通知的地址，与 curl 里 `callback_url` 一致，例如 `http://havetea.top:38888/callback`。 |
+| **`AIGC_USER_ID`** | **必填**。上游 `user_id`（示例：`12343211`）。 |
+| `AIGC_ID_TASK` | 可选。固定 `id_task`；不填则由页面每次生成传唯一 `id_task`，或由服务自动生成。 |
+| `AIGC_CREATE_URL` | 可选，默认即为上面 artface 创建地址。 |
+| **`AIGC_TASK_QUERY_URL`** | **建议配置**。轮询任务状态，须含占位 **`{task_id}`**，例如 `https://artface.linkv.live/api/v1/aigc/task/xxx?task_id={task_id}`（以你们实际查询文档为准）。未配置时任务创建成功但页面无法自动拉视频，会显示「已提交 + task_id」说明。 |
+| `AIGC_APP_ID` / `AIGC_TENANT_ID` | 可选，默认 `arena`。 |
+| `AIGC_APP_KIND` | 可选，默认 `imagent`。 |
+| `AIGC_MODEL_VERSION_ID` / `KLING_O1_MODEL_VERSION_ID` | 可选，**默认 Kling O1：`kling-video-o1`**（`model_version_id` 与 `parameters.model_name` 同值）。若上游枚举不同，在此改成实际 id（如官方给的 O1 版本号）。 |
+| `AIGC_API_KEY` | 若上游需要鉴权，填 Bearer Token。 |
+| `AIGC_VIDEO_COMPRESS_SIZE_MB` | 可选，默认 `0`。 |
+
+转发给上游的 JSON 字段与 curl 对齐：`app_id`、`tenant_id`、`user_id`、`app_kind`、`aigc_category`（默认 `text_to_video`）、**`callback_url`**、`input_images`、`model_version_id`、`video_compress_size_mb`、`parameters`（mode / duration / aspect_ratio / model_name / prompt）。图生视频、首尾帧时由前端传 `category` + 图，`input_images` 会相应填充。
+
+若创建接口返回的 `task_id` 字段路径不同，可在 `src/app/api/video/kling-o1/route.ts` 的 `pickTaskId` 中调整。
+
+### 图生图参考图上传 · Crevibe（`batch_upload_images`）
+
+编辑器 **AI 生图** 里点击「添加」参考图时，会经本服务 **`POST /api/upload/crevibe-batch-images`** 转发到：
+
+`https://test-api.crevibe.ai/api/v1/client/fashion/batch_upload_images`（`multipart`，字段名 **`images`**，可多文件）
+
+返回的 **`urls`** 会显示在缩略图上，供后续图生图接口作为 `input_images` / 参考图 URL 使用。
+
+| 变量 | 说明 |
+|------|------|
+| `CREVIBE_BATCH_UPLOAD_URL` | 可选，默认即上述 test-api 地址 |
+| `CREVIBE_API_KEY` | 若上游需要，会加 `Authorization: Bearer …` |
+
+若上游 JSON 结构与当前解析不一致，可在 `src/app/api/upload/crevibe-batch-images/route.ts` 中调整 `extractImageUrls`。
+
+### Google AI 图生图（Artface `google_ai/create`）
+
+编辑器 **AI 生图** 在 **已添加参考图（Crevibe URL）** 且填写 **prompt** 后点生成，会请求 **`POST /api/task/google-ai/create`**，转发到：
+
+`https://artface.linkv.live/api/v1/task/google_ai/create`
+
+请求体与 curl 一致：`app_id`、`app_kind`、`id_task`、`user_id`，以及 `data` 内的 `callback_url`、`prompt`、`task_type`（默认 `gemini`）、`model_name`（默认 `gemini-2.5-flash-image`）、`input_img_urls`、`parameters.aspectRatio`。
+
+| 变量 | 说明 |
+|------|------|
+| `AIGC_USER_ID` / `AIGC_CALLBACK_URL` | **必填**（与视频任务共用） |
+| `GOOGLE_AI_CREATE_URL` | 可选，默认上述 artface 地址 |
+| `GOOGLE_AI_APP_ID` | 可选，默认 `test`，也可用 `AIGC_APP_ID` |
+| `AIGC_API_KEY` | 若上游要鉴权 |
+
+成片若仅在回调返回，创建接口同步不返图时，列表会显示 task_id 直至你接入轮询或回调落库。
+
 ### 构建生产版本
 
 ```bash
