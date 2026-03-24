@@ -1,5 +1,14 @@
 'use client';
 
+/**
+ * AI 视频页设计规范（统一暗色主题）：
+ * - 圆角：小控件 rounded-lg(8px)、卡片/按钮 rounded-xl(12px)、大面板 rounded-2xl(16px)
+ * - 间距：gap-2(8px) / gap-3(12px)，内边距 p-2 / p-3 / p-4
+ * - 边框：默认 border-white/[0.08]，强调 border-white/[0.12]
+ * - 表面：输入/底 bg-white/[0.04]，悬停 bg-white/[0.06]
+ * - 文字：辅助 text-zinc-500 text-xs，正文 text-zinc-300 text-sm
+ * - 强调色：teal，焦点 ring-teal-500/20
+ */
 import { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import {
@@ -26,6 +35,8 @@ import {
   FolderOpen,
   Settings,
   X,
+  PanelLeft,
+  List,
 } from 'lucide-react';
 import {
   loadAivideoAigcConfig,
@@ -136,7 +147,7 @@ function saveHistoryToStorage(list: GeneratedItem[]) {
 
 export default function AIVideoPage() {
   const [templateCategory, setTemplateCategory] = useState<TemplateCategory>('all');
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(MOCK_TEMPLATES[0]?.id ?? null);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
 
   const filteredTemplates =
     templateCategory === 'all'
@@ -159,9 +170,14 @@ export default function AIVideoPage() {
   const [showDailyScrollHint, setShowDailyScrollHint] = useState(false);
   const [inputBarCollapsed, setInputBarCollapsed] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  /** 小屏下左侧模板栏、右侧历史栏展开态（lg 及以上始终展示，不依赖此状态） */
+  const [leftDrawerOpen, setLeftDrawerOpen] = useState(false);
+  const [rightDrawerOpen, setRightDrawerOpen] = useState(false);
   const [aigcForm, setAigcForm] = useState<Partial<AivideoAigcConfig>>({});
   const REFERENCE_IMAGE_MAX = 7;
   const [referenceImages, setReferenceImages] = useState<{ file: File; previewUrl: string }[]>([]);
+  /** 编辑任务时带入的参考图 URL（无 File，直接用于请求） */
+  const [referenceImageUrls, setReferenceImageUrls] = useState<string[]>([]);
   const referenceInputRef = useRef<HTMLInputElement>(null);
   const referenceImagesRef = useRef(referenceImages);
   referenceImagesRef.current = referenceImages;
@@ -269,12 +285,11 @@ export default function AIVideoPage() {
   const selectedItem = selectedId ? generatedList.find((i) => i.id === selectedId) : null;
   const newestId = generatedList.length ? generatedList[generatedList.length - 1]!.id : null;
 
-  /** 侧栏：新在上；可选搜索过滤 */
+  /** 侧栏：与中间栏一致，最新在底部；可选搜索过滤 */
   const sidebarItems = useMemo(() => {
-    const rev = [...generatedList].reverse();
     const q = historySearch.trim().toLowerCase();
-    if (!q) return rev;
-    return rev.filter((i) => i.prompt.toLowerCase().includes(q) || i.id.toLowerCase().includes(q));
+    if (!q) return [...generatedList];
+    return generatedList.filter((i) => i.prompt.toLowerCase().includes(q) || i.id.toLowerCase().includes(q));
   }, [generatedList, historySearch]);
 
   const copyAssetLink = (item: GeneratedItem) => {
@@ -309,22 +324,24 @@ export default function AIVideoPage() {
     }));
   };
 
+  /** 中间栏滚动时，以视口顶部线为基准：选中「顶部已越过该线」的最后一条任务，与右侧高亮一一对应 */
   useEffect(() => {
     const root = taskScrollRef.current;
     if (!root || generatedList.length === 0) return;
-    const obs = new IntersectionObserver(
-      (entries) => {
-        if (scrollFromSidebarRef.current) return;
-        const hit = entries
-          .filter((e) => e.isIntersecting && e.intersectionRatio >= 0.42)
-          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-        const id = hit?.target.getAttribute('data-task-id');
-        if (id) setSelectedId(id);
-      },
-      { root, rootMargin: '0px', threshold: [0.42, 0.5, 0.58, 0.66] }
-    );
-    root.querySelectorAll('[data-task-slide]').forEach((el) => obs.observe(el));
-    return () => obs.disconnect();
+    const update = () => {
+      if (scrollFromSidebarRef.current) return;
+      const slides = root.querySelectorAll<HTMLElement>('[data-task-slide]');
+      const viewportTop = root.scrollTop + root.clientHeight * 0.25;
+      let current: HTMLElement | null = null;
+      for (const el of slides) {
+        if (el.offsetTop <= viewportTop) current = el;
+      }
+      const id = current?.getAttribute('data-task-id') ?? slides[0]?.getAttribute('data-task-id');
+      if (id) setSelectedId(id);
+    };
+    update();
+    root.addEventListener('scroll', update, { passive: true });
+    return () => root.removeEventListener('scroll', update);
   }, [generatedList]);
 
   const scrollTaskIntoView = (id: string) => {
@@ -447,6 +464,7 @@ export default function AIVideoPage() {
     const localId = `gen-${Date.now()}`;
     const thumbFallback =
       referenceImages[0]?.previewUrl ||
+      referenceImageUrls[0] ||
       sourceItem?.thumbnailUrl ||
       'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&h=400&fit=crop';
     const newItem: GeneratedItem = {
@@ -461,7 +479,7 @@ export default function AIVideoPage() {
       klingAspectRatio: ar,
       klingDuration: dur,
       klingMode: md,
-      referencePreviewUrl: referenceImages[0]?.previewUrl,
+      referencePreviewUrl: referenceImages[0]?.previewUrl ?? referenceImageUrls[0],
     };
     setGeneratedList((prev) => [...prev, newItem]);
     setSelectedId(localId);
@@ -471,7 +489,7 @@ export default function AIVideoPage() {
       if (el) el.scrollTo({ top: el.scrollHeight - el.clientHeight, behavior: 'smooth' });
     }, 80);
     try {
-      let imageUrls: string[] = [];
+      let imageUrls = referenceImageUrls.slice(0, REFERENCE_IMAGE_MAX);
       if (referenceImages.length > 0) {
         const form = new FormData();
         referenceImages.forEach((r) => form.append('images', r.file, r.file.name || 'image.jpg'));
@@ -487,7 +505,7 @@ export default function AIVideoPage() {
           );
           return;
         }
-        imageUrls = uploadJ.urls.slice(0, REFERENCE_IMAGE_MAX);
+        imageUrls = [...imageUrls, ...uploadJ.urls].slice(0, REFERENCE_IMAGE_MAX);
       }
       const res = await fetch('/api/video/kling-o1', {
         method: 'POST',
@@ -553,6 +571,18 @@ export default function AIVideoPage() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  /** 将当前任务内容带入下方输入框，便于重新编辑后生成 */
+  const handleEditTask = (item: GeneratedItem) => {
+    setPrompt(item.prompt);
+    setKlingAspectRatio((item.klingAspectRatio as (typeof KLING_ASPECT)[number]) || '16:9');
+    setKlingDuration((item.klingDuration as (typeof KLING_DURATION)[number]) || '5');
+    setKlingMode((item.klingMode as (typeof KLING_MODE)[number]) || 'std');
+    const urls = item.sourceImageUrls?.length ? item.sourceImageUrls : item.sourceImageUrl ? [item.sourceImageUrl] : [];
+    setReferenceImageUrls(urls);
+    setReferenceImages([]);
+    setInputBarCollapsed(false);
   };
 
   /** 失败任务原地重试（不新增一条） */
@@ -640,36 +670,57 @@ export default function AIVideoPage() {
   };
 
   return (
-    <div className="h-screen overflow-hidden flex flex-col bg-[#0c0e12] text-zinc-100 antialiased overscroll-none">
+    <div className="h-screen overflow-hidden flex flex-col bg-[#0c0e12] text-zinc-100 antialiased overscroll-none" data-page="ai-video">
       {/* 顶栏：与整体深色影院风格统一 */}
-      <header className="flex-shrink-0 h-[52px] px-5 sm:px-6 flex items-center justify-between border-b border-white/[0.06] bg-[#0a0c10]/95 backdrop-blur-md">
-        <div className="flex flex-col gap-0">
-          <span className="text-[17px] font-bold tracking-tight text-white italic">AI Studio</span>
-          <span className="text-[11px] text-zinc-500 leading-none">powered by PhotoGrid</span>
+      <header className="flex-shrink-0 h-12 sm:h-[52px] px-3 sm:px-4 md:px-5 lg:px-6 flex items-center justify-between border-b border-white/[0.08] bg-[#0a0c10]/95 backdrop-blur-md">
+        <div className="flex flex-col gap-0 min-w-0">
+          <span className="text-[15px] sm:text-[17px] font-bold tracking-tight text-white italic truncate">AI Studio</span>
+          <span className="text-[10px] sm:text-[11px] text-zinc-500 leading-none hidden sm:block">powered by PhotoGrid</span>
         </div>
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-1.5 sm:gap-2.5 flex-shrink-0">
+          {/* 小屏展开/收起侧栏（lg 以上隐藏） */}
+          <div className="flex items-center gap-1 lg:hidden">
+            <button
+              type="button"
+              onClick={() => { setRightDrawerOpen(false); setLeftDrawerOpen((v) => !v); }}
+              className="h-8 w-8 rounded-xl bg-white/[0.04] text-zinc-400 hover:bg-white/[0.08] border border-white/[0.08] flex items-center justify-center transition-colors"
+              title="模板"
+              aria-label="展开模板"
+            >
+              <PanelLeft className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => { setLeftDrawerOpen(false); setRightDrawerOpen((v) => !v); }}
+              className="h-8 w-8 rounded-xl bg-white/[0.04] text-zinc-400 hover:bg-white/[0.08] border border-white/[0.08] flex items-center justify-center transition-colors"
+              title="历史"
+              aria-label="展开历史"
+            >
+              <List className="w-4 h-4" />
+            </button>
+          </div>
           <button
             type="button"
             onClick={() => {
               setAigcForm((prev) => mergeAigcFormWithStored(prev));
               setSettingsOpen(true);
             }}
-            className="flex items-center gap-1.5 h-9 px-3 rounded-full bg-white/[0.06] text-sm font-medium text-zinc-200 hover:bg-white/[0.1] border border-white/[0.08] transition-all"
+            className="flex items-center gap-1.5 h-8 sm:h-9 px-2 sm:px-3 rounded-xl bg-white/[0.04] text-sm font-medium text-zinc-300 hover:bg-white/[0.08] border border-white/[0.08] transition-colors"
             title="AIGC 回调、用户 ID、轮询地址等"
           >
             <Settings className="w-4 h-4" />
-            接口设置
+            <span className="hidden sm:inline">接口设置</span>
           </button>
           <button
             type="button"
-            className="flex items-center gap-1.5 h-9 pl-3.5 pr-4 rounded-full bg-white/[0.06] text-sm font-medium text-zinc-200 hover:bg-white/[0.1] border border-white/[0.08] transition-all"
+            className="flex items-center gap-1 sm:gap-1.5 h-8 sm:h-9 pl-2 sm:pl-3.5 pr-2 sm:pr-4 rounded-xl bg-white/[0.04] text-sm font-medium text-zinc-300 hover:bg-white/[0.08] border border-white/[0.08] transition-colors"
           >
-            <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
-            0
+            <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400 fill-amber-400" />
+            <span className="hidden sm:inline">0</span>
           </button>
           <button
             type="button"
-            className="relative w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-semibold bg-gradient-to-br from-zinc-500 to-teal-700 shadow-lg shadow-black/30 hover:brightness-110 transition-all"
+            className="relative w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-white text-xs sm:text-sm font-semibold bg-gradient-to-br from-zinc-500 to-teal-700 shadow-lg shadow-black/30 hover:brightness-110 transition-all"
             title="用户"
           >
             F
@@ -680,14 +731,24 @@ export default function AIVideoPage() {
         </div>
       </header>
 
+      {/* 小屏下抽屉打开时的遮罩，点击关闭 */}
+      {(leftDrawerOpen || rightDrawerOpen) && (
+        <button
+          type="button"
+          aria-label="关闭侧栏"
+          className="fixed inset-0 top-12 sm:top-[52px] z-30 bg-black/50 lg:hidden"
+          onClick={() => { setLeftDrawerOpen(false); setRightDrawerOpen(false); }}
+        />
+      )}
+
       {settingsOpen && (
         <div
-          className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+          className="fixed inset-0 z-[200] flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-sm"
           role="dialog"
           aria-modal="true"
           aria-labelledby="aigc-settings-title"
         >
-          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-white/[0.1] bg-[#12151c] shadow-2xl p-5 space-y-4">
+          <div className="w-full max-w-lg max-h-[85vh] sm:max-h-[90vh] overflow-y-auto rounded-2xl border border-white/[0.08] bg-[#0e1118] shadow-2xl p-4 sm:p-5 space-y-4">
             <div className="flex items-center justify-between gap-2">
               <h2 id="aigc-settings-title" className="text-lg font-semibold text-white">
                 接口设置（存本机浏览器）
@@ -795,7 +856,7 @@ export default function AIVideoPage() {
                     api_key: restored.api_key,
                   });
                 }}
-                className="h-10 px-4 rounded-xl border border-white/[0.12] text-zinc-300 text-sm hover:bg-white/[0.05]"
+                className="h-10 px-4 rounded-xl border border-white/[0.08] text-zinc-300 text-sm hover:bg-white/[0.06] transition-colors"
                 title="将 callback_url、user_id 恢复为当前默认并写入本机"
               >
                 恢复默认
@@ -803,7 +864,7 @@ export default function AIVideoPage() {
               <button
                 type="button"
                 onClick={() => setSettingsOpen(false)}
-                className="h-10 px-4 rounded-xl border border-white/[0.12] text-zinc-300 text-sm hover:bg-white/[0.05]"
+                className="h-10 px-4 rounded-xl border border-white/[0.08] text-zinc-300 text-sm hover:bg-white/[0.06] transition-colors"
               >
                 取消
               </button>
@@ -812,20 +873,34 @@ export default function AIVideoPage() {
         </div>
       )}
 
-      <div className="flex-1 flex min-h-0 overflow-hidden">
-      <aside className="w-[380px] flex-shrink-0 flex flex-col min-h-0 border-r border-white/[0.06] bg-[#0a0c10] pr-0">
-        <div className="px-3 py-2.5 border-b border-white/[0.06] flex-shrink-0">
+      <div className="flex-1 flex min-h-0 overflow-hidden min-w-0 relative">
+      {/* 左侧：小屏为抽屉，lg 及以上为常驻 */}
+      <aside
+        className={`fixed lg:relative left-0 top-12 sm:top-[52px] lg:top-0 bottom-0 z-40 lg:z-auto w-72 max-w-[85vw] lg:w-[300px] xl:w-[380px] lg:max-w-none flex-shrink-0 flex flex-col min-h-0 border-r border-white/[0.08] bg-[#0a0c10] pr-0 overflow-hidden transition-transform duration-200 ease-out ${
+          leftDrawerOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+        }`}
+      >
+        <div className="px-2 sm:px-3 py-2 sm:py-3 border-b border-white/[0.08] flex-shrink-0 flex items-center justify-between gap-2">
           <Link
             href="/editor"
-            className="inline-flex items-center gap-1.5 text-zinc-500 hover:text-teal-400 text-sm font-medium py-1.5 px-2 -ml-2 rounded-lg hover:bg-white/[0.04] transition-all"
+            className="inline-flex items-center gap-1.5 text-zinc-500 hover:text-teal-400 text-xs sm:text-sm font-medium py-1.5 px-2 -ml-2 rounded-lg hover:bg-white/[0.06] transition-colors"
             title="返回编辑器"
           >
             <ChevronLeft className="w-4 h-4" />
             返回
           </Link>
+          <button
+            type="button"
+            onClick={() => setLeftDrawerOpen(false)}
+            className="lg:hidden h-8 w-8 rounded-lg bg-white/[0.04] text-zinc-500 hover:bg-white/[0.08] border border-white/[0.08] flex items-center justify-center"
+            title="收起"
+            aria-label="收起模板栏"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
-        <div className="flex-shrink-0 overflow-x-auto border-b border-white/[0.06]">
-          <div className="flex gap-1 p-2.5 min-w-0">
+        <div className="flex-shrink-0 overflow-x-auto border-b border-white/[0.08]">
+          <div className="flex gap-1.5 sm:gap-2 p-2 sm:p-3 min-w-0">
             {TEMPLATE_CATEGORIES.map((cat) => {
               const isActive = templateCategory === cat.id;
               const Icon = cat.icon;
@@ -834,10 +909,10 @@ export default function AIVideoPage() {
                   key={cat.id}
                   type="button"
                   onClick={() => setTemplateCategory(cat.id)}
-                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
                     isActive
-                      ? 'bg-teal-500/15 text-teal-400 shadow-[inset_0_0_0_1px_rgba(45,212,191,0.25)]'
-                      : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.05]'
+                      ? 'bg-teal-500/15 text-teal-400 ring-1 ring-teal-400/30'
+                      : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.06]'
                   }`}
                 >
                   {Icon && <Icon className="w-3.5 h-3.5 opacity-80" />}
@@ -847,40 +922,33 @@ export default function AIVideoPage() {
             })}
           </div>
         </div>
-        <div className="flex-1 min-h-0 overflow-y-auto sidebar-scrollbar p-2.5">
-          <div className="grid grid-cols-3 gap-2.5">
-            {filteredTemplates.map((t) => {
-              const isActive = selectedTemplateId === t.id;
-              return (
-                <div
-                  key={t.id}
-                  className={`rounded-xl overflow-hidden transition-all duration-200 ${
-                    isActive
-                      ? 'ring-2 ring-teal-400/50 shadow-[0_0_20px_-4px_rgba(45,212,191,0.35)]'
-                      : 'ring-1 ring-transparent hover:ring-white/10 hover:scale-[1.02] hover:shadow-lg hover:shadow-black/40'
-                  }`}
+        <div className="flex-1 min-h-0 overflow-y-auto sidebar-scrollbar p-2 sm:p-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
+            {filteredTemplates.map((t) => (
+              <div
+                key={t.id}
+                className="group/card rounded-xl overflow-hidden ring-1 ring-white/[0.08] hover:ring-2 hover:ring-teal-400/50 hover:shadow-[0_0_24px_-6px_rgba(45,212,191,0.25)] transition-all duration-200 hover:scale-[1.02]"
+              >
+                <button
+                  type="button"
+                  className="w-full text-left block"
                 >
-                  <button
-                    type="button"
-                    onClick={() => setSelectedTemplateId(t.id)}
-                    className="w-full text-left block group/card"
-                  >
-                    <div className="relative aspect-[4/3] bg-zinc-800 overflow-hidden">
-                      <img src={t.thumb} alt={t.name} className="w-full h-full object-cover group-hover/card:scale-105 transition-transform duration-300" />
-                      {t.tag && (
-                        <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-black/55 backdrop-blur-sm text-zinc-200">
-                          {t.tag}
-                        </span>
-                      )}
-                      <span className="absolute bottom-1.5 right-1.5 px-2 py-1 rounded-full text-[10px] font-medium bg-white/20 backdrop-blur-md text-white border border-white/20 hover:bg-white/30 transition-colors">
+                  <div className="relative aspect-[4/5] bg-zinc-800 overflow-hidden rounded-xl">
+                    <img src={t.thumb} alt={t.name} className="absolute inset-0 w-full h-full object-cover group-hover/card:scale-105 transition-transform duration-300" />
+                    <span className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition-opacity duration-200">
+                      <span className="px-3 py-1.5 rounded-xl text-xs font-medium bg-white/20 backdrop-blur-md text-white border border-white/20 hover:bg-white/30">
                         使用
                       </span>
+                    </span>
+                    <div className="absolute bottom-0 left-0 right-0 flex items-center justify-center min-h-[2rem] py-1.5 px-2 bg-black/55 backdrop-blur-sm">
+                      <p className="text-xs font-medium text-zinc-300 leading-tight line-clamp-2 text-center w-full">
+                        {t.name}
+                      </p>
                     </div>
-                    <p className="py-2 px-1 text-[11px] font-medium text-zinc-300 leading-tight line-clamp-2 text-center min-h-[2.25rem]">{t.name}</p>
-                  </button>
-                </div>
-              );
-            })}
+                  </div>
+                </button>
+              </div>
+            ))}
           </div>
           {filteredTemplates.length === 0 && (
             <div className="text-center py-8 text-zinc-600 text-xs">该分类暂无模板</div>
@@ -890,11 +958,11 @@ export default function AIVideoPage() {
 
       <main className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden bg-[#0c0e12] relative">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(45,212,191,0.08),transparent)]" aria-hidden />
-        <div className="w-full max-w-5xl mx-auto min-w-0 flex-1 min-h-0 relative z-[1] px-3">
+        <div className="w-full max-w-5xl mx-auto min-w-0 flex-1 min-h-0 relative z-[1] px-2 sm:px-3 md:px-4">
           <div
             ref={taskScrollRef}
             onScroll={handleTaskScroll}
-            className="h-full min-h-0 overflow-y-auto overflow-x-hidden sidebar-scrollbar snap-y snap-mandatory scroll-smooth pb-[min(300px,38vh)]"
+            className="h-full min-h-0 overflow-y-auto overflow-x-hidden sidebar-scrollbar snap-y snap-mandatory scroll-smooth pb-[min(260px,32vh)] sm:pb-[min(300px,38vh)]"
           >
             {generatedList.length === 0 ? (
               <div className="flex flex-col items-center justify-center min-h-full text-zinc-600 text-sm px-4">
@@ -914,54 +982,73 @@ export default function AIVideoPage() {
                     key={item.id}
                     data-task-id={item.id}
                     data-task-slide
-                    className="snap-start snap-always min-h-full flex flex-col box-border py-3 pr-1"
+                    className="snap-start snap-always min-h-0 flex flex-col box-border py-2 sm:py-3 pr-1"
                   >
-                    <div className="shrink-0 mb-3 space-y-2">
+                    <div className="shrink-0 mb-1.5 sm:mb-2 space-y-2">
                       <div className="flex gap-3 items-start">
                         {(item.sourceImageUrl || item.sourceImageUrls?.[0] || item.referencePreviewUrl) && (
                           <img
                             src={item.sourceImageUrl || item.sourceImageUrls?.[0] || item.referencePreviewUrl}
                             alt="参考图"
-                            className="w-14 h-14 sm:w-16 sm:h-16 flex-shrink-0 rounded-lg object-cover border border-white/[0.08] ring-1 ring-white/5"
+                            className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 flex-shrink-0 rounded-lg sm:rounded-xl object-cover border border-white/[0.08]"
                           />
                         )}
-                        <p className="text-[15px] text-zinc-300 leading-relaxed line-clamp-3 flex-1 min-w-0">{item.prompt}</p>
+                        <p className="text-sm sm:text-[15px] text-zinc-300 leading-relaxed line-clamp-3 flex-1 min-w-0">{item.prompt}</p>
                       </div>
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-wrap gap-1.5 sm:gap-2 items-center">
                         {item.modelTag && (
-                          <span className="px-3 py-1 rounded-full bg-white/[0.06] text-xs text-zinc-400 border border-white/[0.06]">{item.modelTag}</span>
+                          <span className="px-3 py-1.5 rounded-lg bg-white/[0.06] text-xs text-zinc-400 border border-white/[0.08]">{item.modelTag}</span>
                         )}
                         {item.resolution && (
-                          <span className="px-3 py-1 rounded-full bg-white/[0.06] text-xs text-zinc-400 border border-white/[0.06]">
+                          <span className="px-3 py-1.5 rounded-lg bg-white/[0.06] text-xs text-zinc-400 border border-white/[0.08]">
                             {item.resolution}
                           </span>
                         )}
                         {item.klingMode && (
-                          <span className="px-3 py-1 rounded-full bg-white/[0.06] text-xs text-zinc-400 border border-white/[0.06]">
+                          <span className="px-3 py-1.5 rounded-lg bg-white/[0.06] text-xs text-zinc-400 border border-white/[0.08]">
                             {item.klingMode === 'pro' ? '1080p' : '720p'}
                           </span>
                         )}
                         {item.duration && (
-                          <span className="px-3 py-1 rounded-full bg-white/[0.06] text-xs text-zinc-400 border border-white/[0.06]">{item.duration}</span>
+                          <span className="px-3 py-1.5 rounded-lg bg-white/[0.06] text-xs text-zinc-400 border border-white/[0.08]">{item.duration}</span>
                         )}
+                        <span className="flex items-center gap-1 sm:gap-1.5 ml-auto">
+                          <button
+                            type="button"
+                            onClick={() => handleEditTask(item)}
+                            className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg sm:rounded-xl bg-white/[0.04] text-zinc-500 hover:bg-white/[0.08] border border-white/[0.08] flex items-center justify-center transition-colors"
+                            title="编辑：带到下方输入框"
+                          >
+                            <Pencil className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleCreate(item)}
+                            disabled={isSubmitting}
+                            className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg sm:rounded-xl bg-white/[0.04] text-zinc-500 hover:bg-white/[0.08] border border-white/[0.08] flex items-center justify-center transition-colors disabled:opacity-50"
+                            title="再次生成"
+                          >
+                            <RefreshCw className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                          </button>
+                        </span>
                       </div>
                     </div>
-                    <div className="flex-1 min-h-[260px] flex flex-col justify-center">
-                      <div className="w-full max-w-full mx-auto rounded-2xl ring-1 ring-white/[0.08] bg-zinc-950 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.6),0_0_60px_-15px_rgba(45,212,191,0.1)] flex flex-col overflow-hidden">
+                    <div className="shrink-0 mt-1.5 sm:mt-2 min-h-0">
+                      <div className="w-full max-w-full mx-auto rounded-2xl ring-1 ring-white/[0.08] bg-zinc-950/95 shadow-xl flex flex-col overflow-hidden">
                         {failed ? (
-                          <div className="aspect-video max-h-[min(48vh,480px)] flex flex-col items-center justify-center gap-3 bg-zinc-900/90 px-6 rounded-2xl">
+                          <div className="aspect-video max-h-[min(56vh,500px)] lg:max-h-[min(48vh,480px)] flex flex-col items-center justify-center gap-3 bg-zinc-900/90 px-6 rounded-2xl">
                             <p className="text-sm text-red-400/90 text-center">{item.errorMessage || '生成失败'}</p>
                             <button
                               type="button"
                               onClick={() => void handleRetryTask(item)}
                               disabled={isSubmitting}
-                              className="h-9 px-4 rounded-xl bg-white/[0.1] text-sm text-zinc-200 hover:bg-white/[0.15] border border-white/[0.08]"
+                              className="h-9 px-4 rounded-xl bg-white/[0.06] text-sm text-zinc-300 hover:bg-white/[0.1] border border-white/[0.08] transition-colors"
                             >
                               重试
                             </button>
                           </div>
                         ) : submitted ? (
-                          <div className="aspect-video max-h-[min(48vh,480px)] flex flex-col items-center justify-center gap-3 bg-zinc-900/90 px-6 rounded-2xl border border-teal-500/20">
+                          <div className="aspect-video max-h-[min(56vh,500px)] lg:max-h-[min(48vh,480px)] flex flex-col items-center justify-center gap-3 bg-zinc-900/90 px-6 rounded-2xl border border-teal-500/20">
                             <p className="text-sm text-teal-400/90 text-center font-medium">任务已提交上游</p>
                             {item.remoteTaskId && (
                               <p className="text-xs text-zinc-500 font-mono break-all text-center">task_id: {item.remoteTaskId}</p>
@@ -969,12 +1056,12 @@ export default function AIVideoPage() {
                             <p className="text-xs text-zinc-400 text-center leading-relaxed max-w-md">
                               {item.errorMessage}
                             </p>
-                            <p className="text-[11px] text-zinc-600 text-center">
+                            <p className="text-xs text-zinc-500 text-center">
                               成片由上游 POST 到你在服务端配置的 callback_url；若需本页自动出视频，请在 .env 配置 AIGC_TASK_QUERY_URL。
                             </p>
                           </div>
                         ) : gen ? (
-                          <div className="aspect-video max-h-[min(48vh,480px)] flex items-center justify-center bg-zinc-900/80 w-full overflow-hidden rounded-2xl">
+                          <div className="aspect-video max-h-[min(56vh,500px)] lg:max-h-[min(48vh,480px)] flex items-center justify-center bg-zinc-900/80 w-full overflow-hidden rounded-2xl">
                             <div className="flex flex-col items-center gap-3 text-teal-400">
                               <Loader2 className="w-12 h-12 animate-spin opacity-90" />
                               <span className="text-sm text-zinc-400">生成中，可关闭页面稍后查看历史</span>
@@ -987,23 +1074,12 @@ export default function AIVideoPage() {
                               poster={item.thumbnailUrl}
                               controls
                               playsInline
-                              className="w-full max-h-[min(48vh,480px)] bg-black object-contain"
+                              className="w-full max-h-[min(56vh,500px)] lg:max-h-[min(48vh,480px)] bg-black object-contain rounded-2xl"
                             />
-                            <div className="flex shrink-0 items-center gap-1.5 flex-wrap justify-end px-2 sm:px-3 py-2.5 border-t border-white/[0.08] bg-zinc-950/95 rounded-b-2xl">
-                              <button
-                                type="button"
-                                onClick={() => handleCreate(item)}
-                                disabled={isSubmitting}
-                                className="flex items-center gap-1.5 h-8 px-2.5 sm:px-3 rounded-xl bg-white/[0.08] text-zinc-300 hover:bg-white/[0.12] text-xs border border-white/[0.06] disabled:opacity-50"
-                              >
-                                <RefreshCw className="w-3.5 h-3.5" />
-                                再次生成
-                              </button>
-                            </div>
                           </div>
                         ) : (
                           <>
-                            <div className="relative w-full aspect-video max-h-[min(48vh,480px)] bg-black overflow-hidden rounded-t-2xl shrink-0">
+                            <div className="relative w-full aspect-video max-h-[min(56vh,500px)] lg:max-h-[min(48vh,480px)] bg-black overflow-hidden rounded-t-2xl shrink-0">
                               <img src={item.thumbnailUrl} alt="" className="w-full h-full object-contain" />
                               <button
                                 type="button"
@@ -1035,21 +1111,8 @@ export default function AIVideoPage() {
                                 className="flex-1 min-w-[72px] h-1 rounded-full appearance-none bg-zinc-700/80 accent-teal-400 cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-teal-400 [&::-webkit-slider-thumb]:shadow-[0_0_8px_rgba(45,212,191,0.5)]"
                               />
                               <span className="text-xs text-zinc-500 tabular-nums flex-shrink-0 w-8">{formatTime(dur)}</span>
-                              <div className="flex items-center gap-1.5 flex-shrink-0 w-full sm:w-auto sm:ml-auto justify-end">
-                                <button type="button" className="flex items-center gap-1.5 h-8 px-2.5 sm:px-3 rounded-xl bg-white/[0.08] text-zinc-300 hover:bg-white/[0.12] text-xs border border-white/[0.06]">
-                                  <Pencil className="w-3.5 h-3.5" />
-                                  重新编辑
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleCreate(item)}
-                                  disabled={isSubmitting}
-                                  className="flex items-center gap-1.5 h-8 px-2.5 sm:px-3 rounded-xl bg-white/[0.08] text-zinc-300 hover:bg-white/[0.12] text-xs border border-white/[0.06] disabled:opacity-50"
-                                >
-                                  <RefreshCw className="w-3.5 h-3.5" />
-                                  再次生成
-                                </button>
-                                <button type="button" className="h-8 w-8 rounded-xl bg-white/[0.08] text-zinc-400 hover:bg-white/[0.12] border border-white/[0.06] flex items-center justify-center flex-shrink-0">
+                              <div className="flex items-center flex-shrink-0 w-full sm:w-auto sm:ml-auto justify-end">
+                                <button type="button" className="h-8 w-8 rounded-xl bg-white/[0.04] text-zinc-500 hover:bg-white/[0.08] border border-white/[0.08] flex items-center justify-center transition-colors" title="更多">
                                   <MoreVertical className="w-3.5 h-3.5" />
                                 </button>
                               </div>
@@ -1059,7 +1122,7 @@ export default function AIVideoPage() {
                       </div>
                     </div>
                     {showDailyScrollHint && newestId === item.id && (
-                      <p className="shrink-0 text-center text-[11px] text-zinc-500 mt-3 pb-1">
+                      <p className="shrink-0 text-center text-xs text-zinc-500 mt-2 sm:mt-3 pb-1">
                         上下滑动切换任务
                       </p>
                     )}
@@ -1070,7 +1133,7 @@ export default function AIVideoPage() {
           </div>
 
           {/* 悬浮输入层：上滑浏览历史时收起的胶囊条 / 默认展开大面板 */}
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 flex flex-col items-center px-0 pb-3 pt-8 bg-gradient-to-t from-[#0c0e12] via-[#0c0e12]/95 to-transparent">
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 flex flex-col items-center px-2 sm:px-0 pb-2 sm:pb-3 pt-6 sm:pt-8 bg-gradient-to-t from-[#0c0e12] via-[#0c0e12]/95 to-transparent">
             {inputBarCollapsed && generatedList.length > 0 && (
               <div className="pointer-events-auto flex flex-col items-end w-full max-w-2xl px-1 mb-1">
                 <button
@@ -1084,10 +1147,10 @@ export default function AIVideoPage() {
               </div>
             )}
             <div
-              className={`pointer-events-auto w-full border ring-1 ring-white/[0.06] backdrop-blur-2xl ${
+              className={`pointer-events-auto w-full border border-white/[0.08] ring-1 ring-white/[0.06] backdrop-blur-2xl ${
                 inputBarCollapsed && generatedList.length > 0
-                  ? 'max-w-2xl rounded-full border-white/[0.14] bg-[#161a22]/95 shadow-xl px-2 py-1.5'
-                  : 'rounded-2xl border-white/[0.12] bg-[#0e1118]/90 shadow-[0_-12px_48px_rgba(0,0,0,0.55)] overflow-hidden'
+                  ? 'max-w-2xl rounded-2xl border-white/[0.08] bg-[#0e1118]/95 shadow-xl px-2 sm:px-3 py-1.5 sm:py-2'
+                  : 'rounded-xl sm:rounded-2xl bg-[#0e1118]/95 shadow-xl overflow-hidden'
               }`}
             >
               {inputBarCollapsed && generatedList.length > 0 ? (
@@ -1120,8 +1183,8 @@ export default function AIVideoPage() {
               ) : (
                 <div className="p-3 sm:p-4 space-y-3">
                   <div className="overflow-hidden">
-                    <div className="flex gap-2.5 px-0 pt-0 pb-3 flex-wrap items-center">
-                      <button type="button" className="w-14 h-14 flex-shrink-0 rounded-xl bg-white/[0.06] text-zinc-400 hover:text-teal-400 hover:bg-teal-500/10 text-xs flex flex-col items-center justify-center gap-0.5 border border-white/[0.06] transition-all">
+                    <div className="flex gap-2 sm:gap-2.5 px-0 pt-0 pb-2 sm:pb-3 flex-wrap items-center">
+                      <button type="button" className="w-12 h-12 sm:w-14 sm:h-14 flex-shrink-0 rounded-xl bg-white/[0.04] text-zinc-500 hover:text-teal-400 hover:bg-teal-500/10 text-xs flex flex-col items-center justify-center gap-0.5 border border-white/[0.08] transition-colors">
                         <Plus className="w-4 h-4" />
                         特效
                       </button>
@@ -1138,12 +1201,13 @@ export default function AIVideoPage() {
                             return;
                           }
                           setReferenceImages((prev) => {
+                            const maxNew = REFERENCE_IMAGE_MAX - referenceImageUrls.length;
                             const next = [...prev];
                             for (const f of files) {
-                              if (next.length >= REFERENCE_IMAGE_MAX) break;
+                              if (next.length >= maxNew) break;
                               next.push({ file: f, previewUrl: URL.createObjectURL(f) });
                             }
-                            return next.slice(0, REFERENCE_IMAGE_MAX);
+                            return next.slice(0, maxNew);
                           });
                           e.target.value = '';
                         }}
@@ -1151,23 +1215,40 @@ export default function AIVideoPage() {
                       <button
                         type="button"
                         onClick={() => referenceInputRef.current?.click()}
-                        disabled={referenceImages.length >= REFERENCE_IMAGE_MAX}
-                        className={`w-14 h-14 flex-shrink-0 rounded-xl text-xs flex flex-col items-center justify-center gap-0.5 border transition-all disabled:opacity-50 ${
-                          referenceImages.length > 0
+                        disabled={referenceImages.length + referenceImageUrls.length >= REFERENCE_IMAGE_MAX}
+                        className={`w-12 h-12 sm:w-14 sm:h-14 flex-shrink-0 rounded-xl text-xs flex flex-col items-center justify-center gap-0.5 border transition-colors disabled:opacity-50 ${
+                          referenceImages.length > 0 || referenceImageUrls.length > 0
                             ? 'bg-teal-500/15 text-teal-400 border-teal-500/30'
-                            : 'bg-white/[0.06] text-zinc-400 hover:text-teal-400 hover:bg-teal-500/10 border-white/[0.06]'
+                            : 'bg-white/[0.04] text-zinc-500 hover:text-teal-400 hover:bg-teal-500/10 border-white/[0.08]'
                         }`}
                         title="选择参考图后为图生图模式，最多 7 张"
                       >
                         <ImagePlus className="w-4 h-4" />
                         参考
                       </button>
+                      {referenceImageUrls.map((url, idx) => (
+                        <div key={`url-${idx}`} className="relative flex-shrink-0">
+                          <img
+                            src={url}
+                            alt={`参考图 ${idx + 1}`}
+                            className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg sm:rounded-xl object-cover border border-white/[0.08] ring-1 ring-white/[0.04]"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setReferenceImageUrls((prev) => prev.filter((_, i) => i !== idx))}
+                            className="absolute -top-1 -right-1 w-6 h-6 rounded-lg bg-zinc-800/95 border border-white/[0.12] flex items-center justify-center text-zinc-300 hover:bg-red-500/20 hover:text-red-400 transition-colors"
+                            title="移除参考图"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
                       {referenceImages.map((r, idx) => (
                         <div key={idx} className="relative flex-shrink-0">
                           <img
                             src={r.previewUrl}
                             alt={`参考图 ${idx + 1}`}
-                            className="w-14 h-14 rounded-xl object-cover border border-white/[0.08]"
+                            className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg sm:rounded-xl object-cover border border-white/[0.08] ring-1 ring-white/[0.04]"
                           />
                           <button
                             type="button"
@@ -1175,7 +1256,7 @@ export default function AIVideoPage() {
                               URL.revokeObjectURL(r.previewUrl);
                               setReferenceImages((prev) => prev.filter((_, i) => i !== idx));
                             }}
-                            className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-zinc-800 border border-white/20 flex items-center justify-center text-zinc-300 hover:bg-red-500/20 hover:text-red-400 transition-colors"
+                            className="absolute -top-1 -right-1 w-6 h-6 rounded-lg bg-zinc-800/95 border border-white/[0.12] flex items-center justify-center text-zinc-300 hover:bg-red-500/20 hover:text-red-400 transition-colors"
                             title="移除参考图"
                           >
                             <X className="w-3 h-3" />
@@ -1191,13 +1272,13 @@ export default function AIVideoPage() {
                       maxLength={2500}
                     />
                   </div>
-                  <div className="flex items-center justify-between flex-wrap gap-3 pt-1 border-t border-white/[0.06]">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-[11px] text-zinc-500 shrink-0 hidden sm:inline">Kling O1</span>
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 pt-2 sm:pt-1 border-t border-white/[0.06]">
+                    <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap order-2 sm:order-1">
+                      <span className="text-xs text-zinc-500 shrink-0 hidden sm:inline">Kling O1</span>
                       <select
                         value={klingAspectRatio}
                         onChange={(e) => setKlingAspectRatio(e.target.value as (typeof KLING_ASPECT)[number])}
-                        className="h-9 px-2 rounded-xl border border-white/[0.08] bg-white/[0.05] text-zinc-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30"
+                        className="h-9 px-3 rounded-xl border border-white/[0.08] bg-white/[0.04] text-zinc-300 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 transition-colors"
                         title="画幅 → 请求 parameters.aspect_ratio（与 Postman/curl 一致）"
                       >
                         {KLING_ASPECT.map((a) => (
@@ -1209,7 +1290,7 @@ export default function AIVideoPage() {
                       <select
                         value={klingDuration}
                         onChange={(e) => setKlingDuration(e.target.value as (typeof KLING_DURATION)[number])}
-                        className="h-9 px-2 rounded-xl border border-white/[0.08] bg-white/[0.05] text-zinc-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30"
+                        className="h-9 px-3 rounded-xl border border-white/[0.08] bg-white/[0.04] text-zinc-300 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 transition-colors"
                         title="时长(秒)"
                       >
                         {KLING_DURATION.map((d) => (
@@ -1221,7 +1302,7 @@ export default function AIVideoPage() {
                       <select
                         value={klingMode}
                         onChange={(e) => setKlingMode(e.target.value as (typeof KLING_MODE)[number])}
-                        className="h-9 px-2 rounded-xl border border-white/[0.08] bg-white/[0.05] text-zinc-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30"
+                        className="h-9 px-3 rounded-xl border border-white/[0.08] bg-white/[0.04] text-zinc-300 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 transition-colors"
                         title="模式"
                       >
                         <option value="std">720p</option>
@@ -1236,20 +1317,21 @@ export default function AIVideoPage() {
                           setKlingMode('std');
                           referenceImages.forEach((r) => URL.revokeObjectURL(r.previewUrl));
                           setReferenceImages([]);
+                          setReferenceImageUrls([]);
                         }}
-                        className="h-9 w-9 rounded-xl border border-white/[0.08] bg-white/[0.05] text-zinc-500 hover:text-zinc-300 flex items-center justify-center transition-colors"
+                        className="h-9 w-9 rounded-xl border border-white/[0.08] bg-white/[0.04] text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.06] flex items-center justify-center transition-colors"
                         title="恢复输入框到默认"
                       >
                         <RefreshCw className="w-4 h-4" />
                       </button>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center justify-between sm:justify-end gap-2 order-1 sm:order-2">
                       <span className="text-xs text-zinc-600 tabular-nums">{prompt.length}/2500</span>
                       <button
                         type="button"
                         onClick={() => void handleCreate()}
                         disabled={isSubmitting || !prompt.trim()}
-                        className="h-10 px-6 rounded-xl bg-teal-500 hover:bg-teal-400 disabled:opacity-50 text-zinc-950 font-semibold text-sm flex items-center gap-2 shadow-lg shadow-teal-500/25 transition-all hover:shadow-teal-500/35"
+                        className="h-10 min-w-[88px] sm:min-w-0 px-4 sm:px-6 rounded-xl bg-teal-500 hover:bg-teal-400 disabled:opacity-50 text-zinc-950 font-semibold text-sm flex items-center justify-center gap-2 shadow-lg shadow-teal-500/20 transition-colors"
                       >
                         {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                         生成
@@ -1263,16 +1345,22 @@ export default function AIVideoPage() {
         </div>
       </main>
 
-      <aside className="w-72 flex-shrink-0 border-l border-white/[0.06] flex flex-col min-h-0 bg-[#0a0c10]">
-        <div className="px-2.5 py-2.5 border-b border-white/[0.06] flex-shrink-0 space-y-2">
-          <div className="flex rounded-lg bg-white/[0.04] p-0.5 border border-white/[0.06]">
+      {/* 右侧：小屏为抽屉，lg 及以上为常驻 */}
+      <aside
+        className={`fixed lg:relative right-0 top-12 sm:top-[52px] lg:top-0 bottom-0 z-40 lg:z-auto w-72 max-w-[85vw] lg:w-56 xl:w-72 lg:max-w-none flex-shrink-0 flex flex-col min-h-0 border-l border-white/[0.08] bg-[#0a0c10] transition-transform duration-200 ease-out ${
+          rightDrawerOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'
+        }`}
+      >
+        <div className="px-3 py-3 border-b border-white/[0.08] flex-shrink-0 space-y-3 flex flex-col">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex rounded-xl bg-white/[0.04] p-1 border border-white/[0.08] flex-1 min-w-0">
             <button
               type="button"
               onClick={() => setRightPanelMode('history')}
-              className={`flex-1 flex items-center justify-center gap-1 h-8 rounded-md text-[11px] font-medium transition-colors ${
+              className={`flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg text-xs font-medium transition-colors ${
                 rightPanelMode === 'history'
-                  ? 'bg-white/[0.1] text-zinc-100 shadow-sm'
-                  : 'text-zinc-500 hover:text-zinc-300'
+                  ? 'bg-white/[0.08] text-zinc-100'
+                  : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.04]'
               }`}
             >
               <Clock className="w-3.5 h-3.5" />
@@ -1281,18 +1369,28 @@ export default function AIVideoPage() {
             <button
               type="button"
               onClick={() => setRightPanelMode('assets')}
-              className={`flex-1 flex items-center justify-center gap-1 h-8 rounded-md text-[11px] font-medium transition-colors ${
+              className={`flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg text-xs font-medium transition-colors ${
                 rightPanelMode === 'assets'
-                  ? 'bg-white/[0.1] text-zinc-100 shadow-sm'
-                  : 'text-zinc-500 hover:text-zinc-300'
+                  ? 'bg-white/[0.08] text-zinc-100'
+                  : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.04]'
               }`}
             >
               <FolderOpen className="w-3.5 h-3.5" />
               资产
             </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => setRightDrawerOpen(false)}
+              className="lg:hidden h-8 w-8 rounded-lg bg-white/[0.04] text-zinc-500 hover:bg-white/[0.08] border border-white/[0.08] flex items-center justify-center shrink-0"
+              title="收起"
+              aria-label="收起历史栏"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
           {rightPanelMode === 'assets' && (
-            <p className="text-[10px] text-zinc-600 leading-relaxed px-0.5">
+            <p className="text-xs text-zinc-500 leading-relaxed px-0.5">
               拖拽缩略图到桌面或应用；复制链接可粘贴到剪贴板。
             </p>
           )}
@@ -1304,22 +1402,24 @@ export default function AIVideoPage() {
                 value={historySearch}
                 onChange={(e) => setHistorySearch(e.target.value)}
                 placeholder={rightPanelMode === 'assets' ? '搜索资产…' : '搜索'}
-                className="w-full h-9 pl-9 pr-3 rounded-xl border border-white/[0.08] bg-white/[0.04] text-zinc-200 placeholder-zinc-600 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+                className="w-full h-9 pl-9 pr-3 rounded-xl border border-white/[0.08] bg-white/[0.04] text-zinc-300 placeholder-zinc-500 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 transition-colors"
               />
             </div>
-            <button type="button" className="h-9 w-9 rounded-xl border border-white/[0.08] bg-white/[0.04] text-zinc-500 hover:text-zinc-300 flex items-center justify-center shrink-0" title="日期">
+            <button type="button" className="h-9 w-9 rounded-xl border border-white/[0.08] bg-white/[0.04] text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.06] flex items-center justify-center shrink-0 transition-colors" title="日期">
               <Calendar className="w-4 h-4" />
             </button>
           </div>
-          <button
-            type="button"
-            onClick={handleLoadHistory}
-            className="w-full h-8 rounded-lg border border-white/[0.08] bg-white/[0.03] text-[11px] font-medium text-zinc-500 hover:text-teal-400 hover:bg-teal-500/5 transition-colors"
-          >
-            加载历史
-          </button>
+          {generatedList.length === 0 && (
+            <button
+              type="button"
+              onClick={handleLoadHistory}
+              className="w-full h-8 rounded-xl border border-white/[0.08] bg-white/[0.04] text-xs font-medium text-zinc-500 hover:text-teal-400 hover:bg-teal-500/10 transition-colors"
+            >
+              加载历史
+            </button>
+          )}
         </div>
-        <div className="flex-1 min-h-0 overflow-y-auto sidebar-scrollbar px-2 py-2">
+        <div className="flex-1 min-h-0 overflow-y-auto sidebar-scrollbar px-3 py-3">
           {generatedList.length === 0 ? (
             <div className="text-center py-10 px-2 space-y-3">
               <p className="text-zinc-600 text-xs">暂无记录</p>
@@ -1345,11 +1445,12 @@ export default function AIVideoPage() {
                       onClick={() => {
                         setSelectedId(item.id);
                         scrollTaskIntoView(item.id);
+                        setRightDrawerOpen(false);
                       }}
-                      className={`relative w-full rounded-xl overflow-hidden text-left ${
+                      className={`relative w-full rounded-xl overflow-hidden text-left transition-colors ${
                         isActive
-                          ? 'bg-teal-500/10 ring-2 ring-teal-400/55 shadow-[0_0_28px_-8px_rgba(45,212,191,0.35)]'
-                          : 'bg-white/[0.02] hover:bg-white/[0.05] ring-1 ring-transparent hover:ring-white/[0.06]'
+                          ? 'bg-teal-500/10 ring-2 ring-teal-400/50'
+                          : 'bg-white/[0.04] hover:bg-white/[0.06] ring-1 ring-white/[0.08] hover:ring-white/[0.1]'
                       }`}
                     >
                       <div className="aspect-video bg-zinc-800 relative">
@@ -1360,9 +1461,9 @@ export default function AIVideoPage() {
                         ) : null}
                         <img src={item.thumbnailUrl} alt="" className="w-full h-full object-cover" />
                       </div>
-                      <div className="p-2.5 pl-3">
+                      <div className="p-3">
                         <p className="text-xs text-zinc-300 line-clamp-2 leading-snug">{item.prompt}</p>
-                        <div className="flex items-center gap-2 mt-1.5 text-[10px] text-zinc-600">
+                        <div className="flex items-center gap-2 mt-2 text-xs text-zinc-500">
                           {item.modelTag && <span>{item.modelTag}</span>}
                           <span className="ml-auto">{timeAgo(item.createdAt)}</span>
                         </div>
@@ -1380,10 +1481,10 @@ export default function AIVideoPage() {
                 return (
                   <li key={item.id}>
                     <div
-                      className={`flex items-center gap-2 rounded-lg px-1 py-1.5 ${
+                      className={`flex items-center gap-2 rounded-xl px-2 py-2 transition-colors ${
                         isActive
-                          ? 'bg-teal-500/10 ring-2 ring-teal-400/50 shadow-[0_0_20px_-10px_rgba(45,212,191,0.3)]'
-                          : 'border border-transparent hover:bg-white/[0.04]'
+                          ? 'bg-teal-500/10 ring-2 ring-teal-400/50'
+                          : 'bg-white/[0.04] hover:bg-white/[0.06] ring-1 ring-transparent border border-transparent'
                       }`}
                     >
                       <button
@@ -1391,10 +1492,11 @@ export default function AIVideoPage() {
                         onClick={() => {
                           setSelectedId(item.id);
                           scrollTaskIntoView(item.id);
+                          setRightDrawerOpen(false);
                         }}
                         className="flex min-w-0 flex-1 items-center gap-2 text-left"
                       >
-                        <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-md bg-zinc-800 ring-1 ring-white/[0.06]">
+                        <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg bg-zinc-800 ring-1 ring-white/[0.08]">
                           {isGeneratingThis ? (
                             <div className="absolute inset-0 z-[1] flex items-center justify-center bg-black/50">
                               <Loader2 className="h-5 w-5 animate-spin text-teal-400" />
@@ -1414,8 +1516,8 @@ export default function AIVideoPage() {
                           />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-[11px] leading-tight text-zinc-300">{item.prompt}</p>
-                          <p className="mt-0.5 text-[10px] text-zinc-600">{timeAgo(item.createdAt)}</p>
+                          <p className="truncate text-xs leading-tight text-zinc-300">{item.prompt}</p>
+                          <p className="mt-0.5 text-xs text-zinc-500">{timeAgo(item.createdAt)}</p>
                         </div>
                       </button>
                       <div className="flex shrink-0 flex-col gap-0.5">
@@ -1426,7 +1528,7 @@ export default function AIVideoPage() {
                             e.stopPropagation();
                             copyAssetLink(item);
                           }}
-                          className="flex h-7 w-7 items-center justify-center rounded-md text-zinc-500 hover:bg-white/[0.08] hover:text-teal-400"
+                          className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-500 hover:bg-white/[0.08] hover:text-teal-400 transition-colors"
                         >
                           <Copy className="h-3.5 w-3.5" />
                         </button>
@@ -1437,14 +1539,14 @@ export default function AIVideoPage() {
                             e.stopPropagation();
                             downloadAssetThumb(item);
                           }}
-                          className="flex h-7 w-7 items-center justify-center rounded-md text-zinc-500 hover:bg-white/[0.08] hover:text-teal-400"
+                          className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-500 hover:bg-white/[0.08] hover:text-teal-400 transition-colors"
                         >
                           <Download className="h-3.5 w-3.5" />
                         </button>
                       </div>
                     </div>
                     {copiedId === item.id && (
-                      <p className="pr-1 pb-1 text-right text-[10px] text-teal-500/90">已复制链接</p>
+                      <p className="pr-1 pb-1 text-right text-xs text-teal-500/90">已复制链接</p>
                     )}
                   </li>
                 );
