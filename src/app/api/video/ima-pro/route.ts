@@ -140,6 +140,71 @@ function extractMediaFromDetail(payload: unknown): { videoUrl: string; thumbnail
   return { videoUrl, thumbnailUrl };
 }
 
+function extractMediaFromResultItemsAnywhere(payload: unknown): { videoUrl: string; thumbnailUrl: string } {
+  let videoUrl = '';
+  let thumbnailUrl = '';
+
+  const tryPickUrl = (rawUrl: unknown, rawType: unknown) => {
+    if (typeof rawUrl !== 'string') return;
+    const url = rawUrl.trim();
+    if (!url || !/^https?:\/\//i.test(url)) return;
+    const resultType = typeof rawType === 'string' ? rawType.toLowerCase() : '';
+
+    if (!videoUrl && (resultType === 'video' || looksLikeVideoUrl(url))) {
+      videoUrl = url;
+    }
+    if (!thumbnailUrl && (resultType === 'cover' || resultType === 'image' || looksLikeImageUrl(url))) {
+      thumbnailUrl = url;
+    }
+  };
+
+  const walk = (node: unknown, inheritedType = '') => {
+    if (!node || typeof node !== 'object') return;
+    if (videoUrl && thumbnailUrl) return;
+
+    if (Array.isArray(node)) {
+      for (const item of node) {
+        walk(item, inheritedType);
+        if (videoUrl && thumbnailUrl) return;
+      }
+      return;
+    }
+
+    const obj = node as Record<string, unknown>;
+    const currentType =
+      typeof obj.content_type === 'string' && obj.content_type.trim()
+        ? obj.content_type.toLowerCase()
+        : inheritedType;
+
+    if (Array.isArray(obj.result_items)) {
+      for (const item of obj.result_items) {
+        if (!item || typeof item !== 'object') continue;
+        const rec = item as Record<string, unknown>;
+        tryPickUrl(rec.url, rec.content_type ?? currentType);
+      }
+    }
+
+    if (Array.isArray(obj.list)) {
+      for (const item of obj.list) {
+        if (typeof item === 'string') {
+          tryPickUrl(item, currentType);
+        } else if (item && typeof item === 'object') {
+          const rec = item as Record<string, unknown>;
+          tryPickUrl(rec.url, rec.content_type ?? currentType);
+        }
+      }
+    }
+
+    for (const value of Object.values(obj)) {
+      walk(value, currentType);
+      if (videoUrl && thumbnailUrl) return;
+    }
+  };
+
+  walk(payload);
+  return { videoUrl, thumbnailUrl };
+}
+
 function findDeepString(payload: unknown, keys: string[], visited?: Set<unknown>): string {
   if (payload === null || payload === undefined) return '';
   const seen = visited ?? new Set<unknown>();
@@ -458,8 +523,17 @@ export async function GET(req: NextRequest) {
   }
 
   const mediaFromDetail = extractMediaFromDetail(raw);
-  const videoUrl = mediaFromDetail.videoUrl || findDeepUrl(raw, VIDEO_URL_KEYS) || '';
-  const thumbnailUrl = mediaFromDetail.thumbnailUrl || findDeepUrl(raw, THUMB_URL_KEYS) || '';
+  const mediaFromAnyResultItems = extractMediaFromResultItemsAnywhere(raw);
+  const videoUrl =
+    mediaFromDetail.videoUrl ||
+    mediaFromAnyResultItems.videoUrl ||
+    findDeepUrl(raw, VIDEO_URL_KEYS) ||
+    '';
+  const thumbnailUrl =
+    mediaFromDetail.thumbnailUrl ||
+    mediaFromAnyResultItems.thumbnailUrl ||
+    findDeepUrl(raw, THUMB_URL_KEYS) ||
+    '';
   const statusRaw = extractStatus(raw);
   const status = mapStatus(statusRaw, Boolean(videoUrl));
   const errorMessage = extractError(raw);

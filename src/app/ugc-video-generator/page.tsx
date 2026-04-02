@@ -1670,7 +1670,7 @@ function UGCVideoGeneratorPageContent() {
                           {activeFlow === 'image' ? imageTaskItems.length : videoTasks.length} {t.ugcVideoTaskCountUnit}
                         </span>
                       </div>
-                      <p className="mt-1 text-xs text-white/35">{activeFlow === 'image' ? t.ugcVideoTaskListImageHint : t.ugcVideoTaskListVideoHint}</p>
+                      <p className="mt-1 text-xs text-white/35 truncate">{activeFlow === 'image' ? t.ugcVideoTaskListImageHint : t.ugcVideoTaskListVideoHint}</p>
                     </div>
                     <div className="mb-3 flex rounded-2xl border border-white/10 bg-white/[0.03] p-1">
                       <button
