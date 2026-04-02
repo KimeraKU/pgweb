@@ -57,6 +57,7 @@ type VideoTask = {
   id: string;
   productName: string;
   sourceImageUrl: string;
+  referenceImageUrls?: string[];
   videoUrl?: string;
   coverUrl?: string;
   prompt: string;
@@ -147,6 +148,19 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function normalizeRemoteUrls(urls: Array<string | null | undefined>): string[] {
+  const seen = new Set<string>();
+  const next: string[] = [];
+  for (const raw of urls) {
+    const url = (raw || '').trim();
+    if (!/^https?:\/\//i.test(url)) continue;
+    if (seen.has(url)) continue;
+    seen.add(url);
+    next.push(url);
+  }
+  return next;
+}
+
 const VIDEO_POLL_MAX = 600;
 const IMAGE_POLL_MAX = 600;
 const IMAGE_POLL_INTERVAL_MS = 3000;
@@ -201,6 +215,7 @@ function UGCVideoGeneratorPageContent() {
   const [activeVideoTaskId, setActiveVideoTaskId] = useState<string | null>(null);
   const [imageStageHeight, setImageStageHeight] = useState<number | null>(null);
   const [historyHydrated, setHistoryHydrated] = useState(false);
+  const [videoSubmitInFlight, setVideoSubmitInFlight] = useState(false);
 
   const selectedModelPreset = MODEL_PRESETS.find((item) => item.id === modelPresetId) || MODEL_PRESETS[0];
   const selectedScenePreset = SCENE_PRESETS.find((item) => item.id === scenePresetId) || SCENE_PRESETS[0];
@@ -992,6 +1007,7 @@ function UGCVideoGeneratorPageContent() {
   };
 
   const confirmCandidate = async () => {
+    if (videoSubmitInFlight) return;
     if (!selectedCandidateId) return;
     const chosen = displayedCandidates.find((item) => item.id === selectedCandidateId);
     if (!chosen || !chosen.imageUrl) return;
@@ -1009,6 +1025,8 @@ function UGCVideoGeneratorPageContent() {
       window.alert(language === 'zh' ? '请先输入 Creative Prompt，再生成视频。' : 'Please enter a creative prompt before generating the video.');
       return;
     }
+
+    setVideoSubmitInFlight(true);
 
     const seedVideoPrompt = seedCreativePrompt;
     const taskId = `video-task-${Date.now()}`;
@@ -1163,11 +1181,13 @@ function UGCVideoGeneratorPageContent() {
             : task
         )
       );
+    } finally {
+      setVideoSubmitInFlight(false);
     }
   };
 
   const canSubmit = productName.trim().length > 0 && Boolean(productImageUrl);
-  const isVideoBusy = status === 'video_prompting' || status === 'video_reviewing' || status === 'video_generating';
+  const isVideoBusy = videoSubmitInFlight;
   const confirmedCandidate = imageCandidates.find((item) => item.id === confirmedCandidateId) || null;
   const canEnterVideoFlow = true;
   const activeImagePrompt = selectedCandidate?.prompt || imagePrompt;
