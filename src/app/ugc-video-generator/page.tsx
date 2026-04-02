@@ -44,6 +44,7 @@ type GeneratedCandidate = {
 type ImageGenerationRun = {
   id: string;
   createdAt: number;
+  creativePrompt: string;
   candidates: GeneratedCandidate[];
   status: Extract<TaskStatus, 'image_generating' | 'image_ready' | 'failed'>;
   selectedCandidateId: string | null;
@@ -214,6 +215,11 @@ function UGCVideoGeneratorPageContent() {
   const activePickerPresets = pickerOpen === 'model' ? MODEL_PRESETS : SCENE_PRESETS;
   const activePickerSelectedId = pickerOpen === 'model' ? (modelMode === 'preset' ? modelPresetId : null) : sceneMode === 'preset' ? scenePresetId : null;
   const creativePromptPlaceholder = t.ugcVideoCreativePromptPlaceholder;
+  const isUserCreativePrompt = (candidateValue: string, candidates: Array<{ prompt: string }>) => {
+    const next = candidateValue.trim();
+    if (!next) return false;
+    return !candidates.some((candidate) => candidate.prompt.trim() === next);
+  };
 
   useEffect(() => {
     return () => {
@@ -280,12 +286,19 @@ function UGCVideoGeneratorPageContent() {
       if (cancelled) return;
 
       if (snapshot) {
+        const allCandidates = snapshot.imageRuns.flatMap((run) => run.candidates);
+        if (isUserCreativePrompt(snapshot.creativePrompt || '', allCandidates)) {
+          setProductName(snapshot.creativePrompt);
+        }
         setImageRuns(snapshot.imageRuns);
         setVideoTasks(snapshot.videoTasks);
 
         const firstRun = snapshot.imageRuns[0];
         if (firstRun) {
           setActiveImageRunId(firstRun.id);
+          if (isUserCreativePrompt(firstRun.creativePrompt || '', firstRun.candidates)) {
+            setProductName((prev) => (prev.trim() ? prev : firstRun.creativePrompt || ''));
+          }
           const candidateId = firstRun.selectedCandidateId || firstRun.candidates[0]?.id || null;
           setSelectedCandidateId(candidateId);
 
@@ -300,7 +313,6 @@ function UGCVideoGeneratorPageContent() {
         const firstVideoTask = snapshot.videoTasks[0];
         if (firstVideoTask) {
           setActiveVideoTaskId(firstVideoTask.id);
-          setProductName((prev) => (prev.trim() ? prev : firstVideoTask.productName || ''));
         }
       }
 
@@ -317,11 +329,11 @@ function UGCVideoGeneratorPageContent() {
     if (!historyHydrated) return;
 
     const timer = window.setTimeout(() => {
-      void saveUGCVideoHistory({ imageRuns, videoTasks });
+      void saveUGCVideoHistory({ creativePrompt: productName, imageRuns, videoTasks });
     }, 300);
 
     return () => window.clearTimeout(timer);
-  }, [historyHydrated, imageRuns, videoTasks]);
+  }, [historyHydrated, productName, imageRuns, videoTasks]);
 
   const handleLocalUpload = (
     file: File | undefined,
@@ -609,6 +621,7 @@ function UGCVideoGeneratorPageContent() {
   const generateCandidates = async () => {
     if (!productName.trim() || !productImageUrl || !productImageFile) return;
     let runId = '';
+    const sourceCreativePrompt = productName.trim();
 
     setActiveFlow('image');
     setStatus('image_generating');
@@ -638,6 +651,7 @@ function UGCVideoGeneratorPageContent() {
         {
           id: runId,
           createdAt: Date.now(),
+          creativePrompt: sourceCreativePrompt,
           candidates: pendingCandidates,
           status: 'image_generating',
           selectedCandidateId: pendingCandidates[0].id,
@@ -966,13 +980,19 @@ function UGCVideoGeneratorPageContent() {
     const chosen = displayedCandidates.find((item) => item.id === selectedCandidateId);
     if (!chosen || !chosen.imageUrl) return;
 
+    const selectedRun =
+      imageRuns.find((run) => run.id === activeImageRunId) ||
+      imageRuns.find((run) => run.candidates.some((candidate) => candidate.id === selectedCandidateId));
     const seedCreativePrompt =
+      selectedRun?.creativePrompt?.trim() ||
       productName.trim() ||
       activeVideoTask?.productName?.trim() ||
       videoTasks.find((task) => task.productName?.trim())?.productName?.trim() ||
-      imagePrompt.trim() ||
-      chosen.prompt.trim() ||
-      (language === 'zh' ? '商品展示视频' : 'Product showcase video');
+      '';
+    if (!seedCreativePrompt) {
+      window.alert(language === 'zh' ? '请先输入 Creative Prompt，再生成视频。' : 'Please enter a creative prompt before generating the video.');
+      return;
+    }
 
     const seedVideoPrompt = seedCreativePrompt;
     const taskId = `video-task-${Date.now()}`;
@@ -1167,6 +1187,9 @@ function UGCVideoGeneratorPageContent() {
     const run = imageRuns.find((item) => item.id === runId);
     if (!run) return;
     setActiveImageRunId(runId);
+    if (isUserCreativePrompt(run.creativePrompt || '', run.candidates)) {
+      setProductName(run.creativePrompt);
+    }
     setSelectedCandidateId(run.selectedCandidateId || run.candidates[0]?.id || null);
     const promptCandidate =
       run.candidates.find((item) => item.id === run.selectedCandidateId && item.prompt) ||
@@ -1640,14 +1663,14 @@ function UGCVideoGeneratorPageContent() {
                   style={imageStageHeight ? { height: imageStageHeight } : undefined}
                 >
                   <div className="flex h-full flex-col">
-                    <div className="mb-3 flex items-center justify-between">
-                      <div>
+                    <div className="mb-3">
+                      <div className="flex items-center gap-2">
                         <h2 className="text-lg font-semibold">{t.ugcVideoTaskList}</h2>
-                        <p className="mt-1 text-xs text-white/35">{activeFlow === 'image' ? t.ugcVideoTaskListImageHint : t.ugcVideoTaskListVideoHint}</p>
+                        <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs text-white/45">
+                          {activeFlow === 'image' ? imageTaskItems.length : videoTasks.length} {t.ugcVideoTaskCountUnit}
+                        </span>
                       </div>
-                      <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs text-white/45">
-                        {activeFlow === 'image' ? imageTaskItems.length : videoTasks.length} {t.ugcVideoTaskCountUnit}
-                      </span>
+                      <p className="mt-1 text-xs text-white/35">{activeFlow === 'image' ? t.ugcVideoTaskListImageHint : t.ugcVideoTaskListVideoHint}</p>
                     </div>
                     <div className="mb-3 flex rounded-2xl border border-white/10 bg-white/[0.03] p-1">
                       <button

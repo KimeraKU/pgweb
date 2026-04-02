@@ -27,6 +27,7 @@ export interface PersistedGeneratedCandidate {
 export interface PersistedImageGenerationRun {
   id: string;
   createdAt: number;
+  creativePrompt: string;
   candidates: PersistedGeneratedCandidate[];
   status: ImageRunStatus;
   selectedCandidateId: string | null;
@@ -49,6 +50,7 @@ export interface PersistedVideoTask {
 }
 
 export interface UGCVideoHistorySnapshot {
+  creativePrompt: string;
   imageRuns: PersistedImageGenerationRun[];
   videoTasks: PersistedVideoTask[];
 }
@@ -98,10 +100,12 @@ function transactionDone(tx: IDBTransaction): Promise<void> {
 }
 
 function normalizeSnapshot(input: UGCVideoHistorySnapshot): UGCVideoHistorySnapshot {
+  const creativePrompt = typeof input.creativePrompt === 'string' ? input.creativePrompt : '';
   const imageRuns = input.imageRuns
     .slice(0, MAX_IMAGE_RUNS)
     .map((run) => ({
       ...run,
+      creativePrompt: typeof run.creativePrompt === 'string' ? run.creativePrompt : '',
       candidates: run.candidates.slice(0, 8).map((candidate) => ({
         ...candidate,
         imageUrl: isBlobUrl(candidate.imageUrl) ? undefined : candidate.imageUrl,
@@ -118,13 +122,13 @@ function normalizeSnapshot(input: UGCVideoHistorySnapshot): UGCVideoHistorySnaps
     }))
     .filter((task) => task.sourceImageUrl.length > 0);
 
-  return { imageRuns, videoTasks };
+  return { creativePrompt, imageRuns, videoTasks };
 }
 
 function parseSnapshot(raw: unknown): UGCVideoHistorySnapshot | null {
   if (!raw || typeof raw !== 'object') return null;
 
-  const record = raw as { imageRuns?: unknown; videoTasks?: unknown };
+  const record = raw as { creativePrompt?: unknown; imageRuns?: unknown; videoTasks?: unknown };
   if (!Array.isArray(record.imageRuns) || !Array.isArray(record.videoTasks)) return null;
 
   const candidateStatusSet: CandidateStatus[] = ['pending', 'success', 'failed'];
@@ -160,6 +164,7 @@ function parseSnapshot(raw: unknown): UGCVideoHistorySnapshot | null {
       return {
         id: typeof run.id === 'string' ? run.id : '',
         createdAt: typeof run.createdAt === 'number' ? run.createdAt : Date.now(),
+        creativePrompt: typeof run.creativePrompt === 'string' ? run.creativePrompt : '',
         candidates,
         status: imageRunStatusSet.includes(status as ImageRunStatus) ? (status as ImageRunStatus) : 'failed',
         selectedCandidateId: typeof run.selectedCandidateId === 'string' ? run.selectedCandidateId : null,
@@ -189,7 +194,11 @@ function parseSnapshot(raw: unknown): UGCVideoHistorySnapshot | null {
     })
     .filter((task) => task.id.length > 0);
 
-  return normalizeSnapshot({ imageRuns, videoTasks });
+  return normalizeSnapshot({
+    creativePrompt: typeof record.creativePrompt === 'string' ? record.creativePrompt : '',
+    imageRuns,
+    videoTasks,
+  });
 }
 
 export async function loadUGCVideoHistory(): Promise<UGCVideoHistorySnapshot | null> {
