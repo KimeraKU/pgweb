@@ -40,6 +40,7 @@ export interface PersistedVideoTask {
   id: string;
   productName: string;
   sourceImageUrl: string;
+  referenceImageUrls?: string[];
   videoUrl?: string;
   coverUrl?: string;
   prompt: string;
@@ -117,6 +118,9 @@ function normalizeSnapshot(input: UGCVideoHistorySnapshot): UGCVideoHistorySnaps
     .map((task) => ({
       ...task,
       sourceImageUrl: isBlobUrl(task.sourceImageUrl) ? '' : task.sourceImageUrl,
+      referenceImageUrls: Array.isArray(task.referenceImageUrls)
+        ? task.referenceImageUrls.filter((url) => typeof url === 'string' && url.length > 0 && !isBlobUrl(url))
+        : undefined,
       coverUrl: isBlobUrl(task.coverUrl) ? undefined : task.coverUrl,
       videoUrl: isBlobUrl(task.videoUrl) ? undefined : task.videoUrl,
     }))
@@ -183,6 +187,9 @@ function parseSnapshot(raw: unknown): UGCVideoHistorySnapshot | null {
         id: typeof task.id === 'string' ? task.id : '',
         productName: typeof task.productName === 'string' ? task.productName : '',
         sourceImageUrl: typeof task.sourceImageUrl === 'string' ? task.sourceImageUrl : '',
+        referenceImageUrls: Array.isArray(task.referenceImageUrls)
+          ? task.referenceImageUrls.filter((url): url is string => typeof url === 'string' && url.length > 0)
+          : undefined,
         videoUrl: typeof task.videoUrl === 'string' ? task.videoUrl : undefined,
         coverUrl: typeof task.coverUrl === 'string' ? task.coverUrl : undefined,
         prompt: typeof task.prompt === 'string' ? task.prompt : '',

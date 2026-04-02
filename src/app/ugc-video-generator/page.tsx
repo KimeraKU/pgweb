@@ -204,7 +204,6 @@ function UGCVideoGeneratorPageContent() {
   const [imageRuns, setImageRuns] = useState<ImageGenerationRun[]>([]);
   const [activeImageRunId, setActiveImageRunId] = useState<string | null>(null);
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
-  const [confirmedCandidateId, setConfirmedCandidateId] = useState<string | null>(null);
   const [activeFlow, setActiveFlow] = useState<FlowStep>('image');
   const [imagePrompt, setImagePrompt] = useState('');
   const [videoPrompt, setVideoPrompt] = useState('');
@@ -652,7 +651,6 @@ function UGCVideoGeneratorPageContent() {
     setStatus('image_generating');
     setImageCandidates([]);
     setSelectedCandidateId(null);
-    setConfirmedCandidateId(null);
     setVideoUrl(null);
     setVideoPrompt('');
     setImageError(null);
@@ -1006,43 +1004,48 @@ function UGCVideoGeneratorPageContent() {
     startVideoTaskPolling(task.id, task.remoteTaskId);
   };
 
-  const confirmCandidate = async () => {
+  const submitVideoTask = async (options: {
+    seedCreativePrompt: string;
+    seedVideoPrompt: string;
+    sourceImageUrl: string;
+    referenceImageUrls?: string[];
+    reusePrompt: boolean;
+  }) => {
     if (videoSubmitInFlight) return;
-    if (!selectedCandidateId) return;
-    const chosen = displayedCandidates.find((item) => item.id === selectedCandidateId);
-    if (!chosen || !chosen.imageUrl) return;
 
-    const selectedRun =
-      imageRuns.find((run) => run.id === activeImageRunId) ||
-      imageRuns.find((run) => run.candidates.some((candidate) => candidate.id === selectedCandidateId));
-    const seedCreativePrompt =
-      selectedRun?.creativePrompt?.trim() ||
-      productName.trim() ||
-      activeVideoTask?.productName?.trim() ||
-      videoTasks.find((task) => task.productName?.trim())?.productName?.trim() ||
-      '';
+    const seedCreativePrompt = options.seedCreativePrompt.trim();
+    const seedVideoPrompt = options.seedVideoPrompt.trim();
+    const sourceImageUrl = options.sourceImageUrl.trim();
+
     if (!seedCreativePrompt) {
       window.alert(language === 'zh' ? '请先输入 Creative Prompt，再生成视频。' : 'Please enter a creative prompt before generating the video.');
       return;
     }
+    if (!sourceImageUrl) {
+      window.alert(language === 'zh' ? '当前视频任务缺少参考图，无法重新生成。' : 'This video task is missing a source image and cannot be regenerated.');
+      return;
+    }
 
-    setVideoSubmitInFlight(true);
-
-    const seedVideoPrompt = seedCreativePrompt;
+    const baseReferenceImageUrls = normalizeRemoteUrls(
+      options.referenceImageUrls && options.referenceImageUrls.length > 0
+        ? options.referenceImageUrls
+        : [sourceImageUrl]
+    );
     const taskId = `video-task-${Date.now()}`;
     const pendingTask: VideoTask = {
       id: taskId,
       productName: seedCreativePrompt,
-      sourceImageUrl: chosen.imageUrl,
-      coverUrl: chosen.imageUrl,
+      sourceImageUrl,
+      referenceImageUrls: baseReferenceImageUrls,
+      coverUrl: sourceImageUrl,
       prompt: seedVideoPrompt,
       status: 'video_prompting',
       createdAt: Date.now(),
     };
 
+    setVideoSubmitInFlight(true);
     setProductName((prev) => (prev.trim() ? prev : seedCreativePrompt));
     setVideoPrompt(seedVideoPrompt);
-    setConfirmedCandidateId(chosen.id);
     setActiveVideoTaskId(taskId);
     setActiveFlow('video');
     setStatus('video_prompting');
@@ -1050,7 +1053,13 @@ function UGCVideoGeneratorPageContent() {
     setVideoTasks((prev) => [pendingTask, ...prev].slice(0, 20));
 
     try {
-      const currentVideoPrompt = await refineVideoPrompt(seedCreativePrompt);
+      const currentVideoPrompt = options.reusePrompt
+        ? seedVideoPrompt
+        : await refineVideoPrompt(seedCreativePrompt);
+      if (!currentVideoPrompt.trim()) {
+        throw new Error('视频 Prompt 为空，无法提交任务');
+      }
+
       setVideoPrompt(currentVideoPrompt);
       setVideoTasks((prev) =>
         prev.map((task) =>
@@ -1070,8 +1079,8 @@ function UGCVideoGeneratorPageContent() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          image_url: chosen.imageUrl,
-          name: `ugc-candidate-${chosen.id}`,
+          image_url: sourceImageUrl,
+          name: `ugc-candidate-${taskId}`,
         }),
       });
       const reviewJson = (await reviewRes.json()) as {
@@ -1097,23 +1106,32 @@ function UGCVideoGeneratorPageContent() {
       }
 
       setStatus('video_generating');
+
+      let referenceImageUrls =
+        baseReferenceImageUrls.length > 0 ? [...baseReferenceImageUrls] : [sourceImageUrl];
+      if (!options.referenceImageUrls || options.referenceImageUrls.length === 0) {
+        const productReferenceUrl = await resolveProductReferenceUrl();
+        if (productReferenceUrl && !referenceImageUrls.includes(productReferenceUrl)) {
+          referenceImageUrls.push(productReferenceUrl);
+        }
+      }
+      referenceImageUrls = normalizeRemoteUrls(referenceImageUrls);
+      if (referenceImageUrls.length === 0) {
+        referenceImageUrls = [sourceImageUrl];
+      }
+
       setVideoTasks((prev) =>
         prev.map((task) =>
           task.id === taskId
             ? {
                 ...task,
                 status: 'video_generating',
+                referenceImageUrls,
                 errorMessage: undefined,
               }
             : task
         )
       );
-
-      const referenceImageUrls = [chosen.imageUrl];
-      const productReferenceUrl = await resolveProductReferenceUrl();
-      if (productReferenceUrl && !referenceImageUrls.includes(productReferenceUrl)) {
-        referenceImageUrls.push(productReferenceUrl);
-      }
 
       const res = await fetch('/api/video/ima-pro', {
         method: 'POST',
@@ -1186,9 +1204,63 @@ function UGCVideoGeneratorPageContent() {
     }
   };
 
+  const confirmCandidate = async () => {
+    if (!selectedCandidateId) return;
+    const chosen = displayedCandidates.find((item) => item.id === selectedCandidateId);
+    if (!chosen || !chosen.imageUrl) return;
+
+    const selectedRun =
+      imageRuns.find((run) => run.id === activeImageRunId) ||
+      imageRuns.find((run) => run.candidates.some((candidate) => candidate.id === selectedCandidateId));
+    const seedCreativePrompt =
+      selectedRun?.creativePrompt?.trim() ||
+      productName.trim() ||
+      activeVideoTask?.productName?.trim() ||
+      videoTasks.find((task) => task.productName?.trim())?.productName?.trim() ||
+      '';
+    await submitVideoTask({
+      seedCreativePrompt,
+      seedVideoPrompt: seedCreativePrompt,
+      sourceImageUrl: chosen.imageUrl,
+      reusePrompt: false,
+    });
+  };
+
+  const regenerateVideoTask = async () => {
+    if (!activeVideoTask) return;
+
+    const seedCreativePrompt =
+      activeVideoTask.productName?.trim() ||
+      productName.trim();
+    const sourceImageUrl = activeVideoTask.sourceImageUrl?.trim();
+    const seedVideoPrompt =
+      activeVideoTask.prompt?.trim() ||
+      videoPrompt.trim();
+
+    if (!seedVideoPrompt) {
+      window.alert(language === 'zh' ? '当前视频任务缺少 Prompt，无法重新生成。' : 'This video task is missing a prompt and cannot be regenerated.');
+      return;
+    }
+
+    await submitVideoTask({
+      seedCreativePrompt,
+      seedVideoPrompt,
+      sourceImageUrl: sourceImageUrl || '',
+      referenceImageUrls:
+        activeVideoTask.referenceImageUrls && activeVideoTask.referenceImageUrls.length > 0
+          ? activeVideoTask.referenceImageUrls
+          : sourceImageUrl
+          ? [sourceImageUrl]
+          : [],
+      reusePrompt: true,
+    });
+  };
+
   const canSubmit = productName.trim().length > 0 && Boolean(productImageUrl);
   const isVideoBusy = videoSubmitInFlight;
-  const confirmedCandidate = imageCandidates.find((item) => item.id === confirmedCandidateId) || null;
+  const canRegenerateVideoTask = Boolean(
+    activeVideoTask?.sourceImageUrl && (activeVideoTask?.prompt?.trim() || videoPrompt.trim())
+  );
   const canEnterVideoFlow = true;
   const activeImagePrompt = selectedCandidate?.prompt || imagePrompt;
   const activeVideoPrompt = activeVideoTask?.prompt || videoPrompt;
@@ -1681,8 +1753,8 @@ function UGCVideoGeneratorPageContent() {
                         </button>
                         <button
                           type="button"
-                          onClick={confirmCandidate}
-                          disabled={!confirmedCandidate || isVideoBusy}
+                          onClick={regenerateVideoTask}
+                          disabled={!canRegenerateVideoTask || isVideoBusy}
                           className="inline-flex h-14 flex-1 items-center justify-center gap-2 rounded-2xl bg-cyan-400 px-5 text-sm font-semibold text-[#111114] disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           {isVideoBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Video className="h-4 w-4" />}
