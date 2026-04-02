@@ -8,8 +8,26 @@ const DEFAULT_GROUP_DESCRIPTION = 'UGC 视频生成图片审核分组';
 
 type JsonRecord = Record<string, unknown>;
 
+type UpstreamResponse = {
+  ok: boolean;
+  status: number;
+  payload: unknown;
+  text: string;
+  code: number;
+  message: string;
+};
+
 function asObject(value: unknown): JsonRecord | null {
   return value && typeof value === 'object' ? (value as JsonRecord) : null;
+}
+
+function toNumber(value: unknown, fallback = -1): number {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim()) {
+    const n = Number(value.trim());
+    if (Number.isFinite(n)) return n;
+  }
+  return fallback;
 }
 
 function pickResult(payload: unknown): JsonRecord | null {
@@ -20,15 +38,25 @@ function pickResult(payload: unknown): JsonRecord | null {
   return result;
 }
 
+function pickOuterCode(payload: unknown): number {
+  const root = asObject(payload);
+  if (!root) return -1;
+  return toNumber(root.code, -1);
+}
+
 function pickMessage(payload: unknown): string {
   const root = asObject(payload);
   if (!root) return '';
-  const message = typeof root.message === 'string' ? root.message.trim() : '';
-  if (message) return message;
+  const direct = typeof root.message === 'string' ? root.message.trim() : '';
+  if (direct) return direct;
+
   const data = asObject(root.data);
   const error = asObject(data?.Error) || asObject(data?.error);
-  const errorMessage = typeof error?.Message === 'string' ? error.Message.trim() : typeof error?.message === 'string' ? error.message.trim() : '';
-  return errorMessage;
+  const nested =
+    (typeof error?.Message === 'string' ? error.Message.trim() : '') ||
+    (typeof error?.message === 'string' ? error.message.trim() : '');
+  if (nested) return nested;
+  return '';
 }
 
 function normalizeStatus(status: unknown): 'Active' | 'Failed' | 'Processing' | 'Unknown' {
@@ -40,12 +68,20 @@ function normalizeStatus(status: unknown): 'Active' | 'Failed' | 'Processing' | 
   return 'Unknown';
 }
 
+function pickResultErrorMessage(result: JsonRecord | null): string {
+  const errorObj = asObject(result?.Error);
+  return (
+    (typeof errorObj?.Message === 'string' ? errorObj.Message.trim() : '') ||
+    (typeof errorObj?.message === 'string' ? errorObj.message.trim() : '')
+  );
+}
+
 async function doubaoPost(
   baseUrl: string,
   path: string,
   token: string,
   body: JsonRecord
-): Promise<{ ok: boolean; status: number; payload: unknown; text: string }> {
+): Promise<UpstreamResponse> {
   const res = await fetch(`${baseUrl}${path}`, {
     method: 'POST',
     headers: {
@@ -54,6 +90,7 @@ async function doubaoPost(
     },
     body: JSON.stringify(body),
   });
+
   const text = await res.text();
   let payload: unknown = text;
   try {
@@ -61,7 +98,23 @@ async function doubaoPost(
   } catch {
     // keep plain text
   }
-  return { ok: res.ok, status: res.status, payload, text };
+
+  const code = pickOuterCode(payload);
+  const message = pickMessage(payload) || text || res.statusText;
+
+  return {
+    ok: res.ok,
+    status: res.status,
+    payload,
+    text,
+    code,
+    message,
+  };
+}
+
+function responseIsSuccess(resp: UpstreamResponse): boolean {
+  // Doubao Asset 业务成功看外层 code=200；HTTP 可能也是 200。
+  return resp.ok && resp.code === 200;
 }
 
 async function ensureGroupId(baseUrl: string, token: string, projectName: string, uid: string): Promise<string> {
@@ -78,9 +131,10 @@ async function ensureGroupId(baseUrl: string, token: string, projectName: string
     project_name: projectName,
     uid,
   });
-  const createResult = pickResult(createRes.payload);
-  const createdId = typeof createResult?.Id === 'string' ? createResult.Id.trim() : '';
-  if (createRes.ok && createdId) return createdId;
+
+  const createdResult = pickResult(createRes.payload);
+  const createdId = typeof createdResult?.Id === 'string' ? createdResult.Id.trim() : '';
+  if (responseIsSuccess(createRes) && createdId) return createdId;
 
   const listRes = await doubaoPost(baseUrl, '/api/v1/doubao/asset/group/list', token, {
     filters: {
@@ -92,17 +146,20 @@ async function ensureGroupId(baseUrl: string, token: string, projectName: string
     project_name: projectName,
     uid,
   });
-  const listResult = pickResult(listRes.payload);
-  const items = Array.isArray(listResult?.Items) ? (listResult?.Items as unknown[]) : [];
-  const match = items
-    .map((item) => asObject(item))
-    .find((item) => item && typeof item.Name === 'string' && item.Name.trim() === groupName);
-  const listedId = match && typeof match.Id === 'string' ? match.Id.trim() : '';
-  if (listRes.ok && listedId) return listedId;
+
+  if (responseIsSuccess(listRes)) {
+    const listResult = pickResult(listRes.payload);
+    const items = Array.isArray(listResult?.Items) ? (listResult.Items as unknown[]) : [];
+    const match = items
+      .map((item) => asObject(item))
+      .find((item) => item && typeof item.Name === 'string' && item.Name.trim() === groupName);
+    const listedId = match && typeof match.Id === 'string' ? match.Id.trim() : '';
+    if (listedId) return listedId;
+  }
 
   throw new Error(
-    pickMessage(createRes.payload) ||
-      pickMessage(listRes.payload) ||
+    createRes.message ||
+      listRes.message ||
       '无法创建或获取 Doubao 资产审核分组，请检查 DOUBAO_ASSET_GROUP_ID/权限配置'
   );
 }
@@ -147,6 +204,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const groupId = await ensureGroupId(baseUrl, token, projectName, uid);
+
     const syncRes = await doubaoPost(baseUrl, '/api/v1/doubao/asset/sync/create', token, {
       group_id: groupId,
       url: imageUrl,
@@ -156,26 +214,23 @@ export async function POST(req: NextRequest) {
       uid,
     });
 
-    if (!syncRes.ok) {
+    // 网络层失败或业务层 code!=200 都按失败处理。
+    if (!responseIsSuccess(syncRes)) {
       return NextResponse.json(
         {
           passed: false,
           status: 'Failed',
-          reason: pickMessage(syncRes.payload) || `审核请求失败 (${syncRes.status})`,
+          reason: syncRes.message || `审核请求失败 (${syncRes.status})`,
           raw: process.env.NODE_ENV === 'development' ? syncRes.payload : undefined,
         },
-        { status: syncRes.status >= 400 ? syncRes.status : 502 }
+        { status: syncRes.ok ? 200 : syncRes.status >= 400 ? syncRes.status : 502 }
       );
     }
 
     const result = pickResult(syncRes.payload);
     const status = normalizeStatus(result?.Status);
     const assetId = typeof result?.Id === 'string' ? result.Id.trim() : '';
-    const errorObj = asObject(result?.Error);
-    const errorMessage =
-      (typeof errorObj?.Message === 'string' ? errorObj.Message.trim() : '') ||
-      (typeof errorObj?.message === 'string' ? errorObj.message.trim() : '') ||
-      pickMessage(syncRes.payload);
+    const errorMessage = pickResultErrorMessage(result) || syncRes.message;
 
     if (status === 'Active' && assetId) {
       return NextResponse.json({
@@ -183,6 +238,7 @@ export async function POST(req: NextRequest) {
         status,
         asset_id: assetId,
         asset_uri: `asset://${assetId}`,
+        group_id: groupId,
       });
     }
 
@@ -194,10 +250,11 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // sync/create 的等待窗口耗尽后可能仍是 Processing。
     return NextResponse.json({
       passed: false,
       status,
-      reason: status === 'Processing' ? '图片审核超时，当前仍在处理中，请稍后重试' : '图片审核未通过',
+      reason: status === 'Processing' ? '图片审核仍在处理中，请稍后重试' : '图片审核未通过',
       raw: process.env.NODE_ENV === 'development' ? syncRes.payload : undefined,
     });
   } catch (error) {
@@ -211,3 +268,4 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
