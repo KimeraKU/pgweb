@@ -19,6 +19,10 @@ import {
 } from 'lucide-react';
 import { LanguageProvider, useLanguage } from '@/contexts/language-context';
 import { Language } from '@/lib/i18n';
+import {
+  loadUGCVideoHistory,
+  saveUGCVideoHistory,
+} from '@/lib/ugc-video-history-idb';
 
 type AssetMode = 'none' | 'preset' | 'custom';
 type TaskStatus = 'draft' | 'image_generating' | 'image_ready' | 'image_confirmed' | 'video_prompting' | 'video_reviewing' | 'video_generating' | 'submitted' | 'completed' | 'failed';
@@ -186,6 +190,7 @@ function UGCVideoGeneratorPageContent() {
   const [videoTasks, setVideoTasks] = useState<VideoTask[]>([]);
   const [activeVideoTaskId, setActiveVideoTaskId] = useState<string | null>(null);
   const [imageStageHeight, setImageStageHeight] = useState<number | null>(null);
+  const [historyHydrated, setHistoryHydrated] = useState(false);
 
   const selectedModelPreset = MODEL_PRESETS.find((item) => item.id === modelPresetId) || MODEL_PRESETS[0];
   const selectedScenePreset = SCENE_PRESETS.find((item) => item.id === scenePresetId) || SCENE_PRESETS[0];
@@ -263,6 +268,56 @@ function UGCVideoGeneratorPageContent() {
     document.addEventListener('mousedown', onMouseDown);
     return () => document.removeEventListener('mousedown', onMouseDown);
   }, [pickerOpen]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const hydrateHistory = async () => {
+      const snapshot = await loadUGCVideoHistory();
+      if (cancelled) return;
+
+      if (snapshot) {
+        setImageRuns(snapshot.imageRuns);
+        setVideoTasks(snapshot.videoTasks);
+
+        const firstRun = snapshot.imageRuns[0];
+        if (firstRun) {
+          setActiveImageRunId(firstRun.id);
+          const candidateId = firstRun.selectedCandidateId || firstRun.candidates[0]?.id || null;
+          setSelectedCandidateId(candidateId);
+
+          const promptCandidate =
+            firstRun.candidates.find((item) => item.id === candidateId && item.prompt) ||
+            firstRun.candidates.find((item) => item.prompt);
+          if (promptCandidate?.prompt) {
+            setImagePrompt(promptCandidate.prompt);
+          }
+        }
+
+        const firstVideoTask = snapshot.videoTasks[0];
+        if (firstVideoTask) {
+          setActiveVideoTaskId(firstVideoTask.id);
+        }
+      }
+
+      setHistoryHydrated(true);
+    };
+
+    void hydrateHistory();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!historyHydrated) return;
+
+    const timer = window.setTimeout(() => {
+      void saveUGCVideoHistory({ imageRuns, videoTasks });
+    }, 300);
+
+    return () => window.clearTimeout(timer);
+  }, [historyHydrated, imageRuns, videoTasks]);
 
   const handleLocalUpload = (
     file: File | undefined,
