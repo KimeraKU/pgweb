@@ -147,6 +147,9 @@ function sleep(ms: number) {
 }
 
 const VIDEO_POLL_MAX = 600;
+const IMAGE_POLL_MAX = 600;
+const IMAGE_POLL_INTERVAL_MS = 3000;
+const IMAGE_QUERY_RETRY_LIMIT = 10;
 
 function UGCVideoGeneratorPageContent() {
   const { language, setLanguage, t } = useLanguage();
@@ -297,6 +300,7 @@ function UGCVideoGeneratorPageContent() {
         const firstVideoTask = snapshot.videoTasks[0];
         if (firstVideoTask) {
           setActiveVideoTaskId(firstVideoTask.id);
+          setProductName((prev) => (prev.trim() ? prev : firstVideoTask.productName || ''));
         }
       }
 
@@ -455,7 +459,7 @@ function UGCVideoGeneratorPageContent() {
   const waitForGeminiResult = async (idTask: string) => {
     await new Promise((resolve) => setTimeout(resolve, 2000));
     let transientErrors = 0;
-    for (let i = 0; i < 60; i += 1) {
+    for (let i = 0; i < IMAGE_POLL_MAX; i += 1) {
       try {
         const res = await fetch('/api/query-task', {
           method: 'POST',
@@ -465,27 +469,53 @@ function UGCVideoGeneratorPageContent() {
         const json = (await res.json()) as { status?: string; image_url?: string | null; error?: string };
         if (!res.ok) {
           transientErrors += 1;
-          if (transientErrors >= 3) throw new Error(json.error || '查询任务失败');
+          if (transientErrors >= IMAGE_QUERY_RETRY_LIMIT) {
+            await sleep(IMAGE_POLL_INTERVAL_MS);
+            continue;
+          }
           await sleep(1500);
           continue;
         }
         transientErrors = 0;
-        const statusText = (json.status || '').toLowerCase();
-        if (json.image_url && (statusText.includes('completed') || !statusText)) {
+        const statusText = (json.status || '').trim().toLowerCase();
+        const statusTokens = statusText.split(/[^a-z0-9]+/).filter(Boolean);
+        const failedTokens = new Set(['failed', 'fail', 'canceled', 'cancelled', 'cancel', 'aborted']);
+        const isFailedStatus =
+          statusText === 'error' ||
+          statusTokens.some((token) => failedTokens.has(token));
+        const isSuccessStatus =
+          statusText.includes('completed') ||
+          statusText.includes('succeeded') ||
+          statusText.includes('success') ||
+          statusText.includes('done') ||
+          statusText.includes('finished');
+        const isProcessingStatus =
+          statusText.includes('processing') ||
+          statusText.includes('pending') ||
+          statusText.includes('running') ||
+          statusText.includes('queue') ||
+          statusText.includes('wait') ||
+          statusText.includes('submitted') ||
+          statusText.includes('review');
+
+        // Some providers return "succeeded/success/done" instead of "completed".
+        // Only treat result URL as ready when status is success-like (or empty/unknown but non-processing).
+        if (json.image_url && (isSuccessStatus || (!statusText || !isProcessingStatus) && !isFailedStatus)) {
           return json.image_url;
         }
-        if (statusText.includes('failed')) {
+        if (isFailedStatus) {
           throw new Error('Gemini 3 Pro 生成失败');
         }
       } catch (error) {
         transientErrors += 1;
-        if (transientErrors >= 3) {
-          throw error instanceof Error ? error : new Error('查询任务失败');
+        if (transientErrors >= IMAGE_QUERY_RETRY_LIMIT) {
+          await sleep(IMAGE_POLL_INTERVAL_MS);
+          continue;
         }
       }
-      await new Promise((resolve) => setTimeout(resolve, 3000));
+      await new Promise((resolve) => setTimeout(resolve, IMAGE_POLL_INTERVAL_MS));
     }
-    throw new Error('Gemini 3 Pro 生成超时');
+    throw new Error('任务仍在处理中，请稍后再试');
   };
 
   const collectInputImages = async () => {
@@ -550,14 +580,14 @@ function UGCVideoGeneratorPageContent() {
     return uploadedUrl;
   };
 
-  const refineVideoPrompt = async () => {
+  const refineVideoPrompt = async (creativePromptSeed: string) => {
     let lastError = '视频提示词优化失败';
     for (let attempt = 0; attempt < 3; attempt += 1) {
       const res = await fetch('/api/ugc/refine-video-prompt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          creativePrompt: productName,
+          creativePrompt: creativePromptSeed,
           modelName: modelMode === 'preset' ? selectedModelPreset.name : modelMode === 'custom' ? t.ugcVideoCustomModel : '',
           sceneName: sceneMode === 'preset' ? selectedScenePreset.name : sceneMode === 'custom' ? t.ugcVideoCustomScene : '',
           aspectRatio: 'adaptive',
@@ -936,11 +966,19 @@ function UGCVideoGeneratorPageContent() {
     const chosen = displayedCandidates.find((item) => item.id === selectedCandidateId);
     if (!chosen || !chosen.imageUrl) return;
 
-    const seedVideoPrompt = productName;
+    const seedCreativePrompt =
+      productName.trim() ||
+      activeVideoTask?.productName?.trim() ||
+      videoTasks.find((task) => task.productName?.trim())?.productName?.trim() ||
+      imagePrompt.trim() ||
+      chosen.prompt.trim() ||
+      (language === 'zh' ? '商品展示视频' : 'Product showcase video');
+
+    const seedVideoPrompt = seedCreativePrompt;
     const taskId = `video-task-${Date.now()}`;
     const pendingTask: VideoTask = {
       id: taskId,
-      productName,
+      productName: seedCreativePrompt,
       sourceImageUrl: chosen.imageUrl,
       coverUrl: chosen.imageUrl,
       prompt: seedVideoPrompt,
@@ -948,6 +986,7 @@ function UGCVideoGeneratorPageContent() {
       createdAt: Date.now(),
     };
 
+    setProductName((prev) => (prev.trim() ? prev : seedCreativePrompt));
     setVideoPrompt(seedVideoPrompt);
     setConfirmedCandidateId(chosen.id);
     setActiveVideoTaskId(taskId);
@@ -957,7 +996,7 @@ function UGCVideoGeneratorPageContent() {
     setVideoTasks((prev) => [pendingTask, ...prev].slice(0, 20));
 
     try {
-      const currentVideoPrompt = await refineVideoPrompt();
+      const currentVideoPrompt = await refineVideoPrompt(seedCreativePrompt);
       setVideoPrompt(currentVideoPrompt);
       setVideoTasks((prev) =>
         prev.map((task) =>
