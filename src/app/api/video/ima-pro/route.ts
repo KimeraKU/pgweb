@@ -10,7 +10,6 @@ const DEFAULT_APP_KIND = 'imagent';
 const DEFAULT_CALLBACK_URL = 'http://47.89.173.41:22356';
 const DEFAULT_MODEL_VERSION_ID = 'ima-pro';
 
-const TASK_ID_KEYS = ['id_task', 'task_id', 'taskId', 'id', 'request_id', 'job_id', 'jobId', 'trace_id'];
 const VIDEO_URL_KEYS = ['video_url', 'videoUrl', 'output_url', 'result_url', 'video', 'preview_url'];
 const THUMB_URL_KEYS = ['cover_url', 'thumbnail_url', 'thumbnailUrl', 'poster_url', 'preview_image_url'];
 const STATUS_KEYS = ['task_status', 'status', 'state'];
@@ -237,7 +236,25 @@ function findDeepString(payload: unknown, keys: string[], visited?: Set<unknown>
 }
 
 function pickTaskId(payload: unknown): string {
-  return findDeepString(payload, TASK_ID_KEYS);
+  const primary = findDeepString(payload, [
+    'id_task',
+    'task_id',
+    'taskId',
+    'TaskId',
+    'job_id',
+    'jobId',
+    'Id',
+    'id',
+  ]);
+  if (primary && primary !== '0') return primary;
+
+  // Last-resort fallback only (these are often request-level ids, not task ids).
+  return findDeepString(payload, ['request_id', 'trace_id']);
+}
+
+function looksLikeRequestId(value: string): boolean {
+  const v = value.toLowerCase();
+  return v.includes('request') || v.includes('trace');
 }
 
 function findDeepUrl(payload: unknown, keys: string[], visited?: Set<unknown>): string {
@@ -429,10 +446,10 @@ export async function POST(req: NextRequest) {
   }
 
   const taskId = pickTaskId(raw);
-  if (!taskId) {
+  if (!taskId || looksLikeRequestId(taskId)) {
     return NextResponse.json(
       {
-        error: '上游未返回可识别的 task_id',
+        error: '上游未返回可识别的任务 task_id（疑似返回的是 request_id）',
         raw: process.env.NODE_ENV === 'development' ? raw : undefined,
       },
       { status: 502 }

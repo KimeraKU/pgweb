@@ -151,6 +151,12 @@ const VIDEO_POLL_MAX = 600;
 const IMAGE_POLL_MAX = 600;
 const IMAGE_POLL_INTERVAL_MS = 3000;
 const IMAGE_QUERY_RETRY_LIMIT = 10;
+const VIDEO_RESUMABLE_STATUS_SET = new Set<string>([
+  'video_prompting',
+  'video_reviewing',
+  'video_generating',
+  'submitted',
+]);
 
 function UGCVideoGeneratorPageContent() {
   const { language, setLanguage, t } = useLanguage();
@@ -314,6 +320,10 @@ function UGCVideoGeneratorPageContent() {
         if (firstVideoTask) {
           setActiveVideoTaskId(firstVideoTask.id);
         }
+
+        snapshot.videoTasks.forEach((task) => {
+          resumeVideoPollingIfNeeded(task);
+        });
       }
 
       setHistoryHydrated(true);
@@ -975,6 +985,12 @@ function UGCVideoGeneratorPageContent() {
     videoPollTimersRef.current.set(localTaskId, interval);
   };
 
+  const resumeVideoPollingIfNeeded = (task: VideoTask | null | undefined) => {
+    if (!task?.remoteTaskId) return;
+    if (!VIDEO_RESUMABLE_STATUS_SET.has(task.status)) return;
+    startVideoTaskPolling(task.id, task.remoteTaskId);
+  };
+
   const confirmCandidate = async () => {
     if (!selectedCandidateId) return;
     const chosen = displayedCandidates.find((item) => item.id === selectedCandidateId);
@@ -1223,6 +1239,7 @@ function UGCVideoGeneratorPageContent() {
     setVideoPrompt(task.prompt);
     setVideoUrl(task.videoUrl || null);
     setStatus(task.status);
+    resumeVideoPollingIfNeeded(task);
   };
 
   const toggleLanguage = () => {
