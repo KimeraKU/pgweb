@@ -129,7 +129,7 @@ export async function POST(req: NextRequest) {
 
   /** 与文生视频 curl 一致：未配置时使用默认回调与 user_id */
   const DEFAULT_CALLBACK_URL = 'http://47.89.173.41:22356';
-  const DEFAULT_USER_ID = '12343211';
+  const DEFAULT_USER_ID = 'pg001';
   const callbackUrl =
     (body.callback_url && String(body.callback_url).trim()) ||
     process.env.AIGC_CALLBACK_URL?.trim() ||
@@ -206,12 +206,12 @@ export async function POST(req: NextRequest) {
         tenant_id:
           (body.tenant_id && String(body.tenant_id).trim()) ||
           process.env.AIGC_TENANT_ID?.trim() ||
-          'arena',
+          'pgtest',
         user_id: userId,
         app_id:
           (body.app_id && String(body.app_id).trim()) ||
           process.env.AIGC_APP_ID?.trim() ||
-          'arena',
+          'phorogrid',
         app_kind: process.env.AIGC_APP_KIND?.trim() || 'imagent',
         aigc_category,
         callback_url: callbackUrl,
@@ -353,8 +353,17 @@ function extractFromArtfacePreview(root: Record<string, unknown>): { video_url: 
 }
 
 function extractTaskFields(data: Record<string, unknown>) {
+  // Artface 响应有三层嵌套：data（顶层）→ data.data（任务对象）→ data.data.data（参数）
   const root =
     typeof data.data === 'object' && data.data !== null ? (data.data as Record<string, unknown>) : data;
+  // data.data.data（第三层，含 kling 子对象）
+  const innerData =
+    typeof root.data === 'object' && root.data !== null ? (root.data as Record<string, unknown>) : null;
+  const klingObj =
+    innerData && typeof innerData.kling === 'object' && innerData.kling !== null
+      ? (innerData.kling as Record<string, unknown>)
+      : null;
+
   const statusRaw =
     takeStatusRaw(root) || takeStatusRaw(data) || '';
 
@@ -366,12 +375,21 @@ function extractTaskFields(data: Record<string, unknown>) {
     (typeof root.output === 'object' && root.output !== null
       ? takeFirstUrl(root.output as Record<string, unknown>, VIDEO_URL_KEYS)
       : '') ||
+    (klingObj && typeof klingObj.output === 'object' && klingObj.output !== null
+      ? takeFirstUrl(klingObj.output as Record<string, unknown>, VIDEO_URL_KEYS)
+      : '') ||
     findUrlDeep(data, VIDEO_URL_KEYS);
 
   const thumbnail_url =
     artface.thumbnail_url ||
     takeFirstUrl(root, THUMB_KEYS) ||
     takeFirstUrl(data, THUMB_KEYS) ||
+    (typeof root.output === 'object' && root.output !== null
+      ? takeFirstUrl(root.output as Record<string, unknown>, THUMB_KEYS)
+      : '') ||
+    (klingObj && typeof klingObj.output === 'object' && klingObj.output !== null
+      ? takeFirstUrl(klingObj.output as Record<string, unknown>, THUMB_KEYS)
+      : '') ||
     findUrlDeep(data, THUMB_KEYS);
 
   const error =
@@ -470,13 +488,14 @@ export async function GET(req: NextRequest) {
     'failed', 'error', 'cancelled', 'canceled', 'fail', '-1', '0',
   ].includes(statusRaw);
 
-  let status: 'processing' | 'succeeded' | 'failed' = 'processing';
+  let status: 'processing' | 'succeeded' | 'failed' | 'submitted' = 'processing';
   if (failed) status = 'failed';
-  else if (done && (video_url || thumbnail_url)) status = 'succeeded';
-  else if (done && !video_url && !thumbnail_url) status = 'processing';
+  // 只要拿到视频/封面 URL，不管 statusRaw 是什么值（含 activing）都视为成功
+  else if (video_url || thumbnail_url) status = 'succeeded';
+  else if (done && !video_url && !thumbnail_url) status = 'submitted';
 
   if (process.env.NODE_ENV === 'development' && status === 'processing' && statusRaw) {
-    console.warn('[kling-o1 poll] 可能已完成但未解析到视频/封面，上游响应:', JSON.stringify(data, null, 2));
+    console.log(`[kling-o1 poll] status=${statusRaw}，继续等待...`);
   }
 
   return NextResponse.json({
@@ -484,6 +503,10 @@ export async function GET(req: NextRequest) {
     video_url: video_url || null,
     thumbnail_url: thumbnail_url || null,
     error: error || null,
+    hint:
+      status === 'submitted'
+        ? '任务已提交上游，但查询接口未返回可播放地址；请通过 callback_url 接收结果或检查查询接口返回字段。'
+        : null,
     raw_status: statusRaw,
   });
 }

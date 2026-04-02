@@ -105,6 +105,8 @@ yarn dev
 
 **不想改 `.env` 时**：在 **`/ai-video` 顶栏「接口设置」** 填写 `callback_url`、`user_id` 等，配置保存在浏览器 **localStorage**（键 `ai-video-aigc-config-v1`），请求体优先于环境变量。轮询地址也可在弹窗里填（含 `{task_id}`），会通过查询参数 `poll_url` 传给 **`GET /api/video/kling-o1`**。
 
+**UI 规范（本页）**：交互状态与间距在 [`src/app/ai-video/page.tsx`](src/app/ai-video/page.tsx) 顶部以 `FV`、`uiInput`、`uiIconBtn`、`uiPrimary` 等常量收口；聚焦环统一为键盘 `focus-visible` + `teal-600`，主按钮为白边聚焦；设置弹窗支持 **`Esc` 关闭**、点击遮罩关闭。
+
 **`.env.local` 必填 / 建议（与页面二选一即可）：**
 
 | 变量 | 说明 |

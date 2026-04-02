@@ -144,6 +144,15 @@ export interface Translations {
   tryDifferentSearch: string;
   selectLayoutTemplate: string;
   selectLayoutTemplateHint: string;
+  starterTitle: string;
+  starterBlank: string;
+  starterBlankHint: string;
+  starterOpenImage: string;
+  starterOpenImageHint: string;
+  starterCollage: string;
+  starterCollageHint: string;
+  starterTemplate: string;
+  starterTemplateHint: string;
   cancel: string;
   changeImage: string;
   confirm: string;
@@ -180,6 +189,7 @@ export interface Translations {
     aiImageLike: string;
     aiImageDislike: string;
     aiVideoGenerator: string;
+    ugcVideoGenerator: string;
     aiVideoDragDrop: string;
     aiFilter: string;
     aiFilterDragDrop: string;
@@ -229,6 +239,71 @@ export interface Translations {
     aiRemovalPaintHint: string;
     aiRemovalHot: string;
     aiRemovalProcessing: string;
+    // UGC Video Generator
+    ugcVideoBackToEditor: string;
+    ugcVideoTitle: string;
+    ugcVideoStepImage: string;
+    ugcVideoStepVideo: string;
+    ugcVideoUploadProductImage: string;
+    ugcVideoUploadSupportFormats: string;
+    ugcVideoModel: string;
+    ugcVideoBackgroundLabel: string;
+    ugcVideoGenerateCount: string;
+    ugcVideoGenerateCountHint: string;
+    ugcVideoAspectRatio: string;
+    ugcVideoAspectRatioHint: string;
+    ugcVideoCreativePrompt: string;
+    ugcVideoCreativePromptPlaceholder: string;
+    ugcVideoGenerateSceneImage: string;
+    ugcVideoImageSkillRunning: string;
+    ugcVideoImageSkillEta: string;
+    ugcVideoCandidateFailed: string;
+    ugcVideoCandidateFailedHint: string;
+    ugcVideoVideoSkillRunning: string;
+    ugcVideoVideoSkillEta: string;
+    ugcVideoReviewingImage: string;
+    ugcVideoReviewingImageHint: string;
+    ugcVideoGeneratingVideo: string;
+    ugcVideoGeneratingVideoHint: string;
+    ugcVideoVideoTaskSubmitted: string;
+    ugcVideoVideoTaskSubmittedHint: string;
+    ugcVideoVideoFailed: string;
+    ugcVideoVideoFailedHint: string;
+    ugcVideoVideoPreview: string;
+    ugcVideoVideoPreviewHint: string;
+    ugcVideoViewPrompt: string;
+    ugcVideoRegenerate: string;
+    ugcVideoGenerate15sVideo: string;
+    ugcVideoRegenerateVideo: string;
+    ugcVideoTaskList: string;
+    ugcVideoTaskListImageHint: string;
+    ugcVideoTaskListVideoHint: string;
+    ugcVideoTaskCountUnit: string;
+    ugcVideoImageTab: string;
+    ugcVideoVideoTab: string;
+    ugcVideoNoVideoTasks: string;
+    ugcVideoTaskPrefix: string;
+    ugcVideoCandidatePrefix: string;
+    ugcVideoStatusDone: string;
+    ugcVideoStatusFailed: string;
+    ugcVideoStatusProcessing: string;
+    ugcVideoStatusSubmitted: string;
+    ugcVideoStatusReviewing: string;
+    ugcVideoStatusPrompting: string;
+    ugcVideoImagePromptTitle: string;
+    ugcVideoVideoPromptTitle: string;
+    ugcVideoImagePromptDesc: string;
+    ugcVideoVideoPromptDesc: string;
+    ugcVideoClose: string;
+    ugcVideoNoImagePrompt: string;
+    ugcVideoNoVideoPrompt: string;
+    ugcVideoSetNone: string;
+    ugcVideoPickerModel: string;
+    ugcVideoPickerScene: string;
+    ugcVideoCustomization: string;
+    ugcVideoCustomModel: string;
+    ugcVideoCustomScene: string;
+    ugcVideoNone: string;
   }
 
 const translations: Record<Language, Translations> = {
@@ -376,6 +451,15 @@ const translations: Record<Language, Translations> = {
     tryDifferentSearch: '尝试其他搜索词',
     selectLayoutTemplate: '选择布局模板',
     selectLayoutTemplateHint: '请在左侧 Layout 标签中选择一个布局模板来替换当前布局',
+    starterTitle: '选择开始方式',
+    starterBlank: '新建空白',
+    starterBlankHint: '从空白开始',
+    starterOpenImage: '打开图片',
+    starterOpenImageHint: '导入图片',
+    starterCollage: '新建拼图',
+    starterCollageHint: '选择布局',
+    starterTemplate: '打开模版',
+    starterTemplateHint: '选择模板',
     cancel: '取消',
     changeImage: '更换图片',
     confirm: '确认',
@@ -413,6 +497,7 @@ const translations: Record<Language, Translations> = {
     aiImageLike: '点赞',
     aiImageDislike: '点踩',
     aiVideoGenerator: 'AI 视频生成',
+    ugcVideoGenerator: 'UGC 应用视频生成',
     aiVideoDragDrop: '将文件拖放到此处',
     aiFilter: 'AI Filter',
     aiFilterDragDrop: '将文件拖放到此处',
@@ -460,6 +545,70 @@ const translations: Record<Language, Translations> = {
     aiRemovalPaintHint: 'Paint over the object to remove',
     aiRemovalHot: 'Hot',
     aiRemovalProcessing: '处理中...',
+    ugcVideoBackToEditor: '返回编辑器',
+    ugcVideoTitle: 'UGC 应用视频生成器',
+    ugcVideoStepImage: '生成模特场景图',
+    ugcVideoStepVideo: '生成商品展示视频',
+    ugcVideoUploadProductImage: '上传商品图片',
+    ugcVideoUploadSupportFormats: '支持 jpg / png / webp',
+    ugcVideoModel: '模特',
+    ugcVideoBackgroundLabel: '背景',
+    ugcVideoGenerateCount: '生成数量',
+    ugcVideoGenerateCountHint: '最多 4 张候选图',
+    ugcVideoAspectRatio: '比例',
+    ugcVideoAspectRatioHint: '用于控制商品图输出比例',
+    ugcVideoCreativePrompt: '创意提示词',
+    ugcVideoCreativePromptPlaceholder: '推荐填写：\n- App 名称\n- 核心卖点（1-3条）\n- 目标用户\n- 使用场景\n- 视频风格（口播/旁白）\n- 结尾引导语（CTA）',
+    ugcVideoGenerateSceneImage: '生成模特场景图',
+    ugcVideoImageSkillRunning: '正在调用virtual model identity skill',
+    ugcVideoImageSkillEta: '预计需要3分钟',
+    ugcVideoCandidateFailed: '候选图生成失败',
+    ugcVideoCandidateFailedHint: '请切换到其他候选图，或重新生成图片。',
+    ugcVideoVideoSkillRunning: '正在调用ugc app video generator_v2 skill',
+    ugcVideoVideoSkillEta: '预计需要7分钟',
+    ugcVideoReviewingImage: '图片审核中',
+    ugcVideoReviewingImageHint: '当前选中的图片正在审核，审核通过后会自动继续生成视频。',
+    ugcVideoGeneratingVideo: '商品视频生成中',
+    ugcVideoGeneratingVideoHint: '当前选中的视频任务正在处理中，请稍候。',
+    ugcVideoVideoTaskSubmitted: '视频任务已提交',
+    ugcVideoVideoTaskSubmittedHint: '任务已提交到上游，当前查询还没有返回可播放视频。',
+    ugcVideoVideoFailed: '商品视频生成失败',
+    ugcVideoVideoFailedHint: '请重新发起视频生成，或切换其他视频任务查看。',
+    ugcVideoVideoPreview: '商品视频展示区域',
+    ugcVideoVideoPreviewHint: '点击生成 15s 视频后，这里会直接展示当前视频任务结果。',
+    ugcVideoViewPrompt: '查看 Prompt',
+    ugcVideoRegenerate: '重新生成',
+    ugcVideoGenerate15sVideo: '生成 15s 视频',
+    ugcVideoRegenerateVideo: '重新生成视频',
+    ugcVideoTaskList: '任务列表',
+    ugcVideoTaskListImageHint: '每张候选图都会作为单独任务保留在这里',
+    ugcVideoTaskListVideoHint: '商品视频任务会保留在这里',
+    ugcVideoTaskCountUnit: '条',
+    ugcVideoImageTab: '商品场景图',
+    ugcVideoVideoTab: '商品视频',
+    ugcVideoNoVideoTasks: '生成视频后会在这里展示视频任务。',
+    ugcVideoTaskPrefix: '视频任务',
+    ugcVideoCandidatePrefix: '候选图',
+    ugcVideoStatusDone: '已完成',
+    ugcVideoStatusFailed: '失败',
+    ugcVideoStatusProcessing: '处理中',
+    ugcVideoStatusSubmitted: '已提交',
+    ugcVideoStatusReviewing: '审核中',
+    ugcVideoStatusPrompting: 'Prompt生成中',
+    ugcVideoImagePromptTitle: '图片 Prompt',
+    ugcVideoVideoPromptTitle: '视频 Prompt',
+    ugcVideoImagePromptDesc: '当前选中图片对应的最终生图 Prompt',
+    ugcVideoVideoPromptDesc: '当前视频流程使用的视频 Prompt',
+    ugcVideoClose: '关闭',
+    ugcVideoNoImagePrompt: '暂无图片 Prompt',
+    ugcVideoNoVideoPrompt: '暂无视频 Prompt',
+    ugcVideoSetNone: '设为无',
+    ugcVideoPickerModel: 'Model',
+    ugcVideoPickerScene: 'Scene',
+    ugcVideoCustomization: 'Customization',
+    ugcVideoCustomModel: '自定义模特',
+    ugcVideoCustomScene: '自定义场景',
+    ugcVideoNone: '无',
   },
   en: {
     // Header
@@ -605,6 +754,15 @@ const translations: Record<Language, Translations> = {
     tryDifferentSearch: 'Try a different search term',
     selectLayoutTemplate: 'Select Layout Template',
     selectLayoutTemplateHint: 'Please select a layout template from the Layout tab on the left to replace the current layout',
+    starterTitle: 'Choose how to start',
+    starterBlank: 'Blank canvas',
+    starterBlankHint: 'Start from blank',
+    starterOpenImage: 'Open image',
+    starterOpenImageHint: 'Import image',
+    starterCollage: 'Create collage',
+    starterCollageHint: 'Choose a layout',
+    starterTemplate: 'Open template',
+    starterTemplateHint: 'Choose a template',
     cancel: 'Cancel',
     changeImage: 'Change image',
     confirm: 'Confirm',
@@ -642,6 +800,7 @@ const translations: Record<Language, Translations> = {
     aiImageLike: 'Like',
     aiImageDislike: 'Dislike',
     aiVideoGenerator: 'AI Video Generator',
+    ugcVideoGenerator: 'UGC App Video Generator',
     aiVideoDragDrop: 'Drag and drop your files here',
     aiFilter: 'AI Filter',
     aiFilterDragDrop: 'Drag and drop your files here',
@@ -689,6 +848,70 @@ const translations: Record<Language, Translations> = {
     aiRemovalPaintHint: 'Paint over the object to remove',
     aiRemovalHot: 'Hot',
     aiRemovalProcessing: 'Processing...',
+    ugcVideoBackToEditor: 'Back to Editor',
+    ugcVideoTitle: 'UGC App Video Generator',
+    ugcVideoStepImage: 'Generate Model Scene Images',
+    ugcVideoStepVideo: 'Generate Product Showcase Videos',
+    ugcVideoUploadProductImage: 'Upload Product Image',
+    ugcVideoUploadSupportFormats: 'Supports jpg / png / webp',
+    ugcVideoModel: 'Model',
+    ugcVideoBackgroundLabel: 'Background',
+    ugcVideoGenerateCount: 'Generation Count',
+    ugcVideoGenerateCountHint: 'Up to 4 candidate images',
+    ugcVideoAspectRatio: 'Aspect Ratio',
+    ugcVideoAspectRatioHint: 'Used to control product image output ratio',
+    ugcVideoCreativePrompt: 'Creative Prompt',
+    ugcVideoCreativePromptPlaceholder: 'Recommended inputs:\n- App name\n- Core selling points (1-3)\n- Target users\n- Use scenarios\n- Video style (talking head/voice-over)\n- Ending CTA',
+    ugcVideoGenerateSceneImage: 'Generate Model Scene Images',
+    ugcVideoImageSkillRunning: 'Running virtual model identity skill',
+    ugcVideoImageSkillEta: 'Estimated time: 3 minutes',
+    ugcVideoCandidateFailed: 'Candidate image generation failed',
+    ugcVideoCandidateFailedHint: 'Please switch to another candidate image, or regenerate the image.',
+    ugcVideoVideoSkillRunning: 'Running ugc app video generator_v2 skill',
+    ugcVideoVideoSkillEta: 'Estimated time: 7 minutes',
+    ugcVideoReviewingImage: 'Image Under Review',
+    ugcVideoReviewingImageHint: 'The selected image is under review. Video generation will continue automatically after approval.',
+    ugcVideoGeneratingVideo: 'Product Video Generating',
+    ugcVideoGeneratingVideoHint: 'The selected video task is processing. Please wait.',
+    ugcVideoVideoTaskSubmitted: 'Video Task Submitted',
+    ugcVideoVideoTaskSubmittedHint: 'The task has been submitted upstream, but no playable video URL has returned yet.',
+    ugcVideoVideoFailed: 'Product Video Generation Failed',
+    ugcVideoVideoFailedHint: 'Please start video generation again, or switch to another video task.',
+    ugcVideoVideoPreview: 'Product Video Preview Area',
+    ugcVideoVideoPreviewHint: 'After clicking "Generate 15s Video", this area will show the current video task result.',
+    ugcVideoViewPrompt: 'View Prompt',
+    ugcVideoRegenerate: 'Regenerate',
+    ugcVideoGenerate15sVideo: 'Generate 15s Video',
+    ugcVideoRegenerateVideo: 'Regenerate Video',
+    ugcVideoTaskList: 'Task List',
+    ugcVideoTaskListImageHint: 'Each candidate image is kept here as an independent task',
+    ugcVideoTaskListVideoHint: 'Product video tasks are kept here',
+    ugcVideoTaskCountUnit: 'items',
+    ugcVideoImageTab: 'Product Scene Images',
+    ugcVideoVideoTab: 'Product Videos',
+    ugcVideoNoVideoTasks: 'Video tasks will appear here after generation.',
+    ugcVideoTaskPrefix: 'Video Task',
+    ugcVideoCandidatePrefix: 'Candidate',
+    ugcVideoStatusDone: 'Completed',
+    ugcVideoStatusFailed: 'Failed',
+    ugcVideoStatusProcessing: 'Processing',
+    ugcVideoStatusSubmitted: 'Submitted',
+    ugcVideoStatusReviewing: 'Reviewing',
+    ugcVideoStatusPrompting: 'Prompt generating',
+    ugcVideoImagePromptTitle: 'Image Prompt',
+    ugcVideoVideoPromptTitle: 'Video Prompt',
+    ugcVideoImagePromptDesc: 'Final image prompt for the selected image',
+    ugcVideoVideoPromptDesc: 'Video prompt used by the current video flow',
+    ugcVideoClose: 'Close',
+    ugcVideoNoImagePrompt: 'No image prompt available',
+    ugcVideoNoVideoPrompt: 'No video prompt available',
+    ugcVideoSetNone: 'Set none',
+    ugcVideoPickerModel: 'Model',
+    ugcVideoPickerScene: 'Scene',
+    ugcVideoCustomization: 'Customization',
+    ugcVideoCustomModel: 'Custom Model',
+    ugcVideoCustomScene: 'Custom Scene',
+    ugcVideoNone: 'None',
   },
 };
 

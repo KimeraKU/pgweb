@@ -2,9 +2,11 @@
 export const AIVIDEO_AIGC_STORAGE_KEY = 'ai-video-aigc-config-v1';
 
 /** 与文生视频 curl 一致，未配置时使用的默认值 */
-export const AIVIDEO_AIGC_DEFAULTS: Pick<AivideoAigcConfig, 'callback_url' | 'user_id'> = {
+export const AIVIDEO_AIGC_DEFAULTS: Pick<AivideoAigcConfig, 'callback_url' | 'user_id' | 'app_id' | 'tenant_id'> = {
   callback_url: 'http://47.89.173.41:22356',
-  user_id: '12343211',
+  user_id: 'pg001',
+  app_id: 'phorogrid',
+  tenant_id: 'pgtest',
 };
 
 export type AivideoAigcConfig = {
@@ -51,8 +53,8 @@ export function mergeAigcFormWithStored(form: Partial<AivideoAigcConfig>): Parti
   return {
     callback_url: pick(form.callback_url, s.callback_url, AIVIDEO_AIGC_DEFAULTS.callback_url),
     user_id: pick(form.user_id, s.user_id, AIVIDEO_AIGC_DEFAULTS.user_id),
-    app_id: pick(form.app_id, s.app_id),
-    tenant_id: pick(form.tenant_id, s.tenant_id),
+    app_id: pick(form.app_id, s.app_id, AIVIDEO_AIGC_DEFAULTS.app_id),
+    tenant_id: pick(form.tenant_id, s.tenant_id, AIVIDEO_AIGC_DEFAULTS.tenant_id),
     model_version_id: pick(form.model_version_id, s.model_version_id),
     task_query_url: pick(form.task_query_url, s.task_query_url),
     api_key: pick(form.api_key, s.api_key),

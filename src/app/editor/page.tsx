@@ -10,6 +10,7 @@ import { TabContent } from '@/components/editor/tab-content';
 import { EditorToolbar } from '@/components/editor/editor-toolbar';
 import { EditorCanvas } from '@/components/editor/editor-canvas';
 import { RightSidebar } from '@/components/editor/right-sidebar';
+import { generateLayoutTemplates } from '@/data/layout-templates';
 
 type SidebarTab =
   | 'apps'
@@ -27,6 +28,46 @@ const BACKGROUND_LAYER_ID = 'background-layer';
 
 /** 动态打开的 App Tab（如 AI 生图），可关闭 */
 export type OpenAppTab = { id: string; label: string };
+
+const DEFAULT_CANVAS_SIZE = { width: 1080, height: 1080 };
+
+const TEMPLATE_BACKGROUND_COLORS: Record<string, string> = {
+  'bg-blue-200': '#BFDBFE',
+  'bg-blue-300': '#93C5FD',
+  'bg-blue-400': '#60A5FA',
+  'bg-pink-200': '#FBCFE8',
+  'bg-pink-300': '#F9A8D4',
+  'bg-pink-400': '#F472B6',
+  'bg-gray-200': '#E5E7EB',
+  'bg-gray-300': '#D1D5DB',
+  'bg-gray-400': '#9CA3AF',
+  'bg-purple-200': '#DDD6FE',
+  'bg-purple-300': '#C4B5FD',
+  'bg-purple-400': '#A78BFA',
+  'bg-teal-200': '#99F6E4',
+  'bg-teal-300': '#5EEAD4',
+  'bg-teal-400': '#2DD4BF',
+  'bg-orange-200': '#FED7AA',
+  'bg-orange-300': '#FDBA74',
+  'bg-orange-400': '#FB923C',
+  'bg-yellow-200': '#FEF08A',
+  'bg-yellow-300': '#FDE047',
+  'bg-yellow-400': '#FACC15',
+  'bg-red-200': '#FECACA',
+  'bg-red-300': '#FCA5A5',
+  'bg-red-400': '#F87171',
+};
+
+const TEMPLATE_LAYOUT_CATEGORY_MAP: Record<string, string> = {
+  marketing: '2',
+  social: 'featured',
+  utility: '3',
+  art: '4',
+  'ai-filter': '4',
+  'ai-video': '3',
+  moments: '2',
+  festivals: 'featured',
+};
 
 /** Image Enhancer / Background remover 共用入口弹窗：无选中图时显示，可选上传或从画板选择；forApp 决定标题等文案 */
 function ImageEnhancerModal({
@@ -592,6 +633,9 @@ export default function EditorPage() {
   const [activeTool, setActiveTool] = useState<string | undefined>();
   const [selectedLayout, setSelectedLayout] = useState<any>(null);
   const [layers, setLayers] = useState<any[]>([]);
+  const [showCanvasStarter, setShowCanvasStarter] = useState(true);
+  const [pendingCanvasSetup, setPendingCanvasSetup] = useState<'collage' | null>(null);
+  const [guidedTab, setGuidedTab] = useState<'ratio' | 'layout' | 'templates' | null>(null);
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
   const [selectedLayerIds, setSelectedLayerIds] = useState<Set<string>>(new Set()); // 多选图层
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set()); // 展开的分组
@@ -637,10 +681,20 @@ export default function EditorPage() {
     setActiveTab(tab);
   };
 
+  useEffect(() => {
+    if (guidedTab && activeTab !== guidedTab) {
+      setGuidedTab(null);
+    }
+  }, [activeTab, guidedTab]);
+
   const router = useRouter();
   const handleOpenAppTab = (appId: string, label: string) => {
     if (appId === 'ai-video') {
       router.push('/ai-video');
+      return;
+    }
+    if (appId === 'ugc-video-generator') {
+      router.push('/ugc-video-generator');
       return;
     }
     if (appId === 'image-enhancer') {
@@ -1035,8 +1089,172 @@ export default function EditorPage() {
   };
 
   const handleCreateNew = () => {
-    console.log('Create new');
-    // 处理创建新项目逻辑
+    resetCanvasToBlank(true);
+    setCanvasSize(DEFAULT_CANVAS_SIZE);
+    setActiveTab('ratio');
+    setGuidedTab(null);
+  };
+
+  const resetCanvasToBlank = (showStarter = false) => {
+    setSelectedLayout(null);
+    setLayers([]);
+    setPendingCanvasSetup(null);
+    setShowCanvasStarter(showStarter);
+    if (showStarter) {
+      setGuidedTab(null);
+    }
+    setSelectedLayerId(showStarter ? null : BACKGROUND_LAYER_ID);
+    setSelectedLayerIds(new Set());
+    setBackgroundLayer((prev) => ({ ...prev, color: '#FFFFFF', imageUrl: undefined, gradient: undefined }));
+  };
+
+  const handleCreateBlankCanvas = () => {
+    resetCanvasToBlank(false);
+    setCanvasSize(DEFAULT_CANVAS_SIZE);
+    setIsLeftTabContentCollapsed(false);
+    setActiveTab('ratio');
+    setGuidedTab(null);
+  };
+
+  const handleOpenImageToCanvas = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      const objectUrl = URL.createObjectURL(file);
+      const img = new window.Image();
+      img.onload = () => {
+        const width = img.naturalWidth || DEFAULT_CANVAS_SIZE.width;
+        const height = img.naturalHeight || DEFAULT_CANVAS_SIZE.height;
+        resetCanvasToBlank(false);
+        setCanvasSize({ width, height });
+        const layerId = `image-${Date.now()}`;
+        setBackgroundLayer((prev) => ({
+          ...prev,
+          color: '#FFFFFF',
+          gradient: undefined,
+          imageUrl: undefined,
+        }));
+        setLayers([
+          {
+            id: layerId,
+            name: file.name || 'Image',
+            type: 'image' as const,
+            imageUrl: objectUrl,
+            visible: true,
+            locked: false,
+            zIndex: 0,
+            x: 0,
+            y: 0,
+            width: 100,
+            height: 100,
+          },
+        ]);
+        setSelectedLayerId(layerId);
+        setActiveTab('image');
+        setGuidedTab(null);
+      };
+      img.src = objectUrl;
+    };
+    input.click();
+  };
+
+  const handleCreateCollage = () => {
+    resetCanvasToBlank(false);
+    setCanvasSize(DEFAULT_CANVAS_SIZE);
+    setPendingCanvasSetup('collage');
+    setIsLeftTabContentCollapsed(false);
+    setActiveTab('layout');
+    setGuidedTab('layout');
+  };
+
+  const handleOpenTemplateToCanvas = () => {
+    resetCanvasToBlank(false);
+    setCanvasSize(DEFAULT_CANVAS_SIZE);
+    setIsLeftTabContentCollapsed(false);
+    setActiveTab('templates');
+    setGuidedTab('templates');
+  };
+
+  const handleTemplateSelect = (template: {
+    id: string;
+    label: string;
+    color: string;
+    badge: string | null;
+    categoryId: string;
+    categoryTitle: string;
+  }) => {
+    const layoutGroup = TEMPLATE_LAYOUT_CATEGORY_MAP[template.categoryId] || 'featured';
+    const layoutOptions = generateLayoutTemplates(layoutGroup);
+    const layoutIndex = template.id
+      .split('')
+      .reduce((sum, char) => sum + char.charCodeAt(0), 0) % Math.max(layoutOptions.length, 1);
+    const layout = layoutOptions[layoutIndex] || generateLayoutTemplates('featured')[0];
+    const layoutLayerId = `template-layout-${Date.now()}`;
+
+    resetCanvasToBlank(false);
+    setCanvasSize(DEFAULT_CANVAS_SIZE);
+    setSelectedLayout(layout);
+    setBackgroundLayer((prev) => ({
+      ...prev,
+      color: TEMPLATE_BACKGROUND_COLORS[template.color] || '#E5E7EB',
+      imageUrl: undefined,
+      gradient: undefined,
+    }));
+    setLayers([
+      {
+        id: `template-title-${Date.now()}`,
+        name: template.label,
+        type: 'text' as const,
+        text: template.label,
+        textStyle: 'text-gray-900',
+        fontSize: '42px',
+        fontWeight: '700',
+        visible: true,
+        locked: false,
+        zIndex: 0,
+        x: 8,
+        y: 8,
+        width: 56,
+        height: 12,
+      },
+      {
+        id: `template-subtitle-${Date.now()}`,
+        name: `${template.categoryTitle} Template`,
+        type: 'text' as const,
+        text: `${template.categoryTitle} Template`,
+        textStyle: 'text-gray-700',
+        fontSize: '18px',
+        fontWeight: '500',
+        visible: true,
+        locked: false,
+        zIndex: 1,
+        x: 8,
+        y: 20,
+        width: 48,
+        height: 8,
+      },
+      {
+        id: layoutLayerId,
+        name: template.label,
+        type: 'layout' as const,
+        layout: {
+          ...layout,
+          frames: layout.frames.map((frame: any) => ({ ...frame })),
+        },
+        visible: true,
+        locked: false,
+        zIndex: 2,
+        x: 8,
+        y: 32,
+        width: 84,
+        height: 56,
+      },
+    ]);
+    setSelectedLayerId(layoutLayerId);
+    setGuidedTab(null);
   };
 
   const handleUndo = () => {
@@ -1081,6 +1299,12 @@ export default function EditorPage() {
         layers={layers}
         onConfirm={openAiRemovalWithSource}
       />
+      {guidedTab && (
+        <div
+          className="fixed inset-0 left-20 bg-black/40 z-30"
+          onClick={() => setGuidedTab(null)}
+        />
+      )}
       {/* Layout 选择模式蒙层 - 覆盖左侧边栏以外的所有区域 */}
       {isLayoutSelectMode && (
         <div 
@@ -1097,7 +1321,7 @@ export default function EditorPage() {
         onRedo={handleRedo}
         onDownload={handleDownload}
         onUpgrade={handleUpgrade}
-        className={isLayoutSelectMode ? 'relative z-40' : ''}
+        className={isLayoutSelectMode || guidedTab ? 'relative z-40' : ''}
       />
 
       {/* 主编辑区域 */}
@@ -1108,64 +1332,80 @@ export default function EditorPage() {
           onTabChange={handleTabChange}
           openAppTabs={openAppTabs}
           onCloseAppTab={handleCloseAppTab}
-          highlightTab={isLayoutSelectMode ? 'layout' : undefined}
-          className={isLayoutSelectMode ? 'relative z-40' : ''}
+          highlightTab={isLayoutSelectMode ? 'layout' : guidedTab ?? undefined}
+          className={isLayoutSelectMode || guidedTab ? 'relative z-40' : ''}
         />
 
         {/* Tab 内容面板 */}
-        <TabContent 
-          activeTab={activeTab}
-          onOpenApp={handleOpenAppTab}
-          canvasSize={canvasSize}
-          onSizeChange={(width, height) => setCanvasSize({ width, height })}
-          isCollapsed={isLeftTabContentCollapsed}
-          onToggleCollapse={() => setIsLeftTabContentCollapsed(!isLeftTabContentCollapsed)}
-          selectedLayerId={selectedLayerId}
-          layers={layers}
-          imageEnhancerSourceUrl={imageEnhancerSourceUrl}
-          userStatus={userStatus}
-          aiRemovalSourceUrl={aiRemovalSourceUrl}
-          aiRemovalBrushSize={aiRemovalBrushSize}
-          onAiRemovalBrushSizeChange={setAiRemovalBrushSize}
-          aiRemovalHasSelection={aiRemovalHasSelection}
-          onAiRemovalRemoveClick={() => setAiRemovalComparisonVisible(true)}
-          onLayoutSelect={(layout) => {
-            // 如果处于 layout 选择模式，更新现有图层
-            if (isLayoutSelectMode && selectedLayerId) {
-              handleLayoutSelectFromSidebar(layout);
-            } else {
-              // 否则创建新图层
-              const newLayer = {
-                id: `layer-${Date.now()}`,
-                name: layout.name || 'Layout',
-                type: 'layout' as const,
-                layout: { ...layout, frames: layout.frames.map((f: any) => ({ ...f })) },
-                visible: true,
-                locked: false,
-                zIndex: layers.length,
-                x: 0,
-                y: 0,
-                width: 100,
-                height: 100,
-              };
-              setLayers([...layers, newLayer]);
-              setSelectedLayerId(newLayer.id);
-              setSelectedLayout(layout);
-            }
-          }}
-          isLayoutSelectMode={isLayoutSelectMode}
-          onCloseAdjust={() => setActiveTab('apps')}
-          onImageEnhancerEnhancingComplete={useCallback(() => {
-            setImageEnhancerEnhancingInProgress(false);
-            setImageEnhancerComparisonVisible(true);
-          }, [])}
-          onImageEnhancerEnhancingStart={useCallback(() => {
-            setImageEnhancerEnhancingInProgress(true);
-            setImageEnhancerComparisonVisible(false);
-          }, [])}
-          onBackToApps={() => setActiveTab('apps')}
-          onBackgroundChange={(payload) => setBackgroundLayer((prev) => ({ ...prev, ...payload }))}
-          onTextAdd={(textLayer) => {
+        <div className={isLayoutSelectMode || guidedTab ? 'relative z-40' : ''}>
+          <TabContent 
+            activeTab={activeTab}
+            onOpenApp={handleOpenAppTab}
+            canvasSize={canvasSize}
+            onSizeChange={(width, height) => {
+              setShowCanvasStarter(false);
+              setGuidedTab(null);
+              setCanvasSize({ width, height });
+            }}
+            isCollapsed={isLeftTabContentCollapsed}
+            onToggleCollapse={() => setIsLeftTabContentCollapsed(!isLeftTabContentCollapsed)}
+            selectedLayerId={selectedLayerId}
+            layers={layers}
+            imageEnhancerSourceUrl={imageEnhancerSourceUrl}
+            userStatus={userStatus}
+            aiRemovalSourceUrl={aiRemovalSourceUrl}
+            aiRemovalBrushSize={aiRemovalBrushSize}
+            onAiRemovalBrushSizeChange={setAiRemovalBrushSize}
+            aiRemovalHasSelection={aiRemovalHasSelection}
+            onAiRemovalRemoveClick={() => setAiRemovalComparisonVisible(true)}
+            onLayoutSelect={(layout) => {
+              // 如果处于 layout 选择模式，更新现有图层
+              if (isLayoutSelectMode && selectedLayerId) {
+                handleLayoutSelectFromSidebar(layout);
+              } else {
+                // 否则创建新图层
+                const newLayer = {
+                  id: `layer-${Date.now()}`,
+                  name: layout.name || 'Layout',
+                  type: 'layout' as const,
+                  layout: { ...layout, frames: layout.frames.map((f: any) => ({ ...f })) },
+                  visible: true,
+                  locked: false,
+                  zIndex: layers.length,
+                  x: 0,
+                  y: 0,
+                  width: 100,
+                  height: 100,
+                };
+                setLayers([...layers, newLayer]);
+                setSelectedLayerId(newLayer.id);
+                setSelectedLayout(layout);
+                setShowCanvasStarter(false);
+                setGuidedTab(null);
+                if (pendingCanvasSetup === 'collage') {
+                  setPendingCanvasSetup(null);
+                  setSelectedLayerId(newLayer.id);
+                }
+              }
+            }}
+            isLayoutSelectMode={isLayoutSelectMode}
+            onCloseAdjust={() => setActiveTab('apps')}
+            onImageEnhancerEnhancingComplete={useCallback(() => {
+              setImageEnhancerEnhancingInProgress(false);
+              setImageEnhancerComparisonVisible(true);
+            }, [])}
+            onImageEnhancerEnhancingStart={useCallback(() => {
+              setImageEnhancerEnhancingInProgress(true);
+              setImageEnhancerComparisonVisible(false);
+            }, [])}
+            onBackToApps={() => setActiveTab('apps')}
+            onBackgroundChange={(payload) => {
+              setShowCanvasStarter(false);
+              setBackgroundLayer((prev) => ({ ...prev, ...payload }));
+            }}
+            onTemplateSelect={handleTemplateSelect}
+            onTextAdd={(textLayer) => {
+            setShowCanvasStarter(false);
             // 创建文本图层
             const newLayer = {
               id: textLayer.id,
@@ -1187,6 +1427,7 @@ export default function EditorPage() {
             setSelectedLayerId(newLayer.id);
           }}
           onImageAdd={(imageLayer) => {
+            setShowCanvasStarter(false);
             // 创建图片图层
             const newLayer = {
               id: imageLayer.id,
@@ -1205,6 +1446,7 @@ export default function EditorPage() {
             setSelectedLayerId(newLayer.id);
           }}
           onShapeAdd={(shapeLayer) => {
+            setShowCanvasStarter(false);
             // 创建形状图层
             const newLayer = {
               id: shapeLayer.id,
@@ -1222,8 +1464,9 @@ export default function EditorPage() {
             };
             setLayers([...layers, newLayer]);
             setSelectedLayerId(newLayer.id);
-          }}
-        />
+            }}
+          />
+        </div>
 
         {/* 中间编辑区域 */}
         <div className="flex-1 flex flex-col overflow-hidden min-h-0 relative">
@@ -1354,6 +1597,11 @@ export default function EditorPage() {
             imageEnhancerEnhancingInProgress={imageEnhancerEnhancingInProgress}
             removeBgSourceUrl={removeBgSourceUrl}
             removeBgInProgress={removeBgInProgress}
+            onCreateBlankCanvas={handleCreateBlankCanvas}
+            onOpenImageToCanvas={handleOpenImageToCanvas}
+            onCreateCollage={handleCreateCollage}
+            onOpenTemplateToCanvas={handleOpenTemplateToCanvas}
+            showCanvasStarter={showCanvasStarter}
             onLayerResize={(layerId, newSize) => {
               setLayers(layers.map(layer => {
                 if (layer.id === layerId) {

@@ -35,7 +35,7 @@ html {
 }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: 'Inter', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   color: var(--text-primary);
   background-color: var(--background);
   overscroll-behavior: none;
@@ -101,12 +101,20 @@ body {
   background: #cbd5e1;
 }
 
-/* AI 视频页暗色主题下的侧栏滚动条 */
+/*
+ * 无限画布点阵（参考 Lovart 类工具常见观感：大间距圆点、低对比，非线格）
+ */
+.bg-lovart-canvas-dots {
+  background-image: radial-gradient(rgb(148 163 184 / 0.2) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+/* AI 视频页浅色主题下的侧栏滚动条 */
 [data-page="ai-video"] .sidebar-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
+  background: #cbd5e1;
   border-radius: 2px;
 }
 
 [data-page="ai-video"] .sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: #94a3b8;
 }

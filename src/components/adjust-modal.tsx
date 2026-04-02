@@ -87,7 +87,7 @@ function SliderRow({
           const v = Number(e.target.value);
           if (!Number.isNaN(v)) onChange(Math.min(max, Math.max(min, v)));
         }}
-        className="w-12 h-8 text-sm text-center border border-gray-300 rounded-md flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
+        className="w-12 h-8 text-sm text-center border border-gray-300 rounded-md flex-shrink-0 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-600"
       />
     </div>
   );

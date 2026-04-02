@@ -103,7 +103,7 @@ export function LeftSidebar({ activeTab, onTabChange, openAppTabs = [], onCloseA
                   isActive
                     ? 'bg-teal-50 text-teal-600'
                     : isHighlighted
-                    ? 'bg-amber-50 text-amber-600 ring-2 ring-amber-400 ring-inset'
+                    ? 'bg-amber-50 text-amber-600 outline outline-2 outline-offset-2 outline-amber-600'
                     : 'text-gray-700 hover:bg-gray-50'
                 }
               `}
@@ -186,7 +186,7 @@ function DynamicAppTabButton({
         title={label}
         className={`
           flex items-center justify-center w-10 h-10 rounded-full flex-shrink-0 transition-colors relative
-          ${isActive ? 'bg-teal-100 text-teal-600 ring-2 ring-teal-500/50' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-700'}
+          ${isActive ? 'bg-teal-100 text-teal-600 outline outline-2 outline-offset-2 outline-teal-600' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-700'}
         `}
       >
         <Icon className="w-5 h-5" />

@@ -1,6 +1,6 @@
 'use client';
 
-import { Lock, Search, ChevronDown, Plus, Sparkles, Wand2, Type, AlignLeft, List, Upload, Image as ImageIcon, Eraser, Palette, Crop, Layers, Star, Heart, Circle, Square, Triangle, Hexagon, ChevronRight, Video, Folder, MoreVertical, Trash2, Play, Shirt, Clapperboard, Frame, Smile, Expand, Film, UserCircle, Stamp, BookOpen, Scissors, Sticker, UserMinus, ChevronLeft, Zap, Minus, Check, X, ThumbsUp, ThumbsDown, Download, RotateCcw, Info, Loader2, Shuffle } from 'lucide-react';
+import { Lock, Search, ChevronDown, Plus, Sparkles, Wand2, Type, AlignLeft, List, Upload, Image as ImageIcon, Eraser, Palette, Crop, Layers, Star, Heart, Circle, Square, Triangle, Hexagon, ChevronRight, Video, Folder, MoreVertical, Trash2, Play, Shirt, Clapperboard, Frame, Smile, Expand, Film, UserCircle, Stamp, BookOpen, Scissors, Sticker, UserMinus, ChevronLeft, Zap, Minus, Check, X, ThumbsUp, ThumbsDown, Download, RotateCcw, RefreshCw, Info, Loader2, Shuffle, ArrowUp, Maximize2, Minimize2, Smartphone } from 'lucide-react';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import React from 'react';
 import { createPortal } from 'react-dom';
@@ -48,6 +48,15 @@ interface ShapeLayer {
   color?: string;
 }
 
+interface EditorTemplateItem {
+  id: string;
+  label: string;
+  color: string;
+  badge: string | null;
+  categoryId: string;
+  categoryTitle: string;
+}
+
 interface TabContentProps {
   activeTab: SidebarTab | string;
   onOpenApp?: (appId: string, label: string) => void;
@@ -88,6 +97,8 @@ interface TabContentProps {
   onBackToApps?: () => void;
   /** Background tab 选择色块/纹样后回调，用于更新画板背景 */
   onBackgroundChange?: (payload: { color?: string; gradient?: string; imageUrl?: string }) => void;
+  /** Templates tab 选择模板后回调，用于将模板落到画布 */
+  onTemplateSelect?: (template: EditorTemplateItem) => void;
 }
 
 // 包装组件：为每个 tab 内容添加收起/展开按钮
@@ -122,7 +133,7 @@ function TabContentWrapper({
   );
 }
 
-export function TabContent({ activeTab, onOpenApp, canvasSize = { width: 1080, height: 1080 }, onSizeChange, onLayoutSelect, onTextAdd, onImageAdd, onShapeAdd, isLayoutSelectMode = false, isCollapsed = false, onToggleCollapse, selectedLayerId = null, layers = [], imageEnhancerSourceUrl = null, userStatus = 'free', aiRemovalSourceUrl = null, aiRemovalBrushSize = 30, onAiRemovalBrushSizeChange, aiRemovalHasSelection = false, onAiRemovalRemoveClick, onCloseAdjust, onImageEnhancerEnhancingComplete, onImageEnhancerEnhancingStart, onBackToApps, onBackgroundChange }: TabContentProps) {
+export function TabContent({ activeTab, onOpenApp, canvasSize = { width: 1080, height: 1080 }, onSizeChange, onLayoutSelect, onTextAdd, onImageAdd, onShapeAdd, isLayoutSelectMode = false, isCollapsed = false, onToggleCollapse, selectedLayerId = null, layers = [], imageEnhancerSourceUrl = null, userStatus = 'free', aiRemovalSourceUrl = null, aiRemovalBrushSize = 30, onAiRemovalBrushSizeChange, aiRemovalHasSelection = false, onAiRemovalRemoveClick, onCloseAdjust, onImageEnhancerEnhancingComplete, onImageEnhancerEnhancingStart, onBackToApps, onBackgroundChange, onTemplateSelect }: TabContentProps) {
   const { t } = useLanguage();
   const [unit, setUnit] = useState<'px' | 'in' | 'cm' | 'mm'>('px');
 
@@ -154,7 +165,7 @@ export function TabContent({ activeTab, onOpenApp, canvasSize = { width: 1080, h
                 const width = parseInt(e.target.value) || 1080;
                 onSizeChange?.(width, canvasSize.height);
               }}
-              className="w-[76px] px-2 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 h-9"
+              className="w-[76px] px-2 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-600 h-9"
             />
             <button className="p-0.5 hover:bg-gray-100 rounded transition-colors flex-shrink-0 h-6 w-6 flex items-center justify-center">
               <Lock className="w-4 h-4 text-gray-500" />
@@ -166,13 +177,13 @@ export function TabContent({ activeTab, onOpenApp, canvasSize = { width: 1080, h
                 const height = parseInt(e.target.value) || 1080;
                 onSizeChange?.(canvasSize.width, height);
               }}
-              className="w-[70px] px-2 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 h-9"
+              className="w-[70px] px-2 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-600 h-9"
             />
             <div className="relative flex-shrink-0">
               <select 
                 value={unit}
                 onChange={(e) => setUnit(e.target.value as 'px' | 'in' | 'cm' | 'mm')}
-                className="px-2 py-2 border border-gray-300 rounded-lg text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-teal-500 pr-6 w-14 h-9 bg-white"
+                className="px-2 py-2 border border-gray-300 rounded-lg text-sm appearance-none focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-600 pr-6 w-14 h-9 bg-white"
               >
                 <option value="px">px</option>
                 <option value="in">in</option>
@@ -195,7 +206,7 @@ export function TabContent({ activeTab, onOpenApp, canvasSize = { width: 1080, h
             <input
               type="text"
               placeholder="Search for ratios"
-              className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 h-9"
+              className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-600 h-9"
             />
             <ChevronDown className="w-4 h-4 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2" />
           </div>
@@ -267,7 +278,7 @@ export function TabContent({ activeTab, onOpenApp, canvasSize = { width: 1080, h
   if (activeTab === 'templates') {
     return (
       <TabContentWrapper isCollapsed={isCollapsed} onToggleCollapse={onToggleCollapse}>
-        <TemplatesTabContent />
+        <TemplatesTabContent onTemplateSelect={onTemplateSelect} />
       </TabContentWrapper>
     );
   }
@@ -506,7 +517,7 @@ function TextTabContent({ onTextAdd }: { onTextAdd?: (textLayer: TextLayer) => v
             placeholder={t.searchText}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 h-9"
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-600 h-9"
           />
         </div>
 
@@ -718,7 +729,7 @@ function ImageTabContent({ onImageAdd }: { onImageAdd?: (imageLayer: ImageLayer)
             placeholder={t.searchImages}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 h-9"
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-600 h-9"
           />
         </div>
       </div>
@@ -981,7 +992,7 @@ function AssetsTabContent({ onShapeAdd, onImageAdd }: { onShapeAdd?: (shapeLayer
             placeholder={t.searchAssets}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 h-9"
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-600 h-9"
           />
         </div>
       </div>
@@ -1100,7 +1111,7 @@ function AssetsTabContent({ onShapeAdd, onImageAdd }: { onShapeAdd?: (shapeLayer
 }
 
 // Templates Tab 组件（不含 Layout，Layout 已独立为 layout 标签）
-function TemplatesTabContent() {
+function TemplatesTabContent({ onTemplateSelect }: { onTemplateSelect?: (template: EditorTemplateItem) => void }) {
   const { t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryDetail, setCategoryDetail] = useState<{ categoryId: string; categoryTitle: string } | null>(null);
@@ -1381,7 +1392,7 @@ function TemplatesTabContent() {
               placeholder={t.searchTemplates}
               value={detailSearchQuery}
               onChange={(e) => setDetailSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 h-9"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-600 h-9"
             />
           </div>
         </div>
@@ -1446,6 +1457,13 @@ function TemplatesTabContent() {
             {detailTemplates.map((template) => (
               <button
                 key={template.id}
+                onClick={() =>
+                  onTemplateSelect?.({
+                    ...template,
+                    categoryId: categoryDetail.categoryId,
+                    categoryTitle: categoryDetail.categoryTitle,
+                  })
+                }
                 className="relative w-full mb-3 rounded-lg overflow-hidden border border-gray-200 hover:border-teal-500 hover:shadow-md transition-all group break-inside-avoid"
               >
                 <div className={`w-full aspect-square ${template.color} flex items-center justify-center`}>
@@ -1476,7 +1494,7 @@ function TemplatesTabContent() {
             placeholder={t.searchTemplates}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 h-9"
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-600 h-9"
           />
         </div>
       </div>
@@ -1580,6 +1598,13 @@ function TemplatesTabContent() {
                   {category.templates.map((template) => (
                     <button
                       key={template.id}
+                      onClick={() =>
+                        onTemplateSelect?.({
+                          ...template,
+                          categoryId: category.id,
+                          categoryTitle: t[category.titleKey],
+                        })
+                      }
                       className="relative aspect-square rounded-lg overflow-hidden border border-gray-200 hover:border-teal-500 hover:shadow-md transition-all group"
                     >
                       <div className={`w-full h-full ${template.color} flex items-center justify-center`}>
@@ -1911,7 +1936,7 @@ function BackgroundTabContent({ onBackgroundChange }: { onBackgroundChange?: (pa
               placeholder={t.searchBackgrounds}
               value={detailSearchQuery}
               onChange={(e) => setDetailSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 h-9"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-600 h-9"
             />
           </div>
         </div>
@@ -1995,7 +2020,7 @@ function BackgroundTabContent({ onBackgroundChange }: { onBackgroundChange?: (pa
             placeholder={t.searchBackgrounds}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 h-9"
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-600 h-9"
           />
         </div>
       </div>
@@ -2736,6 +2761,8 @@ function getModelParamSummary(modelId: string, params: ModelParams): string {
 function AIImageGeneratorTabContent({ onBackToApps }: { onBackToApps?: () => void }) {
   const { t } = useLanguage();
   const [prompt, setPrompt] = useState('');
+  const [isControlPanelCollapsed, setIsControlPanelCollapsed] = useState(false);
+  const [showScrollBackHint, setShowScrollBackHint] = useState(false);
   const [selectedModelIds, setSelectedModelIds] = useState<Set<string>>(new Set([AI_IMAGE_MODELS[0].id]));
   const [modelParams, setModelParams] = useState<Record<string, ModelParams>>(() =>
     Object.fromEntries(AI_IMAGE_MODELS.map((m) => [m.id, getDefaultModelParams(m.id)]))
@@ -2976,6 +3003,28 @@ function AIImageGeneratorTabContent({ onBackToApps }: { onBackToApps?: () => voi
     }
   }, [generatedImages.length]);
 
+  const handleGeneratedScroll = () => {
+    const el = generatedListRef.current;
+    if (!el || generatedImages.length === 0) {
+      setIsControlPanelCollapsed(false);
+      setShowScrollBackHint(false);
+      return;
+    }
+    const maxScroll = el.scrollHeight - el.clientHeight;
+    const distFromBottom = maxScroll - el.scrollTop;
+    const shouldCollapse = distFromBottom > 120;
+    setIsControlPanelCollapsed(shouldCollapse);
+    setShowScrollBackHint(shouldCollapse);
+  };
+
+  const scrollToLatestGenerated = () => {
+    const el = generatedListRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight - el.clientHeight, behavior: 'smooth' });
+    setIsControlPanelCollapsed(false);
+    setShowScrollBackHint(false);
+  };
+
   return (
     <div className="w-80 bg-white border-r border-gray-200 flex flex-col h-full">
       <div className="flex-shrink-0 px-4 py-3 border-b border-gray-200 flex items-center gap-2">
@@ -2988,8 +3037,8 @@ function AIImageGeneratorTabContent({ onBackToApps }: { onBackToApps?: () => voi
       </div>
 
       {/* 上方：生成图区域，从上到下按时间远到近（旧在上，新在下） */}
-      <div className="flex-1 overflow-y-auto min-h-0 flex flex-col">
-        <div ref={generatedListRef} className="flex-1 overflow-y-auto p-3 flex flex-col gap-2">
+      <div className="flex-1 min-h-0 relative">
+        <div ref={generatedListRef} onScroll={handleGeneratedScroll} className="absolute inset-0 overflow-y-auto p-3 flex flex-col gap-2">
           {generatedImages.length === 0 ? (
             <p className="text-xs text-gray-400 py-6 text-center">点击下方生成按钮后，图片将显示在此</p>
           ) : (
@@ -3057,17 +3106,60 @@ function AIImageGeneratorTabContent({ onBackToApps }: { onBackToApps?: () => voi
             ))
           )}
         </div>
+        {showScrollBackHint && isControlPanelCollapsed && generatedImages.length > 0 && (
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex justify-end px-3 pb-2">
+            <button
+              type="button"
+              onClick={scrollToLatestGenerated}
+              className="pointer-events-auto flex items-center gap-1 bg-transparent py-1 pr-1 text-xs text-gray-500 transition-colors hover:text-teal-700"
+            >
+              Jump to latest
+              <ChevronDown className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* 下方固定：输入框 + 模型/参数 + Generate（与 Generate 按钮同一区域） */}
-      <div className="flex-shrink-0 border-t border-gray-100 p-4 flex flex-col gap-3">
+      <div className="flex-shrink-0 border-t border-gray-100 bg-white">
+        <div className="p-3">
+        {isControlPanelCollapsed ? (
+            <div className="flex min-h-[46px] items-center gap-2 rounded-2xl border border-gray-200/90 bg-white px-2.5 py-1.5 shadow-sm">
+            <button
+              type="button"
+              onClick={() => setIsControlPanelCollapsed(false)}
+              className="min-w-0 flex-1 truncate py-2 text-left text-sm text-gray-500 transition-colors hover:text-gray-700"
+            >
+              {prompt.trim() || t.describeYourImage}
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsControlPanelCollapsed(false)}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-600 transition-colors hover:bg-gray-200 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-600"
+              title="展开"
+              aria-label="展开输入框"
+            >
+              <Maximize2 className="w-4.5 h-4.5" />
+            </button>
+            </div>
+        ) : (
+          <div className="flex flex-col gap-3">
         {/* 一个完整输入框：左上图片区 + 中部文本 + 左下魔杖 + 右下高度拖拽 */}
         <div
-          className="flex flex-col rounded-lg border border-gray-300 bg-white overflow-hidden focus-within:ring-2 focus-within:ring-teal-500 focus-within:border-transparent relative"
+          className="flex flex-col rounded-lg border border-gray-300 bg-white overflow-hidden focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-teal-600 relative"
           style={{ height: inputBoxHeight }}
         >
+          <button
+            type="button"
+            onClick={() => setIsControlPanelCollapsed(true)}
+            className="absolute right-2 top-2 z-10 inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-800"
+            title="收起输入框"
+            aria-label="收起输入框"
+          >
+            <Minimize2 className="h-4 w-4" />
+          </button>
           {/* 左上：图片添加区 + 右上角高度手柄，同一容器内 */}
-          <div className="flex-shrink-0 p-2 flex flex-wrap gap-1.5 relative">
+          <div className="flex-shrink-0 p-2 pr-11 flex flex-wrap gap-1.5 relative">
             <button
               type="button"
               onClick={addReferenceImages}
@@ -3320,7 +3412,7 @@ function AIImageGeneratorTabContent({ onBackToApps }: { onBackToApps?: () => voi
                                         onChange={(e) => setParamsForModel(m.id, { [def.key]: e.target.value.slice(0, def.maxLength) })}
                                         placeholder="Type your message here."
                                         maxLength={def.maxLength}
-                                        className="w-full min-h-[80px] px-3 py-2 text-sm border border-gray-300 rounded-lg resize-y focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                                        className="w-full min-h-[80px] px-3 py-2 text-sm border border-gray-300 rounded-lg resize-y focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-600"
                                       />
                                       <span className="absolute bottom-2 right-2 text-xs text-gray-400">{value.length}/{def.maxLength}</span>
                                     </div>
@@ -3372,7 +3464,7 @@ function AIImageGeneratorTabContent({ onBackToApps }: { onBackToApps?: () => voi
                                           if (!Number.isNaN(num)) setParamsForModel(m.id, { [def.key]: num });
                                         }}
                                         placeholder={def.placeholder}
-                                        className="flex-1 min-w-0 h-8 px-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                        className="flex-1 min-w-0 h-8 px-2 text-sm border border-gray-300 rounded-md focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-600"
                                       />
                                       <button
                                         type="button"
@@ -3432,6 +3524,9 @@ function AIImageGeneratorTabContent({ onBackToApps }: { onBackToApps?: () => voi
           <Zap className="w-5 h-5" />
           <span>{t.aiImageGenerate}</span>
         </button>
+          </div>
+        )}
+        </div>
       </div>
 
       {/* Preset 弹窗：在 More 按钮下方打开，不占画面中央 */}
@@ -3498,6 +3593,10 @@ function AIFilterTabContent({
   const { t } = useLanguage();
   const [activeCategory, setActiveCategory] = useState<string>(AI_FILTER_CATEGORIES[0]);
   const [isDragging, setIsDragging] = useState(false);
+  const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
+  const [generatedVariants, setGeneratedVariants] = useState<Array<{ id: string; url: string; label: string }>>([]);
+  const [selectedPreview, setSelectedPreview] = useState<{ type: 'original' } | { type: 'generated'; id: string }>({ type: 'original' });
+  const uploadInputRef = React.useRef<HTMLInputElement>(null);
   const filterTagScrollRef = React.useRef<HTMLDivElement>(null);
   const [tagScrollState, setTagScrollState] = useState({ canScrollLeft: false, canScrollRight: false });
 
@@ -3508,6 +3607,12 @@ function AIFilterTabContent({
     if (!layer || layer.type !== 'image' || !layer.imageUrl) return null;
     return layer.imageUrl;
   }, [selectedLayerId, layers]);
+
+  const originalPreviewUrl = uploadedImageUrl || selectedImageUrl;
+  const selectedGeneratedVariant = selectedPreview.type === 'generated'
+    ? generatedVariants.find((item) => item.id === selectedPreview.id) || null
+    : null;
+  const largePreviewUrl = selectedGeneratedVariant?.url || originalPreviewUrl;
 
   const checkFilterTagScroll = () => {
     const el = filterTagScrollRef.current;
@@ -3545,14 +3650,76 @@ function AIFilterTabContent({
     };
   }, []);
 
+  React.useEffect(() => {
+    return () => {
+      if (uploadedImageUrl?.startsWith('blob:')) {
+        URL.revokeObjectURL(uploadedImageUrl);
+      }
+    };
+  }, [uploadedImageUrl]);
+
   const handleUpload = () => {
-    // 占位：后续接实际上传
+    uploadInputRef.current?.click();
+  };
+
+  const handleUploadChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const objectUrl = URL.createObjectURL(file);
+    setUploadedImageUrl((prev) => {
+      if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
+      return objectUrl;
+    });
+    setGeneratedVariants([]);
+    setSelectedPreview({ type: 'original' });
+    e.target.value = '';
+  };
+
+  const handleRemoveOriginal = () => {
+    if (uploadedImageUrl?.startsWith('blob:')) {
+      URL.revokeObjectURL(uploadedImageUrl);
+    }
+    setUploadedImageUrl(null);
+    setGeneratedVariants([]);
+    setSelectedPreview({ type: 'original' });
+  };
+
+  const handleDownloadGenerated = () => {
+    if (!selectedGeneratedVariant) return;
+    const link = document.createElement('a');
+    link.href = selectedGeneratedVariant.url;
+    link.download = `${selectedGeneratedVariant.label}.png`;
+    link.click();
+  };
+
+  const handleGenerateVariant = (label: string) => {
+    if (!originalPreviewUrl) return;
+    const existing = generatedVariants.find((item) => item.label === label);
+    if (existing) {
+      setSelectedPreview({ type: 'generated', id: existing.id });
+      return;
+    }
+    const next = {
+      id: `filter-${Date.now()}-${label}`,
+      url: originalPreviewUrl,
+      label,
+    };
+    setGeneratedVariants((prev) => [...prev, next]);
+    setSelectedPreview({ type: 'generated', id: next.id });
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    // 占位：后续接实际处理
+    const file = Array.from(e.dataTransfer.files || []).find((item) => item.type.startsWith('image/'));
+    if (!file) return;
+    const objectUrl = URL.createObjectURL(file);
+    setUploadedImageUrl((prev) => {
+      if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
+      return objectUrl;
+    });
+    setGeneratedVariants([]);
+    setSelectedPreview({ type: 'original' });
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -3575,12 +3742,77 @@ function AIFilterTabContent({
         <h3 className="text-sm font-medium text-gray-800">{t.aiFilter}</h3>
       </div>
 
-      <div className="flex-1 overflow-y-auto min-h-0 flex flex-col p-4 gap-4">
-        {/* 有选中图片时只显示该图片，否则显示上传框 */}
-        {selectedImageUrl ? (
-          <div className="flex-shrink-0 w-full aspect-square max-h-32 rounded-lg border border-gray-200 overflow-hidden bg-gray-100">
-            <img src={selectedImageUrl} alt="" className="w-full h-full object-contain" />
-          </div>
+      <div className="flex-1 overflow-y-auto min-h-0 flex flex-col p-4 gap-3">
+        <input
+          ref={uploadInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleUploadChange}
+        />
+
+        {/* 有原图时显示缩略图 + 大图预览，否则显示上传框 */}
+        {originalPreviewUrl ? (
+          <>
+            <div className="flex-shrink-0">
+              <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-0.5">
+                <button
+                  type="button"
+                  onClick={() => setSelectedPreview({ type: 'original' })}
+                  className={`relative w-14 h-14 flex-shrink-0 rounded-lg overflow-hidden border-2 transition-colors ${
+                    selectedPreview.type === 'original' ? 'border-teal-500' : 'border-gray-200'
+                  }`}
+                >
+                  <img src={originalPreviewUrl} alt="" className="w-full h-full object-cover" />
+                </button>
+                {generatedVariants.length > 0 && <div className="w-px self-stretch bg-gray-200 mx-1" aria-hidden="true" />}
+                {generatedVariants.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setSelectedPreview({ type: 'generated', id: item.id })}
+                    className={`relative w-14 h-14 flex-shrink-0 rounded-lg overflow-hidden border-2 transition-colors ${
+                      selectedPreview.type === 'generated' && selectedPreview.id === item.id ? 'border-teal-500' : 'border-gray-200'
+                    }`}
+                    title={item.label}
+                  >
+                    <img src={item.url} alt={item.label} className="w-full h-full object-cover" />
+                    <span className="absolute inset-x-0 bottom-0 bg-black/45 px-1 py-0.5 text-[9px] text-white truncate">
+                      {item.label}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex-shrink-0 relative mt-0.5 w-full aspect-square max-h-64 rounded-xl border border-gray-200 overflow-hidden bg-gray-100">
+              {largePreviewUrl ? (
+                <img src={largePreviewUrl} alt="" className="w-full h-full object-contain" />
+              ) : null}
+              <div className="absolute top-2 right-2 flex items-center gap-2">
+                {selectedPreview.type === 'original' && (
+                  <button
+                    type="button"
+                    onClick={handleUpload}
+                    className="w-9 h-9 rounded-full bg-white/90 border border-gray-200 shadow-sm flex items-center justify-center text-gray-600 hover:text-teal-600 hover:bg-white transition-colors"
+                    title={t.replace}
+                    aria-label={t.replace}
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={selectedPreview.type === 'original' ? handleRemoveOriginal : handleDownloadGenerated}
+                  className="w-9 h-9 rounded-full bg-white/90 border border-gray-200 shadow-sm flex items-center justify-center text-gray-600 hover:text-teal-600 hover:bg-white transition-colors"
+                  title={selectedPreview.type === 'original' ? t.delete : t.download}
+                  aria-label={selectedPreview.type === 'original' ? t.delete : t.download}
+                >
+                  {selectedPreview.type === 'original' ? <Trash2 className="w-4 h-4" /> : <Download className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+          </>
         ) : (
           <div
             onDrop={handleDrop}
@@ -3660,7 +3892,9 @@ function AIFilterTabContent({
               <button
                 key={label}
                 type="button"
-                className="flex flex-col rounded-lg overflow-hidden border border-gray-200 bg-gray-50 hover:border-teal-300 hover:bg-teal-50/50 transition-colors text-left"
+                onClick={() => handleGenerateVariant(label)}
+                disabled={!originalPreviewUrl}
+                className="flex flex-col rounded-lg overflow-hidden border border-gray-200 bg-gray-50 hover:border-teal-300 hover:bg-teal-50/50 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <div className="w-full aspect-square bg-gray-200 flex items-center justify-center">
                   <Sparkles className="w-8 h-8 text-gray-400" />
@@ -4001,7 +4235,7 @@ function AppsTabContent({ onOpenApp }: { onOpenApp?: (appId: string, label: stri
   const [searchQuery, setSearchQuery] = useState('');
 
   // 首期可点击的 app id（含 ai-video：跳转独立页）
-  const AVAILABLE_APP_IDS = ['ai-image-generator', 'ai-filter', 'image-enhancer', 'background-remover', 'ai-removal', 'ai-video'];
+  const AVAILABLE_APP_IDS = ['ai-image-generator', 'ai-filter', 'image-enhancer', 'background-remover', 'ai-removal', 'ai-video', 'ugc-video-generator'];
 
   // App 列表：前 5 个为首期可点击，其余为 2 期（置灰 + 2.1～2.8 徽标）
   const apps = [
@@ -4011,6 +4245,7 @@ function AppsTabContent({ onOpenApp }: { onOpenApp?: (appId: string, label: stri
     { id: 'background-remover', name: 'Background remover', color: 'from-sky-200 to-blue-100', icon: AIBackgroundIcon },
     { id: 'ai-removal', name: 'AI Removal', color: 'from-gray-200 to-slate-200', icon: QuickRemovalIcon },
     { id: 'ai-video', name: 'AI video', color: 'from-teal-300 to-green-200', icon: Clapperboard, hasVideo: true },
+    { id: 'ugc-video-generator', name: 'UGC Video Generator', color: 'from-cyan-300 to-emerald-200', icon: Smartphone, hasVideo: true },
     { id: 'ai-expand', name: 'AIExpand', color: 'from-gray-100 to-slate-100', icon: Expand, phase2: true, badge: '2.2' },
     { id: 'ai-replace', name: 'AIReplace', color: 'from-indigo-200 to-purple-100', icon: ImageIcon, phase2: true, badge: '2.3' },
     { id: 'ai-detach', name: 'aiDetach', color: 'from-rose-200 to-pink-100', icon: Scissors, phase2: true, badge: '2.4' },
@@ -4036,7 +4271,7 @@ function AppsTabContent({ onOpenApp }: { onOpenApp?: (appId: string, label: stri
             placeholder={t.searchApps}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 h-9"
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-600 h-9"
           />
         </div>
       </div>
@@ -4047,7 +4282,7 @@ function AppsTabContent({ onOpenApp }: { onOpenApp?: (appId: string, label: stri
           {filteredApps.map((app) => {
             const IconComponent = app.icon;
             const isAvailable = AVAILABLE_APP_IDS.includes(app.id);
-            const label = app.id === 'ai-image-generator' ? t.aiImageGenerator : app.id === 'ai-filter' ? t.aiFilter : app.id === 'image-enhancer' ? t.imageEnhancer : app.id === 'ai-removal' ? t.aiRemoval : app.id === 'ai-video' ? t.aiVideoGenerator : app.name;
+            const label = app.id === 'ai-image-generator' ? t.aiImageGenerator : app.id === 'ai-filter' ? t.aiFilter : app.id === 'image-enhancer' ? t.imageEnhancer : app.id === 'ai-removal' ? t.aiRemoval : app.id === 'ai-video' ? t.aiVideoGenerator : app.id === 'ugc-video-generator' ? t.ugcVideoGenerator : app.name;
             return (
               <button
                 key={app.id}
@@ -4086,7 +4321,7 @@ function AppsTabContent({ onOpenApp }: { onOpenApp?: (appId: string, label: stri
                 
                 {/* App Name */}
                 <p className="text-xs text-gray-700 text-center leading-tight font-medium">
-                  {app.name}
+                  {app.id === 'ugc-video-generator' ? t.ugcVideoGenerator : app.name}
                 </p>
               </button>
             );

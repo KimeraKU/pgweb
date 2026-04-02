@@ -1,13 +1,10 @@
 'use client';
 
 /**
- * AI 视频页设计规范（统一暗色主题）：
- * - 圆角：小控件 rounded-lg(8px)、卡片/按钮 rounded-xl(12px)、大面板 rounded-2xl(16px)
- * - 间距：gap-2(8px) / gap-3(12px)，内边距 p-2 / p-3 / p-4
- * - 边框：默认 border-white/[0.08]，强调 border-white/[0.12]
- * - 表面：输入/底 bg-white/[0.04]，悬停 bg-white/[0.06]
- * - 文字：辅助 text-zinc-500 text-xs，正文 text-zinc-300 text-sm
- * - 强调色：teal，焦点 ring-teal-500/20
+ * AI 视频页 UI：浅色、与编辑器一致
+ * - 页面底：bg-slate-50；卡片：白底 + border-slate-200/80 + shadow-sm
+ * - 圆角：大区块 rounded-2xl，控件 rounded-lg / rounded-xl
+ * - 主色：teal-600 强调，灰阶 slate/gray 正文
  */
 import { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
@@ -31,12 +28,14 @@ import {
   ChevronDown,
   Copy,
   Download,
-  Clock,
   FolderOpen,
   Settings,
   X,
   PanelLeft,
   List,
+  Trash2,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import {
   loadAivideoAigcConfig,
@@ -83,11 +82,26 @@ const MOCK_TEMPLATES = [
   { id: 't24', name: '悬疑暗调转场', tag: 'Vidu Q2', thumb: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=200&h=120&fit=crop', category: 'drama' as TemplateCategory },
 ];
 
+function buildTemplatePrompt(name: string, category: TemplateCategory): string {
+  if (category === 'ecommerce') {
+    return `请基于参考图制作${name}风格的电商展示短视频，突出产品主体与材质细节，镜头节奏清晰，画面干净高级，适合商品详情页。`;
+  }
+  if (category === 'drama') {
+    return `请生成${name}风格的剧情短视频片段，人物情绪明确，镜头有起承转合，光影电影感，适合短剧开场或转场。`;
+  }
+  if (category === 'camera') {
+    return `请生成${name}风格的运镜视频，镜头平滑稳定，主体始终清晰，突出空间层次与景深变化，适合产品或人物展示。`;
+  }
+  return `请生成${name}风格的视频，画面精致、氛围感强、主体清晰，镜头语言自然，成片可直接用于社媒内容发布。`;
+}
+
 interface GeneratedItem {
   id: string;
   thumbnailUrl: string;
   prompt: string;
   modelTag?: string;
+  modelVersionId?: string;
+  inputMode?: 'reference' | 'first_last_frame';
   duration?: string;
   resolution?: string;
   createdAt: number;
@@ -106,6 +120,18 @@ interface GeneratedItem {
 const KLING_ASPECT = ['16:9', '9:16', '1:1'] as const;
 const KLING_DURATION = ['5', '10'] as const;
 const KLING_MODE = ['std', 'pro'] as const;
+const VIDEO_MODEL_OPTIONS = [{ id: 'kling-video-o1', label: 'Kling O1' }] as const;
+const VIDEO_INPUT_MODE_OPTIONS = [
+  { id: 'reference', label: '参考图' },
+  { id: 'first_last_frame', label: '首尾帧' },
+] as const;
+type VideoModelVersionId = (typeof VIDEO_MODEL_OPTIONS)[number]['id'];
+type VideoInputMode = (typeof VIDEO_INPUT_MODE_OPTIONS)[number]['id'];
+
+function getModelLabel(modelVersionId: string): string {
+  const model = VIDEO_MODEL_OPTIONS.find((m) => m.id === modelVersionId);
+  return model?.label || modelVersionId;
+}
 
 function isItemGenerating(item: GeneratedItem) {
   return item.taskStatus === 'pending' || item.taskStatus === 'processing';
@@ -145,6 +171,70 @@ function saveHistoryToStorage(list: GeneratedItem[]) {
   }
 }
 
+/** 统一聚焦环（键盘 focus-visible），与 slate / teal 体系一致 */
+const FV =
+  'focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-600';
+
+/** 输入框、下拉、图标按钮、主/次按钮 — 减少同类控件 class 分叉 */
+const uiInput = `w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 transition-colors ${FV}`;
+
+const uiInputSearch = `h-9 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-700 placeholder:text-slate-400 transition-colors ${FV}`;
+
+const uiSelect = `h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 transition-colors ${FV}`;
+
+const uiIconBtn =
+  `inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-transparent text-slate-600 transition-colors hover:bg-slate-100 hover:text-teal-700 active:bg-slate-200/80 ${FV} disabled:opacity-50 disabled:pointer-events-none`;
+
+const uiIconBtnOnPanel =
+  `inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-transparent text-slate-500 transition-colors hover:bg-white hover:text-slate-900 ${FV}`;
+
+const uiIconOutlineBtn =
+  `inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-800 ${FV}`;
+
+const uiToolTileBase =
+  `flex h-11 w-11 shrink-0 flex-col items-center justify-center gap-0.5 rounded-xl border text-[11px] transition-colors sm:h-12 sm:w-12 ${FV}`;
+
+const uiHeaderGhost =
+  `inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 ${FV}`;
+
+const uiPrimary =
+  'inline-flex h-10 min-w-[88px] items-center justify-center gap-2 rounded-xl bg-teal-600 px-5 font-semibold text-sm text-white shadow-md shadow-teal-600/20 transition-colors hover:bg-teal-700 disabled:opacity-50 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/90';
+
+const uiSecondary =
+  `inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 ${FV}`;
+
+const uiSecondaryCompact =
+  `inline-flex h-9 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 ${FV}`;
+
+const uiPillBase =
+  'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-all';
+
+const uiPillActive =
+  'bg-teal-600 text-white shadow-sm focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/80';
+
+const uiPillInactive =
+  `text-slate-500 hover:text-slate-800 bg-slate-100/80 hover:bg-slate-100 ${FV}`;
+
+const uiLinkBack =
+  `inline-flex items-center gap-1.5 rounded-lg py-1.5 px-2 text-xs font-medium text-slate-500 transition-colors hover:bg-white hover:text-teal-700 sm:text-sm ${FV}`;
+
+const uiTextLink =
+  `inline-flex items-center justify-center rounded-lg border border-teal-200 bg-white px-4 py-2 text-sm font-medium text-teal-700 transition-colors hover:bg-teal-50 ${FV}`;
+
+const uiPromptTextarea =
+  'w-full bg-transparent px-0 py-1 text-[15px] leading-relaxed text-slate-800 placeholder:text-slate-400 resize-none focus:outline-none focus:ring-0 focus-visible:outline-none';
+
+const uiTextMuted = 'text-xs text-slate-500 leading-relaxed';
+
+const uiAssetActionBtn =
+  `inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-transparent text-slate-400 transition-colors hover:bg-slate-100 hover:text-teal-700 ${FV}`;
+
+function sidebarAssetRowClass(isActive: boolean) {
+  return isActive
+    ? 'flex items-center gap-1.5 rounded-xl border-2 border-teal-600 bg-teal-50/90 px-1.5 py-1 transition-colors'
+    : 'flex items-center gap-1.5 rounded-xl border-2 border-transparent bg-slate-50/80 px-1.5 py-1 transition-colors hover:bg-slate-100/80';
+}
+
 export default function AIVideoPage() {
   const [templateCategory, setTemplateCategory] = useState<TemplateCategory>('all');
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
@@ -153,10 +243,15 @@ export default function AIVideoPage() {
     templateCategory === 'all'
       ? MOCK_TEMPLATES
       : MOCK_TEMPLATES.filter((t) => t.category === templateCategory);
+  const selectedTemplate = useMemo(
+    () => MOCK_TEMPLATES.find((t) => t.id === selectedTemplateId) || null,
+    [selectedTemplateId]
+  );
   const [historySearch, setHistorySearch] = useState('');
-  const [rightPanelMode, setRightPanelMode] = useState<'history' | 'assets'>('history');
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [prompt, setPrompt] = useState('');
+  const [selectedModelVersionId, setSelectedModelVersionId] = useState<VideoModelVersionId>(VIDEO_MODEL_OPTIONS[0].id);
+  const [selectedInputMode, setSelectedInputMode] = useState<VideoInputMode>('reference');
   const [klingAspectRatio, setKlingAspectRatio] = useState<(typeof KLING_ASPECT)[number]>('16:9');
   const [klingDuration, setKlingDuration] = useState<(typeof KLING_DURATION)[number]>('5');
   const [klingMode, setKlingMode] = useState<(typeof KLING_MODE)[number]>('std');
@@ -169,8 +264,9 @@ export default function AIVideoPage() {
   const scrollFromSidebarRef = useRef(false);
   const [showDailyScrollHint, setShowDailyScrollHint] = useState(false);
   const [inputBarCollapsed, setInputBarCollapsed] = useState(false);
+  const [promptExpanded, setPromptExpanded] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  /** 小屏下左侧模板栏、右侧历史栏展开态（lg 及以上始终展示，不依赖此状态） */
+  /** 小屏下左侧模板栏、右侧资产栏展开态（lg 及以上始终展示，不依赖此状态） */
   const [leftDrawerOpen, setLeftDrawerOpen] = useState(false);
   const [rightDrawerOpen, setRightDrawerOpen] = useState(false);
   const [aigcForm, setAigcForm] = useState<Partial<AivideoAigcConfig>>({});
@@ -181,6 +277,15 @@ export default function AIVideoPage() {
   const referenceInputRef = useRef<HTMLInputElement>(null);
   const referenceImagesRef = useRef(referenceImages);
   referenceImagesRef.current = referenceImages;
+
+  useEffect(() => {
+    if (!settingsOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSettingsOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [settingsOpen]);
 
   useEffect(() => {
     const stored = loadAivideoAigcConfig();
@@ -369,8 +474,34 @@ export default function AIVideoPage() {
     }
   };
 
+  /** 最多轮询 120 次（3 s × 120 = 6 min）后自动停止，切为"已提交"状态 */
+  const POLL_MAX = 120;
+  const pollCountRef = useRef<Map<string, number>>(new Map());
+
   const startPollTask = (localId: string, taskId: string) => {
+    pollCountRef.current.set(localId, 0);
+
     const tick = async () => {
+      const count = (pollCountRef.current.get(localId) ?? 0) + 1;
+      pollCountRef.current.set(localId, count);
+
+      if (count > POLL_MAX) {
+        stopPoll(localId);
+        setGeneratedList((prev) =>
+          prev.map((x) =>
+            x.id === localId
+              ? {
+                  ...x,
+                  taskStatus: 'submitted' as const,
+                  errorMessage:
+                    '轮询超时（已查询约 6 分钟），上游查询接口未返回视频地址。结果将由 callback_url 推送到你的服务端；若需在此页自动展示，请确认查询接口会在完成时返回视频 URL。',
+                }
+              : x
+          )
+        );
+        return;
+      }
+
       try {
         const c = loadAivideoAigcConfig();
         const qp = new URLSearchParams({ task_id: taskId });
@@ -408,6 +539,23 @@ export default function AIVideoPage() {
             prev.map((x) =>
               x.id === localId
                 ? { ...x, taskStatus: 'failed' as const, errorMessage: j.error || `查询失败 (${r.status})` }
+                : x
+            )
+          );
+          return;
+        }
+        if (j.status === 'submitted') {
+          stopPoll(localId);
+          setGeneratedList((prev) =>
+            prev.map((x) =>
+              x.id === localId
+                ? {
+                    ...x,
+                    taskStatus: 'submitted' as const,
+                    errorMessage:
+                      j.hint ||
+                      '任务已提交上游，但查询接口未返回可播放地址；请通过 callback_url 接收结果或检查查询接口返回字段。',
+                  }
                 : x
             )
           );
@@ -461,6 +609,8 @@ export default function AIVideoPage() {
     const ar = (sourceItem?.klingAspectRatio as (typeof KLING_ASPECT)[number]) || klingAspectRatio;
     const dur = (sourceItem?.klingDuration as (typeof KLING_DURATION)[number]) || klingDuration;
     const md = (sourceItem?.klingMode as (typeof KLING_MODE)[number]) || klingMode;
+    const modelVersionId = sourceItem?.modelVersionId || selectedModelVersionId;
+    const inputMode = sourceItem?.inputMode || selectedInputMode;
     const localId = `gen-${Date.now()}`;
     const thumbFallback =
       referenceImages[0]?.previewUrl ||
@@ -471,7 +621,9 @@ export default function AIVideoPage() {
       id: localId,
       thumbnailUrl: thumbFallback,
       prompt: text.slice(0, 2500),
-      modelTag: 'Kling O1',
+      modelTag: getModelLabel(modelVersionId),
+      modelVersionId,
+      inputMode,
       duration: `${dur}s`,
       resolution: ar,
       createdAt: Date.now(),
@@ -522,7 +674,7 @@ export default function AIVideoPage() {
           user_id: cfg.user_id?.trim(),
           app_id: cfg.app_id?.trim() || undefined,
           tenant_id: cfg.tenant_id?.trim() || undefined,
-          model_version_id: cfg.model_version_id?.trim() || undefined,
+          model_version_id: modelVersionId,
           api_key: cfg.api_key?.trim() || undefined,
         }),
       });
@@ -573,12 +725,23 @@ export default function AIVideoPage() {
     }
   };
 
+  /** 删除任务：停止轮询 + 从列表中移除 */
+  const handleDeleteTask = (item: GeneratedItem) => {
+    stopPoll(item.id);
+    setGeneratedList((prev) => prev.filter((x) => x.id !== item.id));
+  };
+
   /** 将当前任务内容带入下方输入框，便于重新编辑后生成 */
   const handleEditTask = (item: GeneratedItem) => {
     setPrompt(item.prompt);
     setKlingAspectRatio((item.klingAspectRatio as (typeof KLING_ASPECT)[number]) || '16:9');
     setKlingDuration((item.klingDuration as (typeof KLING_DURATION)[number]) || '5');
     setKlingMode((item.klingMode as (typeof KLING_MODE)[number]) || 'std');
+    setSelectedInputMode((item.inputMode as VideoInputMode) || 'reference');
+    const modelVersionId = item.modelVersionId || VIDEO_MODEL_OPTIONS[0].id;
+    setSelectedModelVersionId(
+      (VIDEO_MODEL_OPTIONS.find((m) => m.id === modelVersionId)?.id || VIDEO_MODEL_OPTIONS[0].id) as VideoModelVersionId
+    );
     const urls = item.sourceImageUrls?.length ? item.sourceImageUrls : item.sourceImageUrl ? [item.sourceImageUrl] : [];
     setReferenceImageUrls(urls);
     setReferenceImages([]);
@@ -594,6 +757,7 @@ export default function AIVideoPage() {
     const ar = (item.klingAspectRatio as (typeof KLING_ASPECT)[number]) || '16:9';
     const dur = (item.klingDuration as (typeof KLING_DURATION)[number]) || '5';
     const md = (item.klingMode as (typeof KLING_MODE)[number]) || 'std';
+    const modelVersionId = item.modelVersionId || selectedModelVersionId;
     stopPoll(localId);
     setGeneratedList((prev) =>
       prev.map((x) =>
@@ -620,7 +784,7 @@ export default function AIVideoPage() {
         user_id: cfg.user_id?.trim(),
         app_id: cfg.app_id?.trim(),
         tenant_id: cfg.tenant_id?.trim(),
-        model_version_id: cfg.model_version_id?.trim(),
+        model_version_id: modelVersionId,
         api_key: cfg.api_key?.trim(),
       };
       const refUrls = item.sourceImageUrls?.length
@@ -646,6 +810,8 @@ export default function AIVideoPage() {
                   ...x,
                   taskStatus: 'failed' as const,
                   errorMessage: j.error || `请求失败 (${res.status})`,
+                  modelVersionId,
+                  modelTag: getModelLabel(modelVersionId),
                 }
               : x
           )
@@ -670,20 +836,19 @@ export default function AIVideoPage() {
   };
 
   return (
-    <div className="h-screen overflow-hidden flex flex-col bg-[#0c0e12] text-zinc-100 antialiased overscroll-none" data-page="ai-video">
-      {/* 顶栏：与整体深色影院风格统一 */}
-      <header className="flex-shrink-0 h-12 sm:h-[52px] px-3 sm:px-4 md:px-5 lg:px-6 flex items-center justify-between border-b border-white/[0.08] bg-[#0a0c10]/95 backdrop-blur-md">
-        <div className="flex flex-col gap-0 min-w-0">
-          <span className="text-[15px] sm:text-[17px] font-bold tracking-tight text-white italic truncate">AI Studio</span>
-          <span className="text-[10px] sm:text-[11px] text-zinc-500 leading-none hidden sm:block">powered by PhotoGrid</span>
+    <div className="h-screen overflow-hidden flex flex-col bg-slate-50 text-slate-900 antialiased overscroll-none selection:bg-teal-100 selection:text-teal-900" data-page="ai-video">
+      <header className="flex-shrink-0 h-12 sm:h-[52px] px-3 sm:px-4 md:px-5 lg:px-6 flex items-center justify-between border-b border-slate-200/80 bg-white shadow-sm z-50">
+        <div className="flex flex-col gap-0.5 min-w-0">
+          <span className="text-[15px] sm:text-[17px] font-semibold tracking-tight text-slate-900 truncate">AI Studio</span>
+          <span className="text-[10px] sm:text-[11px] text-slate-400 leading-none hidden sm:block">PhotoGrid</span>
         </div>
-        <div className="flex items-center gap-1.5 sm:gap-2.5 flex-shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
           {/* 小屏展开/收起侧栏（lg 以上隐藏） */}
           <div className="flex items-center gap-1 lg:hidden">
             <button
               type="button"
               onClick={() => { setRightDrawerOpen(false); setLeftDrawerOpen((v) => !v); }}
-              className="h-8 w-8 rounded-xl bg-white/[0.04] text-zinc-400 hover:bg-white/[0.08] border border-white/[0.08] flex items-center justify-center transition-colors"
+              className={uiIconBtn}
               title="模板"
               aria-label="展开模板"
             >
@@ -692,9 +857,9 @@ export default function AIVideoPage() {
             <button
               type="button"
               onClick={() => { setLeftDrawerOpen(false); setRightDrawerOpen((v) => !v); }}
-              className="h-8 w-8 rounded-xl bg-white/[0.04] text-zinc-400 hover:bg-white/[0.08] border border-white/[0.08] flex items-center justify-center transition-colors"
-              title="历史"
-              aria-label="展开历史"
+              className={uiIconBtn}
+              title="资产"
+              aria-label="展开资产栏"
             >
               <List className="w-4 h-4" />
             </button>
@@ -705,7 +870,7 @@ export default function AIVideoPage() {
               setAigcForm((prev) => mergeAigcFormWithStored(prev));
               setSettingsOpen(true);
             }}
-            className="flex items-center gap-1.5 h-8 sm:h-9 px-2 sm:px-3 rounded-xl bg-white/[0.04] text-sm font-medium text-zinc-300 hover:bg-white/[0.08] border border-white/[0.08] transition-colors"
+            className={`${uiHeaderGhost} px-2.5 sm:px-3 h-8 sm:h-9`}
             title="AIGC 回调、用户 ID、轮询地址等"
           >
             <Settings className="w-4 h-4" />
@@ -713,15 +878,17 @@ export default function AIVideoPage() {
           </button>
           <button
             type="button"
-            className="flex items-center gap-1 sm:gap-1.5 h-8 sm:h-9 pl-2 sm:pl-3.5 pr-2 sm:pr-4 rounded-xl bg-white/[0.04] text-sm font-medium text-zinc-300 hover:bg-white/[0.08] border border-white/[0.08] transition-colors"
+            className={`${uiHeaderGhost} gap-1 sm:gap-1.5 pl-2.5 sm:pl-3 pr-2 sm:pr-3 h-8 sm:h-9`}
+            aria-label="收藏，当前 0"
           >
             <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400 fill-amber-400" />
-            <span className="hidden sm:inline">0</span>
+            <span className="hidden sm:inline tabular-nums">0</span>
           </button>
           <button
             type="button"
-            className="relative w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-white text-xs sm:text-sm font-semibold bg-gradient-to-br from-zinc-500 to-teal-700 shadow-lg shadow-black/30 hover:brightness-110 transition-all"
+            className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-teal-600 to-teal-700 text-xs font-medium text-white shadow-sm ring-2 ring-white transition-all hover:brightness-[1.03] sm:h-10 sm:w-10 sm:text-sm ${FV}`}
             title="用户"
+            aria-label="用户"
           >
             F
             <span className="absolute -top-0.5 -right-0.5 min-w-[20px] h-[18px] px-1 rounded-full bg-gradient-to-r from-fuchsia-500 to-violet-600 flex items-center justify-center text-[9px] font-bold text-white shadow-sm">
@@ -736,97 +903,81 @@ export default function AIVideoPage() {
         <button
           type="button"
           aria-label="关闭侧栏"
-          className="fixed inset-0 top-12 sm:top-[52px] z-30 bg-black/50 lg:hidden"
+          className="fixed inset-0 top-12 sm:top-[52px] z-30 bg-slate-900/25 backdrop-blur-[2px] lg:hidden"
           onClick={() => { setLeftDrawerOpen(false); setRightDrawerOpen(false); }}
         />
       )}
 
       {settingsOpen && (
         <div
-          className="fixed inset-0 z-[200] flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-sm"
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/40 p-3 backdrop-blur-sm sm:p-4"
           role="dialog"
           aria-modal="true"
           aria-labelledby="aigc-settings-title"
+          onClick={() => setSettingsOpen(false)}
         >
-          <div className="w-full max-w-lg max-h-[85vh] sm:max-h-[90vh] overflow-y-auto rounded-2xl border border-white/[0.08] bg-[#0e1118] shadow-2xl p-4 sm:p-5 space-y-4">
+          <div
+            className="max-h-[85vh] w-full max-w-lg space-y-4 overflow-y-auto rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xl shadow-slate-200/50 sm:max-h-[90vh] sm:p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between gap-2">
-              <h2 id="aigc-settings-title" className="text-lg font-semibold text-white">
+              <h2 id="aigc-settings-title" className="text-lg font-semibold text-slate-900">
                 接口设置（存本机浏览器）
               </h2>
-              <button
-                type="button"
-                onClick={() => setSettingsOpen(false)}
-                className="text-zinc-500 hover:text-white text-sm"
-              >
+              <button type="button" onClick={() => setSettingsOpen(false)} className={`rounded-lg px-2 py-1 text-sm text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 ${FV}`}>
                 关闭
               </button>
             </div>
-            <p className="text-xs text-zinc-500 leading-relaxed">
-              与 curl 一致：<strong className="text-zinc-400">callback_url</strong> 与{' '}
-              <strong className="text-zinc-400">user_id</strong> 至少二选一来源：本页填写或服务端 .env。点「保存」会写入本机；不点保存直接点「生成」也会用当前输入框里的内容发请求。
-              任务查询 URL 须含 <code className="text-teal-400/90">{'{task_id}'}</code>。
+            <p className={uiTextMuted}>
+              与 curl 一致：<strong className="text-slate-700">callback_url</strong> 与 <strong className="text-slate-700">user_id</strong> 至少二选一来源：本页填写或服务端 .env。点「保存」会写入本机；不点保存直接点「生成」也会用当前输入框里的内容发请求。
+              任务查询 URL 须含 <code className="text-teal-600">{'{task_id}'}</code>。
             </p>
             <label className="block space-y-1">
-              <span className="text-xs text-zinc-400">callback_url</span>
+              <span className="text-xs text-slate-600">callback_url</span>
               <input
-                className="w-full rounded-lg bg-black/30 border border-white/[0.08] px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600"
+                className={uiInput}
                 placeholder="https://你的服务/aigc/callback"
                 value={aigcForm.callback_url ?? ''}
                 onChange={(e) => setAigcForm((f) => ({ ...f, callback_url: e.target.value }))}
               />
             </label>
             <label className="block space-y-1">
-              <span className="text-xs text-zinc-400">user_id</span>
-              <input
-                className="w-full rounded-lg bg-black/30 border border-white/[0.08] px-3 py-2 text-sm text-zinc-100"
-                placeholder="如 12343211"
-                value={aigcForm.user_id ?? ''}
-                onChange={(e) => setAigcForm((f) => ({ ...f, user_id: e.target.value }))}
-              />
+              <span className="text-xs text-slate-600">user_id</span>
+              <input className={uiInput} placeholder="如 12343211" value={aigcForm.user_id ?? ''} onChange={(e) => setAigcForm((f) => ({ ...f, user_id: e.target.value }))} />
             </label>
             <div className="grid grid-cols-2 gap-3">
               <label className="block space-y-1">
-                <span className="text-xs text-zinc-400">app_id（可选）</span>
-                <input
-                  className="w-full rounded-lg bg-black/30 border border-white/[0.08] px-3 py-2 text-sm text-zinc-100"
-                  placeholder="arena"
-                  value={aigcForm.app_id ?? ''}
-                  onChange={(e) => setAigcForm((f) => ({ ...f, app_id: e.target.value }))}
-                />
+                <span className="text-xs text-slate-600">app_id（可选）</span>
+                <input className={uiInput} placeholder="arena" value={aigcForm.app_id ?? ''} onChange={(e) => setAigcForm((f) => ({ ...f, app_id: e.target.value }))} />
               </label>
               <label className="block space-y-1">
-                <span className="text-xs text-zinc-400">tenant_id（可选）</span>
-                <input
-                  className="w-full rounded-lg bg-black/30 border border-white/[0.08] px-3 py-2 text-sm text-zinc-100"
-                  placeholder="arena"
-                  value={aigcForm.tenant_id ?? ''}
-                  onChange={(e) => setAigcForm((f) => ({ ...f, tenant_id: e.target.value }))}
-                />
+                <span className="text-xs text-slate-600">tenant_id（可选）</span>
+                <input className={uiInput} placeholder="arena" value={aigcForm.tenant_id ?? ''} onChange={(e) => setAigcForm((f) => ({ ...f, tenant_id: e.target.value }))} />
               </label>
             </div>
             <label className="block space-y-1">
-              <span className="text-xs text-zinc-400">model_version_id（可选，默认 kling-video-o1）</span>
+              <span className="text-xs text-slate-600">model_version_id（可选，默认 kling-video-o1）</span>
               <input
-                className="w-full rounded-lg bg-black/30 border border-white/[0.08] px-3 py-2 text-sm text-zinc-100"
+                className={uiInput}
                 placeholder="kling-video-o1"
                 value={aigcForm.model_version_id ?? ''}
                 onChange={(e) => setAigcForm((f) => ({ ...f, model_version_id: e.target.value }))}
               />
             </label>
             <label className="block space-y-1">
-              <span className="text-xs text-zinc-400">任务查询 URL（轮询，须含 {'{task_id}'}；不填则用默认）</span>
+              <span className="text-xs text-slate-600">任务查询 URL（轮询，须含 {'{task_id}'}；不填则用默认）</span>
               <input
-                className="w-full rounded-lg bg-black/30 border border-white/[0.08] px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600"
+                className={uiInput}
                 placeholder="https://artface.linkv.live/api/v1/task/detail/query/{task_id}"
                 value={aigcForm.task_query_url ?? ''}
                 onChange={(e) => setAigcForm((f) => ({ ...f, task_query_url: e.target.value }))}
               />
             </label>
             <label className="block space-y-1">
-              <span className="text-xs text-zinc-400">API Key（可选，Bearer；创建与轮询共用）</span>
+              <span className="text-xs text-slate-600">API Key（可选，Bearer；创建与轮询共用）</span>
               <input
                 type="password"
-                className="w-full rounded-lg bg-black/30 border border-white/[0.08] px-3 py-2 text-sm text-zinc-100"
+                className={uiInput}
                 placeholder="留空则用服务端环境变量"
                 value={aigcForm.api_key ?? ''}
                 onChange={(e) => setAigcForm((f) => ({ ...f, api_key: e.target.value }))}
@@ -834,11 +985,7 @@ export default function AIVideoPage() {
               />
             </label>
             <div className="flex flex-wrap gap-2 pt-2">
-              <button
-                type="button"
-                onClick={persistAigcForm}
-                className="flex-1 min-w-[80px] h-10 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-sm font-medium"
-              >
+              <button type="button" onClick={persistAigcForm} className={`${uiPrimary} min-w-[80px] flex-1`}>
                 保存
               </button>
               <button
@@ -856,16 +1003,12 @@ export default function AIVideoPage() {
                     api_key: restored.api_key,
                   });
                 }}
-                className="h-10 px-4 rounded-xl border border-white/[0.08] text-zinc-300 text-sm hover:bg-white/[0.06] transition-colors"
+                className={uiSecondary}
                 title="将 callback_url、user_id 恢复为当前默认并写入本机"
               >
                 恢复默认
               </button>
-              <button
-                type="button"
-                onClick={() => setSettingsOpen(false)}
-                className="h-10 px-4 rounded-xl border border-white/[0.08] text-zinc-300 text-sm hover:bg-white/[0.06] transition-colors"
-              >
+              <button type="button" onClick={() => setSettingsOpen(false)} className={uiSecondary}>
                 取消
               </button>
             </div>
@@ -876,31 +1019,32 @@ export default function AIVideoPage() {
       <div className="flex-1 flex min-h-0 overflow-hidden min-w-0 relative">
       {/* 左侧：小屏为抽屉，lg 及以上为常驻 */}
       <aside
-        className={`fixed lg:relative left-0 top-12 sm:top-[52px] lg:top-0 bottom-0 z-40 lg:z-auto w-72 max-w-[85vw] lg:w-[300px] xl:w-[380px] lg:max-w-none flex-shrink-0 flex flex-col min-h-0 border-r border-white/[0.08] bg-[#0a0c10] pr-0 overflow-hidden transition-transform duration-200 ease-out ${
+        className={`fixed lg:relative left-0 top-12 sm:top-[52px] lg:top-0 bottom-0 z-40 lg:z-auto w-72 max-w-[85vw] lg:w-[300px] xl:w-[380px] lg:max-w-none flex-shrink-0 flex flex-col min-h-0 border-r border-slate-200/80 bg-white shadow-[2px_0_12px_-4px_rgba(15,23,42,0.06)] pr-0 overflow-hidden transition-transform duration-200 ease-out ${
           leftDrawerOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
-        <div className="px-2 sm:px-3 py-2 sm:py-3 border-b border-white/[0.08] flex-shrink-0 flex items-center justify-between gap-2">
+        <div className="flex flex-shrink-0 items-center justify-between gap-2 border-b border-slate-100 bg-slate-50/50 px-2.5 py-1.5 sm:px-3 sm:py-2">
           <Link
             href="/editor"
-            className="inline-flex items-center gap-1.5 text-zinc-500 hover:text-teal-400 text-xs sm:text-sm font-medium py-1.5 px-2 -ml-2 rounded-lg hover:bg-white/[0.06] transition-colors"
+            className={`inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-xs font-medium text-slate-500 transition-colors hover:bg-white hover:text-teal-700 ${FV}`}
             title="返回编辑器"
           >
-            <ChevronLeft className="w-4 h-4" />
+            <ChevronLeft className="h-3.5 w-3.5" />
             返回
           </Link>
           <button
             type="button"
             onClick={() => setLeftDrawerOpen(false)}
-            className="lg:hidden h-8 w-8 rounded-lg bg-white/[0.04] text-zinc-500 hover:bg-white/[0.08] border border-white/[0.08] flex items-center justify-center"
+            className={`${uiIconBtnOnPanel} lg:hidden`}
             title="收起"
             aria-label="收起模板栏"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
-        <div className="flex-shrink-0 overflow-x-auto border-b border-white/[0.08]">
-          <div className="flex gap-1.5 sm:gap-2 p-2 sm:p-3 min-w-0">
+        <div className="flex-shrink-0 bg-white px-3 pt-2 text-xs font-medium text-slate-500 sm:px-3.5">模板库</div>
+        <div className="flex-shrink-0 overflow-x-auto bg-white">
+          <div className="flex gap-2 p-3 min-w-0">
             {TEMPLATE_CATEGORIES.map((cat) => {
               const isActive = templateCategory === cat.id;
               const Icon = cat.icon;
@@ -909,39 +1053,43 @@ export default function AIVideoPage() {
                   key={cat.id}
                   type="button"
                   onClick={() => setTemplateCategory(cat.id)}
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
-                    isActive
-                      ? 'bg-teal-500/15 text-teal-400 ring-1 ring-teal-400/30'
-                      : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.06]'
-                  }`}
+                  className={`${uiPillBase} ${isActive ? uiPillActive : uiPillInactive}`}
                 >
-                  {Icon && <Icon className="w-3.5 h-3.5 opacity-80" />}
+                  {Icon && <Icon className={`w-3.5 h-3.5 ${isActive ? 'opacity-95' : 'opacity-70'}`} />}
                   {cat.name}
                 </button>
               );
             })}
           </div>
         </div>
-        <div className="flex-1 min-h-0 overflow-y-auto sidebar-scrollbar p-2 sm:p-3">
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
+        <div className="flex-1 min-h-0 overflow-y-auto bg-slate-50/40 p-2.5 sm:p-3 sidebar-scrollbar">
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3">
             {filteredTemplates.map((t) => (
               <div
                 key={t.id}
-                className="group/card rounded-xl overflow-hidden ring-1 ring-white/[0.08] hover:ring-2 hover:ring-teal-400/50 hover:shadow-[0_0_24px_-6px_rgba(45,212,191,0.25)] transition-all duration-200 hover:scale-[1.02]"
+                className="group/card rounded-2xl overflow-hidden border border-slate-200/90 bg-white shadow-sm hover:shadow-md hover:border-teal-200/60 transition-all duration-200"
               >
                 <button
                   type="button"
-                  className="w-full text-left block"
+                  onClick={() => {
+                    setSelectedTemplateId(t.id);
+                    setPrompt(buildTemplatePrompt(t.name, t.category));
+                    setInputBarCollapsed(false);
+                    setPromptExpanded(true);
+                    setLeftDrawerOpen(false);
+                  }}
+                  className={`block w-full appearance-none border-0 bg-transparent p-0 text-left align-top ${FV}`}
+                  aria-label={`使用模板 ${t.name}`}
                 >
-                  <div className="relative aspect-[4/5] bg-zinc-800 overflow-hidden rounded-xl">
-                    <img src={t.thumb} alt={t.name} className="absolute inset-0 w-full h-full object-cover group-hover/card:scale-105 transition-transform duration-300" />
-                    <span className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition-opacity duration-200">
-                      <span className="px-3 py-1.5 rounded-xl text-xs font-medium bg-white/20 backdrop-blur-md text-white border border-white/20 hover:bg-white/30">
+                  <div className="relative aspect-[4/5] bg-slate-100 overflow-hidden">
+                    <img src={t.thumb} alt={t.name} className="absolute inset-0 w-full h-full object-cover group-hover/card:scale-[1.03] transition-transform duration-300" />
+                    <span className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition-opacity duration-200 bg-slate-900/10">
+                      <span className="px-3 py-1.5 rounded-lg text-xs font-medium bg-white text-slate-800 shadow-md">
                         使用
                       </span>
                     </span>
-                    <div className="absolute bottom-0 left-0 right-0 flex items-center justify-center min-h-[2rem] py-1.5 px-2 bg-black/55 backdrop-blur-sm">
-                      <p className="text-xs font-medium text-zinc-300 leading-tight line-clamp-2 text-center w-full">
+                    <div className="absolute bottom-0 left-0 right-0 flex items-center justify-center min-h-[2rem] py-1.5 px-2 bg-gradient-to-t from-black/55 to-transparent">
+                      <p className="text-xs font-medium text-white leading-tight line-clamp-2 text-center w-full drop-shadow-sm">
                         {t.name}
                       </p>
                     </div>
@@ -951,22 +1099,26 @@ export default function AIVideoPage() {
             ))}
           </div>
           {filteredTemplates.length === 0 && (
-            <div className="text-center py-8 text-zinc-600 text-xs">该分类暂无模板</div>
+            <div className="py-8 text-center text-sm text-slate-400">该分类暂无模板</div>
           )}
         </div>
       </aside>
 
-      <main className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden bg-[#0c0e12] relative">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(45,212,191,0.08),transparent)]" aria-hidden />
-        <div className="w-full max-w-5xl mx-auto min-w-0 flex-1 min-h-0 relative z-[1] px-2 sm:px-3 md:px-4">
+      <main className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden bg-slate-50 relative">
+        <div className="pointer-events-none absolute inset-0 z-0 bg-lovart-canvas-dots" aria-hidden />
+        <div className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(ellipse_70%_45%_at_50%_0%,rgba(20,184,166,0.045),transparent)]" aria-hidden />
+        <div className="w-full max-w-3xl mx-auto min-w-0 flex-1 min-h-0 relative z-[1] px-3 sm:px-4 md:px-5">
           <div
             ref={taskScrollRef}
             onScroll={handleTaskScroll}
             className="h-full min-h-0 overflow-y-auto overflow-x-hidden sidebar-scrollbar snap-y snap-mandatory scroll-smooth pb-[min(260px,32vh)] sm:pb-[min(300px,38vh)]"
           >
             {generatedList.length === 0 ? (
-              <div className="flex flex-col items-center justify-center min-h-full text-zinc-600 text-sm px-4">
-                <p className="text-center max-w-xs leading-relaxed">暂无生产历史，在下方输入后生成</p>
+              <div className="flex min-h-[44vh] flex-col items-center justify-center px-3">
+                <div className="w-full max-w-sm rounded-2xl border border-dashed border-slate-200 bg-white/80 px-5 py-8 text-center shadow-sm">
+                  <p className="text-slate-500 text-sm leading-relaxed">暂无生成记录</p>
+                  <p className="text-slate-400 text-xs mt-2">在下方输入提示词后点击生成</p>
+                </div>
               </div>
             ) : (
               generatedList.map((item) => {
@@ -977,154 +1129,165 @@ export default function AIVideoPage() {
                 const failed = item.taskStatus === 'failed';
                 const submitted = item.taskStatus === 'submitted';
                 const showVideo = Boolean(item.videoUrl) && item.taskStatus === 'succeeded';
+                const refImg = item.sourceImageUrl || item.sourceImageUrls?.[0] || item.referencePreviewUrl;
+                const tags = [
+                  item.modelTag,
+                  item.resolution,
+                  item.klingMode ? (item.klingMode === 'pro' ? '1080p' : '720p') : null,
+                  item.duration,
+                ].filter(Boolean);
                 return (
                   <section
                     key={item.id}
                     data-task-id={item.id}
                     data-task-slide
-                    className="snap-start snap-always min-h-0 flex flex-col box-border py-2 sm:py-3 pr-1"
+                    className="snap-start snap-always flex min-h-0 flex-col border-b border-slate-100 pb-6 last:border-0 sm:pb-8"
                   >
-                    <div className="shrink-0 mb-1.5 sm:mb-2 space-y-2">
-                      <div className="flex gap-3 items-start">
-                        {(item.sourceImageUrl || item.sourceImageUrls?.[0] || item.referencePreviewUrl) && (
+                    {/* ── 元信息行：左侧缩略图+prompt，右侧操作按钮（与视频左右边线对齐） ── */}
+                    <div className="flex items-start justify-between gap-3 py-3">
+                      <div className="flex min-w-0 flex-1 items-start gap-2 pr-2">
+                        {refImg && (
                           <img
-                            src={item.sourceImageUrl || item.sourceImageUrls?.[0] || item.referencePreviewUrl}
+                            src={refImg}
                             alt="参考图"
-                            className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 flex-shrink-0 rounded-lg sm:rounded-xl object-cover border border-white/[0.08]"
+                            className="mt-0.5 h-8 w-8 shrink-0 rounded-md border border-slate-200 object-cover"
                           />
                         )}
-                        <p className="text-sm sm:text-[15px] text-zinc-300 leading-relaxed line-clamp-3 flex-1 min-w-0">{item.prompt}</p>
+                        <p className="min-w-0 flex-1 text-sm leading-6 text-slate-800 line-clamp-3">{item.prompt}</p>
                       </div>
-                      <div className="flex flex-wrap gap-1.5 sm:gap-2 items-center">
-                        {item.modelTag && (
-                          <span className="px-3 py-1.5 rounded-lg bg-white/[0.06] text-xs text-zinc-400 border border-white/[0.08]">{item.modelTag}</span>
-                        )}
-                        {item.resolution && (
-                          <span className="px-3 py-1.5 rounded-lg bg-white/[0.06] text-xs text-zinc-400 border border-white/[0.08]">
-                            {item.resolution}
+                      <div className="flex shrink-0 items-center self-start pt-0.5">
+                        <button
+                          type="button"
+                          onClick={() => handleEditTask(item)}
+                          className={uiAssetActionBtn}
+                          title="编辑：带到下方输入框"
+                          aria-label="编辑任务"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleCreate(item)}
+                          disabled={isSubmitting}
+                          className={uiAssetActionBtn}
+                          title="再次生成"
+                          aria-label="再次生成"
+                        >
+                          <RefreshCw className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteTask(item)}
+                          className={`${uiAssetActionBtn} hover:text-red-500`}
+                          title="删除任务"
+                          aria-label="删除任务"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                    {tags.length > 0 && (
+                      <div className="-mt-1 flex flex-wrap gap-1 pb-2">
+                        {tags.map((t) => (
+                          <span key={t} className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500">
+                            {t}
                           </span>
-                        )}
-                        {item.klingMode && (
-                          <span className="px-3 py-1.5 rounded-lg bg-white/[0.06] text-xs text-zinc-400 border border-white/[0.08]">
-                            {item.klingMode === 'pro' ? '1080p' : '720p'}
-                          </span>
-                        )}
-                        {item.duration && (
-                          <span className="px-3 py-1.5 rounded-lg bg-white/[0.06] text-xs text-zinc-400 border border-white/[0.08]">{item.duration}</span>
-                        )}
-                        <span className="flex items-center gap-1 sm:gap-1.5 ml-auto">
+                        ))}
+                      </div>
+                    )}
+
+                    {/* ── 视频 / 状态区（所有状态统一 aspect-video 高度）── */}
+                    {failed ? (
+                      <div className="flex w-full items-center justify-center bg-red-50" style={{ aspectRatio: '16/9' }}>
+                        <div className="flex flex-col items-center gap-3">
+                          <p className="text-center text-sm text-red-600">{item.errorMessage || '生成失败'}</p>
                           <button
                             type="button"
-                            onClick={() => handleEditTask(item)}
-                            className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg sm:rounded-xl bg-white/[0.04] text-zinc-500 hover:bg-white/[0.08] border border-white/[0.08] flex items-center justify-center transition-colors"
-                            title="编辑：带到下方输入框"
-                          >
-                            <Pencil className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleCreate(item)}
+                            onClick={() => void handleRetryTask(item)}
                             disabled={isSubmitting}
-                            className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg sm:rounded-xl bg-white/[0.04] text-zinc-500 hover:bg-white/[0.08] border border-white/[0.08] flex items-center justify-center transition-colors disabled:opacity-50"
-                            title="再次生成"
+                            className={uiSecondaryCompact}
                           >
-                            <RefreshCw className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                            重试
                           </button>
-                        </span>
+                        </div>
                       </div>
-                    </div>
-                    <div className="shrink-0 mt-1.5 sm:mt-2 min-h-0">
-                      <div className="w-full max-w-full mx-auto rounded-2xl ring-1 ring-white/[0.08] bg-zinc-950/95 shadow-xl flex flex-col overflow-hidden">
-                        {failed ? (
-                          <div className="aspect-video max-h-[min(56vh,500px)] lg:max-h-[min(48vh,480px)] flex flex-col items-center justify-center gap-3 bg-zinc-900/90 px-6 rounded-2xl">
-                            <p className="text-sm text-red-400/90 text-center">{item.errorMessage || '生成失败'}</p>
-                            <button
-                              type="button"
-                              onClick={() => void handleRetryTask(item)}
-                              disabled={isSubmitting}
-                              className="h-9 px-4 rounded-xl bg-white/[0.06] text-sm text-zinc-300 hover:bg-white/[0.1] border border-white/[0.08] transition-colors"
-                            >
-                              重试
-                            </button>
-                          </div>
-                        ) : submitted ? (
-                          <div className="aspect-video max-h-[min(56vh,500px)] lg:max-h-[min(48vh,480px)] flex flex-col items-center justify-center gap-3 bg-zinc-900/90 px-6 rounded-2xl border border-teal-500/20">
-                            <p className="text-sm text-teal-400/90 text-center font-medium">任务已提交上游</p>
-                            {item.remoteTaskId && (
-                              <p className="text-xs text-zinc-500 font-mono break-all text-center">task_id: {item.remoteTaskId}</p>
-                            )}
-                            <p className="text-xs text-zinc-400 text-center leading-relaxed max-w-md">
-                              {item.errorMessage}
-                            </p>
-                            <p className="text-xs text-zinc-500 text-center">
-                              成片由上游 POST 到你在服务端配置的 callback_url；若需本页自动出视频，请在 .env 配置 AIGC_TASK_QUERY_URL。
-                            </p>
-                          </div>
-                        ) : gen ? (
-                          <div className="aspect-video max-h-[min(56vh,500px)] lg:max-h-[min(48vh,480px)] flex items-center justify-center bg-zinc-900/80 w-full overflow-hidden rounded-2xl">
-                            <div className="flex flex-col items-center gap-3 text-teal-400">
-                              <Loader2 className="w-12 h-12 animate-spin opacity-90" />
-                              <span className="text-sm text-zinc-400">生成中，可关闭页面稍后查看历史</span>
-                            </div>
-                          </div>
-                        ) : showVideo ? (
-                          <div className="flex flex-col overflow-hidden rounded-2xl">
-                            <video
-                              src={item.videoUrl}
-                              poster={item.thumbnailUrl}
-                              controls
-                              playsInline
-                              className="w-full max-h-[min(56vh,500px)] lg:max-h-[min(48vh,480px)] bg-black object-contain rounded-2xl"
-                            />
-                          </div>
-                        ) : (
-                          <>
-                            <div className="relative w-full aspect-video max-h-[min(56vh,500px)] lg:max-h-[min(48vh,480px)] bg-black overflow-hidden rounded-t-2xl shrink-0">
-                              <img src={item.thumbnailUrl} alt="" className="w-full h-full object-contain" />
-                              <button
-                                type="button"
-                                onClick={() => setPlayer(item.id, { playing: !playing })}
-                                className="absolute inset-0 flex items-center justify-center bg-gradient-to-t from-black/50 via-black/10 to-transparent hover:via-black/20 transition-all"
-                                aria-label={playing ? '暂停' : '播放'}
-                              >
-                                <span className="w-16 h-16 rounded-full bg-white flex items-center justify-center text-zinc-900 shadow-xl shadow-black/40 hover:scale-105 transition-transform">
-                                  {playing ? <Pause className="w-7 h-7" /> : <Play className="w-7 h-7 ml-1" />}
-                                </span>
-                              </button>
-                            </div>
-                            <div className="flex shrink-0 items-center gap-2 sm:gap-3 px-2 sm:px-3 py-2.5 backdrop-blur-xl bg-zinc-950/95 border-t border-white/[0.08] flex-wrap rounded-b-2xl">
-                              <button
-                                type="button"
-                                onClick={() => setPlayer(item.id, { playing: !playing })}
-                                className="flex-shrink-0 w-9 h-9 rounded-full bg-white/[0.1] flex items-center justify-center text-white hover:bg-white/[0.18] border border-white/[0.08]"
-                                aria-label={playing ? '暂停' : '播放'}
-                              >
-                                {playing ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
-                              </button>
-                              <span className="text-xs text-zinc-500 tabular-nums flex-shrink-0 w-8">{formatTime(cur)}</span>
-                              <input
-                                type="range"
-                                min={0}
-                                max={100}
-                                value={progress}
-                                onChange={(e) => setPlayer(item.id, { progress: Number(e.target.value) })}
-                                className="flex-1 min-w-[72px] h-1 rounded-full appearance-none bg-zinc-700/80 accent-teal-400 cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-teal-400 [&::-webkit-slider-thumb]:shadow-[0_0_8px_rgba(45,212,191,0.5)]"
-                              />
-                              <span className="text-xs text-zinc-500 tabular-nums flex-shrink-0 w-8">{formatTime(dur)}</span>
-                              <div className="flex items-center flex-shrink-0 w-full sm:w-auto sm:ml-auto justify-end">
-                                <button type="button" className="h-8 w-8 rounded-xl bg-white/[0.04] text-zinc-500 hover:bg-white/[0.08] border border-white/[0.08] flex items-center justify-center transition-colors" title="更多">
-                                  <MoreVertical className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            </div>
-                          </>
-                        )}
+                    ) : submitted ? (
+                      <div className="flex w-full items-center justify-center border-y border-teal-100 bg-teal-50/60" style={{ aspectRatio: '16/9' }}>
+                        <div className="flex flex-col items-center gap-2 px-6">
+                          <p className="text-sm font-medium text-teal-800">任务已提交上游</p>
+                          {item.remoteTaskId && (
+                            <p className="break-all text-center font-mono text-xs text-slate-500">task_id: {item.remoteTaskId}</p>
+                          )}
+                          <p className="max-w-sm text-center text-xs leading-relaxed text-slate-500">
+                            {item.errorMessage || '成片由上游推送到 callback_url；若需本页自动展示，请在设置中配置查询地址。'}
+                          </p>
+                        </div>
                       </div>
-                    </div>
+                    ) : gen ? (
+                      <div className="flex w-full items-center justify-center bg-slate-100" style={{ aspectRatio: '16/9' }}>
+                        <div className="flex flex-col items-center gap-2.5 text-teal-600">
+                          <Loader2 className="h-10 w-10 animate-spin opacity-80" />
+                          <span className="text-xs text-slate-500">生成中，可关闭页面稍后查看历史</span>
+                        </div>
+                      </div>
+                    ) : showVideo ? (
+                      <div
+                        className="relative w-full shrink-0 overflow-hidden rounded-2xl bg-black"
+                        style={{ maxHeight: 'min(56vh, 520px)', aspectRatio: '16/9' }}
+                      >
+                        <video
+                          src={item.videoUrl}
+                          poster={item.thumbnailUrl}
+                          controls
+                          playsInline
+                          className="h-full w-full bg-black object-contain"
+                        />
+                      </div>
+                    ) : (
+                      <>
+                        <div
+                          className="relative w-full shrink-0 overflow-hidden rounded-2xl bg-black"
+                          style={{ maxHeight: 'min(56vh, 520px)', aspectRatio: '16/9' }}
+                        >
+                          <img src={item.thumbnailUrl} alt="" className="h-full w-full object-contain" />
+                          <button
+                            type="button"
+                            onClick={() => setPlayer(item.id, { playing: !playing })}
+                            className={`absolute inset-0 flex items-center justify-center bg-gradient-to-t from-black/50 via-black/10 to-transparent transition-all hover:via-black/20 ${FV}`}
+                            aria-label={playing ? '暂停' : '播放'}
+                          >
+                            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white/90 text-slate-900 shadow-lg transition-transform hover:scale-105">
+                              {playing ? <Pause className="h-6 w-6" /> : <Play className="h-6 w-6 ml-0.5" />}
+                            </span>
+                          </button>
+                        </div>
+                        {/* 进度条 */}
+                        <div className="flex items-center gap-2 border-t border-slate-100 px-4 py-2">
+                          <button
+                            type="button"
+                            onClick={() => setPlayer(item.id, { playing: !playing })}
+                            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-700 transition-colors hover:bg-slate-200 ${FV}`}
+                            aria-label={playing ? '暂停' : '播放'}
+                          >
+                            {playing ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5 ml-0.5" />}
+                          </button>
+                          <span className="w-8 shrink-0 text-xs tabular-nums text-slate-400">{formatTime(cur)}</span>
+                          <input
+                            type="range"
+                            min={0}
+                            max={100}
+                            value={progress}
+                            onChange={(e) => setPlayer(item.id, { progress: Number(e.target.value) })}
+                            className={`h-1 min-w-[60px] flex-1 cursor-pointer appearance-none rounded-full bg-slate-200 accent-teal-600 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-teal-600 ${FV}`}
+                            aria-label="播放进度"
+                          />
+                          <span className="w-8 shrink-0 text-xs tabular-nums text-slate-400">{formatTime(dur)}</span>
+                        </div>
+                      </>
+                    )}
+
                     {showDailyScrollHint && newestId === item.id && (
-                      <p className="shrink-0 text-center text-xs text-zinc-500 mt-2 sm:mt-3 pb-1">
-                        上下滑动切换任务
-                      </p>
+                      <p className={`${uiTextMuted} shrink-0 py-2 text-center`}>上下滑动切换任务</p>
                     )}
                   </section>
                 );
@@ -1132,14 +1295,20 @@ export default function AIVideoPage() {
             )}
           </div>
 
-          {/* 悬浮输入层：上滑浏览历史时收起的胶囊条 / 默认展开大面板 */}
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 flex flex-col items-center px-2 sm:px-0 pb-2 sm:pb-3 pt-6 sm:pt-8 bg-gradient-to-t from-[#0c0e12] via-[#0c0e12]/95 to-transparent">
+          {/* 悬浮输入层：展开时底部极淡渐变防文字贴边；收起时不铺渐变避免挡视线 */}
+          <div
+            className={`pointer-events-none absolute inset-x-0 bottom-0 z-30 flex flex-col items-center px-3 sm:px-4 pb-2 sm:pb-3 ${
+              inputBarCollapsed && generatedList.length > 0
+                ? 'pt-2 sm:pt-3'
+                : 'pt-6 sm:pt-8 bg-gradient-to-t from-slate-50/45 to-transparent'
+            }`}
+          >
             {inputBarCollapsed && generatedList.length > 0 && (
-              <div className="pointer-events-auto flex flex-col items-end w-full max-w-2xl px-1 mb-1">
+              <div className="pointer-events-auto flex flex-col items-end w-full max-w-3xl mx-auto mb-1">
                 <button
                   type="button"
                   onClick={scrollToLatestTask}
-                  className="flex items-center gap-1 text-xs text-zinc-500 hover:text-teal-400 py-1 pr-1 transition-colors"
+                  className={`flex items-center gap-1 py-1 pr-1 text-xs text-slate-500 transition-colors hover:text-teal-700 ${FV}`}
                 >
                   回到底部
                   <ChevronDown className="w-3.5 h-3.5" />
@@ -1147,26 +1316,27 @@ export default function AIVideoPage() {
               </div>
             )}
             <div
-              className={`pointer-events-auto w-full border border-white/[0.08] ring-1 ring-white/[0.06] backdrop-blur-2xl ${
+              className={`pointer-events-auto w-full max-w-3xl mx-auto border border-slate-200/90 bg-white shadow-lg shadow-slate-200/40 backdrop-blur-sm ${
                 inputBarCollapsed && generatedList.length > 0
-                  ? 'max-w-2xl rounded-2xl border-white/[0.08] bg-[#0e1118]/95 shadow-xl px-2 sm:px-3 py-1.5 sm:py-2'
-                  : 'rounded-xl sm:rounded-2xl bg-[#0e1118]/95 shadow-xl overflow-hidden'
+                  ? 'rounded-2xl px-2 sm:px-2.5 py-1.5'
+                  : 'rounded-2xl overflow-hidden'
               }`}
             >
               {inputBarCollapsed && generatedList.length > 0 ? (
-                <div className="flex items-center gap-2 min-h-[44px]">
+                <div className="flex min-h-[46px] items-center gap-2">
                   <button
                     type="button"
                     onClick={() => setInputBarCollapsed(false)}
-                    className="flex-shrink-0 w-9 h-9 rounded-full bg-white/[0.08] border border-white/[0.08] flex items-center justify-center text-zinc-300 hover:bg-white/[0.12]"
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600 transition-colors hover:bg-slate-200 ${FV}`}
                     title="展开"
+                    aria-label="展开输入框"
                   >
                     <Plus className="w-5 h-5" />
                   </button>
                   <button
                     type="button"
                     onClick={() => setInputBarCollapsed(false)}
-                    className="flex-1 min-w-0 text-left text-sm text-zinc-400 truncate py-2"
+                    className={`min-w-0 flex-1 truncate py-2 text-left text-sm text-slate-500 ${FV}`}
                   >
                     {prompt.trim() || '试试描述一段简短的故事情节…'}
                   </button>
@@ -1174,20 +1344,53 @@ export default function AIVideoPage() {
                     type="button"
                     onClick={() => void handleCreate()}
                     disabled={isSubmitting || !prompt.trim()}
-                    className="flex-shrink-0 w-10 h-10 rounded-full bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 flex items-center justify-center text-white disabled:opacity-50 shadow-md"
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-600 text-white shadow-sm transition-colors hover:bg-teal-700 disabled:opacity-50 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/90"
                     title="生成"
+                    aria-label="生成"
                   >
                     {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <ArrowUp className="w-5 h-5" />}
                   </button>
                 </div>
               ) : (
-                <div className="p-3 sm:p-4 space-y-3">
+                <div className="relative space-y-2.5 p-3 sm:p-3.5">
+                  <button
+                    type="button"
+                    onClick={() => setPromptExpanded((v) => !v)}
+                    className={`absolute right-3 top-3 z-10 inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 ${FV}`}
+                    title={promptExpanded ? '收起输入框' : '展开输入框'}
+                    aria-label={promptExpanded ? '收起提示词输入框' : '展开提示词输入框'}
+                  >
+                    {promptExpanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                  </button>
                   <div className="overflow-hidden">
-                    <div className="flex gap-2 sm:gap-2.5 px-0 pt-0 pb-2 sm:pb-3 flex-wrap items-center">
-                      <button type="button" className="w-12 h-12 sm:w-14 sm:h-14 flex-shrink-0 rounded-xl bg-white/[0.04] text-zinc-500 hover:text-teal-400 hover:bg-teal-500/10 text-xs flex flex-col items-center justify-center gap-0.5 border border-white/[0.08] transition-colors">
-                        <Plus className="w-4 h-4" />
-                        特效
-                      </button>
+                    <div className="flex flex-wrap items-center gap-2 pb-2">
+                      {selectedTemplate ? (
+                        <div className="group relative flex-shrink-0">
+                          <img
+                            src={selectedTemplate.thumb}
+                            alt={selectedTemplate.name}
+                            className="h-11 w-11 rounded-xl border border-slate-200 object-cover sm:h-12 sm:w-12"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setSelectedTemplateId(null)}
+                            className={`absolute -right-1 -top-1 z-10 flex h-5 w-5 items-center justify-center rounded-md border border-slate-200 bg-white/95 text-slate-500 shadow-sm opacity-0 transition-all duration-150 group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-red-50 hover:text-red-500 ${FV}`}
+                            title="移除模板"
+                            aria-label="移除模板"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          className={`${uiToolTileBase} border-slate-200/80 bg-slate-50 text-slate-500 hover:bg-teal-50 hover:text-teal-700`}
+                          title="模板"
+                        >
+                          <Plus className="h-4 w-4" />
+                          模版
+                        </button>
+                      )}
                       <input
                         ref={referenceInputRef}
                         type="file"
@@ -1216,10 +1419,10 @@ export default function AIVideoPage() {
                         type="button"
                         onClick={() => referenceInputRef.current?.click()}
                         disabled={referenceImages.length + referenceImageUrls.length >= REFERENCE_IMAGE_MAX}
-                        className={`w-12 h-12 sm:w-14 sm:h-14 flex-shrink-0 rounded-xl text-xs flex flex-col items-center justify-center gap-0.5 border transition-colors disabled:opacity-50 ${
+                        className={`${uiToolTileBase} border transition-colors disabled:opacity-50 ${
                           referenceImages.length > 0 || referenceImageUrls.length > 0
-                            ? 'bg-teal-500/15 text-teal-400 border-teal-500/30'
-                            : 'bg-white/[0.04] text-zinc-500 hover:text-teal-400 hover:bg-teal-500/10 border-white/[0.08]'
+                            ? 'border-teal-200/80 bg-teal-50 text-teal-800'
+                            : 'border-slate-200/80 bg-slate-50 text-slate-500 hover:bg-teal-50 hover:text-teal-700'
                         }`}
                         title="选择参考图后为图生图模式，最多 7 张"
                       >
@@ -1227,28 +1430,29 @@ export default function AIVideoPage() {
                         参考
                       </button>
                       {referenceImageUrls.map((url, idx) => (
-                        <div key={`url-${idx}`} className="relative flex-shrink-0">
+                        <div key={`url-${idx}`} className="group relative flex-shrink-0">
                           <img
                             src={url}
                             alt={`参考图 ${idx + 1}`}
-                            className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg sm:rounded-xl object-cover border border-white/[0.08] ring-1 ring-white/[0.04]"
+                            className="h-11 w-11 rounded-xl border border-slate-200 object-cover sm:h-12 sm:w-12"
                           />
                           <button
                             type="button"
                             onClick={() => setReferenceImageUrls((prev) => prev.filter((_, i) => i !== idx))}
-                            className="absolute -top-1 -right-1 w-6 h-6 rounded-lg bg-zinc-800/95 border border-white/[0.12] flex items-center justify-center text-zinc-300 hover:bg-red-500/20 hover:text-red-400 transition-colors"
+                            className={`absolute -right-1 -top-1 z-10 flex h-5 w-5 items-center justify-center rounded-md border border-slate-200 bg-white/95 text-slate-500 shadow-sm opacity-0 transition-all duration-150 group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-red-50 hover:text-red-500 ${FV}`}
                             title="移除参考图"
+                            aria-label="移除参考图"
                           >
-                            <X className="w-3 h-3" />
+                            <X className="h-3 w-3" />
                           </button>
                         </div>
                       ))}
                       {referenceImages.map((r, idx) => (
-                        <div key={idx} className="relative flex-shrink-0">
+                        <div key={idx} className="group relative flex-shrink-0">
                           <img
                             src={r.previewUrl}
                             alt={`参考图 ${idx + 1}`}
-                            className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg sm:rounded-xl object-cover border border-white/[0.08] ring-1 ring-white/[0.04]"
+                            className="h-11 w-11 rounded-xl border border-slate-200 object-cover sm:h-12 sm:w-12"
                           />
                           <button
                             type="button"
@@ -1256,10 +1460,11 @@ export default function AIVideoPage() {
                               URL.revokeObjectURL(r.previewUrl);
                               setReferenceImages((prev) => prev.filter((_, i) => i !== idx));
                             }}
-                            className="absolute -top-1 -right-1 w-6 h-6 rounded-lg bg-zinc-800/95 border border-white/[0.12] flex items-center justify-center text-zinc-300 hover:bg-red-500/20 hover:text-red-400 transition-colors"
+                            className={`absolute -right-1 -top-1 z-10 flex h-5 w-5 items-center justify-center rounded-md border border-slate-200 bg-white/95 text-slate-500 shadow-sm opacity-0 transition-all duration-150 group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-red-50 hover:text-red-500 ${FV}`}
                             title="移除参考图"
+                            aria-label="移除参考图"
                           >
-                            <X className="w-3 h-3" />
+                            <X className="h-3 w-3" />
                           </button>
                         </div>
                       ))}
@@ -1268,17 +1473,40 @@ export default function AIVideoPage() {
                       value={prompt}
                       onChange={(e) => setPrompt(e.target.value.slice(0, 2500))}
                       placeholder="正向提示词（文生视频），主体、环境、时间、风格等，最多 2500 字"
-                      className="w-full min-h-[88px] px-1 py-2 bg-transparent text-zinc-200 placeholder-zinc-600 resize-none focus:outline-none text-[15px] leading-relaxed"
+                      className={`${uiPromptTextarea} ${promptExpanded ? 'min-h-[220px] sm:min-h-[280px]' : 'min-h-[72px]'}`}
                       maxLength={2500}
                     />
                   </div>
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 pt-2 sm:pt-1 border-t border-white/[0.06]">
-                    <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap order-2 sm:order-1">
-                      <span className="text-xs text-zinc-500 shrink-0 hidden sm:inline">Kling O1</span>
+                  <div className="flex flex-col gap-2 pt-1.5 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="order-2 flex flex-wrap items-center gap-2 sm:order-1">
+                      <select
+                        value={selectedModelVersionId}
+                        onChange={(e) => setSelectedModelVersionId(e.target.value as VideoModelVersionId)}
+                        className={uiSelect}
+                        title="模型"
+                      >
+                        {VIDEO_MODEL_OPTIONS.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.label}
+                          </option>
+                        ))}
+                      </select>
+                      <select
+                        value={selectedInputMode}
+                        onChange={(e) => setSelectedInputMode(e.target.value as VideoInputMode)}
+                        className={uiSelect}
+                        title="输入模式"
+                      >
+                        {VIDEO_INPUT_MODE_OPTIONS.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.label}
+                          </option>
+                        ))}
+                      </select>
                       <select
                         value={klingAspectRatio}
                         onChange={(e) => setKlingAspectRatio(e.target.value as (typeof KLING_ASPECT)[number])}
-                        className="h-9 px-3 rounded-xl border border-white/[0.08] bg-white/[0.04] text-zinc-300 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 transition-colors"
+                        className={uiSelect}
                         title="画幅 → 请求 parameters.aspect_ratio（与 Postman/curl 一致）"
                       >
                         {KLING_ASPECT.map((a) => (
@@ -1290,7 +1518,7 @@ export default function AIVideoPage() {
                       <select
                         value={klingDuration}
                         onChange={(e) => setKlingDuration(e.target.value as (typeof KLING_DURATION)[number])}
-                        className="h-9 px-3 rounded-xl border border-white/[0.08] bg-white/[0.04] text-zinc-300 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 transition-colors"
+                        className={uiSelect}
                         title="时长(秒)"
                       >
                         {KLING_DURATION.map((d) => (
@@ -1302,7 +1530,7 @@ export default function AIVideoPage() {
                       <select
                         value={klingMode}
                         onChange={(e) => setKlingMode(e.target.value as (typeof KLING_MODE)[number])}
-                        className="h-9 px-3 rounded-xl border border-white/[0.08] bg-white/[0.04] text-zinc-300 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 transition-colors"
+                        className={uiSelect}
                         title="模式"
                       >
                         <option value="std">720p</option>
@@ -1312,6 +1540,9 @@ export default function AIVideoPage() {
                         type="button"
                         onClick={() => {
                           setPrompt('');
+                          setSelectedTemplateId(null);
+                          setSelectedModelVersionId(VIDEO_MODEL_OPTIONS[0].id);
+                          setSelectedInputMode('reference');
                           setKlingAspectRatio('16:9');
                           setKlingDuration('5');
                           setKlingMode('std');
@@ -1319,19 +1550,21 @@ export default function AIVideoPage() {
                           setReferenceImages([]);
                           setReferenceImageUrls([]);
                         }}
-                        className="h-9 w-9 rounded-xl border border-white/[0.08] bg-white/[0.04] text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.06] flex items-center justify-center transition-colors"
+                        className={`${uiIconOutlineBtn} border-slate-200 bg-slate-50`}
                         title="恢复输入框到默认"
+                        aria-label="重置输入"
                       >
-                        <RefreshCw className="w-4 h-4" />
+                        <RefreshCw className="h-4 w-4" />
                       </button>
                     </div>
-                    <div className="flex items-center justify-between sm:justify-end gap-2 order-1 sm:order-2">
-                      <span className="text-xs text-zinc-600 tabular-nums">{prompt.length}/2500</span>
+                    <div className="order-1 flex items-center justify-between gap-2 sm:order-2 sm:justify-end">
+                      <span className="tabular-nums text-xs text-slate-500">{prompt.length}/2500</span>
                       <button
                         type="button"
                         onClick={() => void handleCreate()}
                         disabled={isSubmitting || !prompt.trim()}
-                        className="h-10 min-w-[88px] sm:min-w-0 px-4 sm:px-6 rounded-xl bg-teal-500 hover:bg-teal-400 disabled:opacity-50 text-zinc-950 font-semibold text-sm flex items-center justify-center gap-2 shadow-lg shadow-teal-500/20 transition-colors"
+                        className={`${uiPrimary} sm:min-w-0`}
+                        aria-busy={isSubmitting}
                       >
                         {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                         生成
@@ -1347,146 +1580,73 @@ export default function AIVideoPage() {
 
       {/* 右侧：小屏为抽屉，lg 及以上为常驻 */}
       <aside
-        className={`fixed lg:relative right-0 top-12 sm:top-[52px] lg:top-0 bottom-0 z-40 lg:z-auto w-72 max-w-[85vw] lg:w-56 xl:w-72 lg:max-w-none flex-shrink-0 flex flex-col min-h-0 border-l border-white/[0.08] bg-[#0a0c10] transition-transform duration-200 ease-out ${
+        className={`fixed lg:relative right-0 top-12 sm:top-[52px] lg:top-0 bottom-0 z-40 lg:z-auto w-72 max-w-[85vw] lg:w-56 xl:w-72 lg:max-w-none flex-shrink-0 flex flex-col min-h-0 border-l border-slate-200/80 bg-white shadow-[-4px_0_16px_-6px_rgba(15,23,42,0.06)] transition-transform duration-200 ease-out ${
           rightDrawerOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'
         }`}
       >
-        <div className="px-3 py-3 border-b border-white/[0.08] flex-shrink-0 space-y-3 flex flex-col">
+        <div className="flex flex-shrink-0 flex-col space-y-2 border-b border-slate-100 bg-slate-50/40 px-2.5 py-2.5">
           <div className="flex items-center justify-between gap-2">
-            <div className="flex rounded-xl bg-white/[0.04] p-1 border border-white/[0.08] flex-1 min-w-0">
-            <button
-              type="button"
-              onClick={() => setRightPanelMode('history')}
-              className={`flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg text-xs font-medium transition-colors ${
-                rightPanelMode === 'history'
-                  ? 'bg-white/[0.08] text-zinc-100'
-                  : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.04]'
-              }`}
-            >
-              <Clock className="w-3.5 h-3.5" />
-              历史
-            </button>
-            <button
-              type="button"
-              onClick={() => setRightPanelMode('assets')}
-              className={`flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg text-xs font-medium transition-colors ${
-                rightPanelMode === 'assets'
-                  ? 'bg-white/[0.08] text-zinc-100'
-                  : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.04]'
-              }`}
-            >
-              <FolderOpen className="w-3.5 h-3.5" />
-              资产
-            </button>
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-100 text-teal-700">
+                <FolderOpen className="w-4 h-4" aria-hidden />
+              </div>
+              <span className="text-sm font-semibold text-slate-900">资产</span>
             </div>
             <button
               type="button"
               onClick={() => setRightDrawerOpen(false)}
-              className="lg:hidden h-8 w-8 rounded-lg bg-white/[0.04] text-zinc-500 hover:bg-white/[0.08] border border-white/[0.08] flex items-center justify-center shrink-0"
+              className={`${uiIconBtnOnPanel} shrink-0 lg:hidden`}
               title="收起"
-              aria-label="收起历史栏"
+              aria-label="收起资产栏"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
-          {rightPanelMode === 'assets' && (
-            <p className="text-xs text-zinc-500 leading-relaxed px-0.5">
-              拖拽缩略图到桌面或应用；复制链接可粘贴到剪贴板。
-            </p>
-          )}
+          <p className={uiTextMuted}>拖拽缩略图到桌面或应用；复制链接可粘贴到剪贴板。</p>
           <div className="flex gap-2">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600" />
+            <div className="relative flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden />
               <input
                 type="text"
                 value={historySearch}
                 onChange={(e) => setHistorySearch(e.target.value)}
-                placeholder={rightPanelMode === 'assets' ? '搜索资产…' : '搜索'}
-                className="w-full h-9 pl-9 pr-3 rounded-xl border border-white/[0.08] bg-white/[0.04] text-zinc-300 placeholder-zinc-500 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 transition-colors"
+                placeholder="搜索资产…"
+                className={uiInputSearch}
+                aria-label="搜索资产"
               />
             </div>
-            <button type="button" className="h-9 w-9 rounded-xl border border-white/[0.08] bg-white/[0.04] text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.06] flex items-center justify-center shrink-0 transition-colors" title="日期">
-              <Calendar className="w-4 h-4" />
+            <button type="button" className={`${uiIconOutlineBtn} shrink-0 text-slate-400 hover:text-slate-700`} title="日期" aria-label="按日期筛选">
+              <Calendar className="h-4 w-4" />
             </button>
           </div>
           {generatedList.length === 0 && (
             <button
               type="button"
               onClick={handleLoadHistory}
-              className="w-full h-8 rounded-xl border border-white/[0.08] bg-white/[0.04] text-xs font-medium text-zinc-500 hover:text-teal-400 hover:bg-teal-500/10 transition-colors"
+              className={`${uiSecondaryCompact} w-full text-xs text-slate-600 hover:border-teal-200 hover:text-teal-700 hover:bg-teal-50/50`}
             >
               加载历史
             </button>
           )}
         </div>
-        <div className="flex-1 min-h-0 overflow-y-auto sidebar-scrollbar px-3 py-3">
+        <div className="flex-1 min-h-0 overflow-y-auto bg-white px-2.5 py-2 sidebar-scrollbar">
           {generatedList.length === 0 ? (
-            <div className="text-center py-10 px-2 space-y-3">
-              <p className="text-zinc-600 text-xs">暂无记录</p>
-              <button
-                type="button"
-                onClick={handleLoadHistory}
-                className="text-sm font-medium text-teal-400 hover:text-teal-300 border border-teal-500/30 hover:bg-teal-500/10 rounded-xl px-4 py-2 transition-colors"
-              >
+            <div className="space-y-2.5 px-2 py-8 text-center">
+              <p className="text-sm text-slate-600">暂无记录</p>
+              <button type="button" onClick={handleLoadHistory} className={uiTextLink}>
                 加载历史
               </button>
             </div>
           ) : sidebarItems.length === 0 ? (
-            <div className="text-center py-10 text-zinc-600 text-xs">无匹配项</div>
-          ) : rightPanelMode === 'history' ? (
-            <ul className="space-y-2.5">
-              {sidebarItems.map((item) => {
-                const isActive = selectedId === item.id;
-                const isGeneratingThis = isItemGenerating(item);
-                return (
-                  <li key={item.id}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedId(item.id);
-                        scrollTaskIntoView(item.id);
-                        setRightDrawerOpen(false);
-                      }}
-                      className={`relative w-full rounded-xl overflow-hidden text-left transition-colors ${
-                        isActive
-                          ? 'bg-teal-500/10 ring-2 ring-teal-400/50'
-                          : 'bg-white/[0.04] hover:bg-white/[0.06] ring-1 ring-white/[0.08] hover:ring-white/[0.1]'
-                      }`}
-                    >
-                      <div className="aspect-video bg-zinc-800 relative">
-                        {isGeneratingThis ? (
-                          <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-[1]">
-                            <Loader2 className="w-8 h-8 animate-spin text-teal-400" />
-                          </div>
-                        ) : null}
-                        <img src={item.thumbnailUrl} alt="" className="w-full h-full object-cover" />
-                      </div>
-                      <div className="p-3">
-                        <p className="text-xs text-zinc-300 line-clamp-2 leading-snug">{item.prompt}</p>
-                        <div className="flex items-center gap-2 mt-2 text-xs text-zinc-500">
-                          {item.modelTag && <span>{item.modelTag}</span>}
-                          <span className="ml-auto">{timeAgo(item.createdAt)}</span>
-                        </div>
-                      </div>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
+            <div className="py-8 text-center text-sm text-slate-400">无匹配项</div>
           ) : (
-            <ul className="space-y-1">
+            <ul className="space-y-1.5">
               {sidebarItems.map((item) => {
                 const isActive = selectedId === item.id;
                 const isGeneratingThis = isItemGenerating(item);
                 return (
                   <li key={item.id}>
-                    <div
-                      className={`flex items-center gap-2 rounded-xl px-2 py-2 transition-colors ${
-                        isActive
-                          ? 'bg-teal-500/10 ring-2 ring-teal-400/50'
-                          : 'bg-white/[0.04] hover:bg-white/[0.06] ring-1 ring-transparent border border-transparent'
-                      }`}
-                    >
+                    <div className={sidebarAssetRowClass(isActive)}>
                       <button
                         type="button"
                         onClick={() => {
@@ -1494,12 +1654,12 @@ export default function AIVideoPage() {
                           scrollTaskIntoView(item.id);
                           setRightDrawerOpen(false);
                         }}
-                        className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                        className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
                       >
-                        <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg bg-zinc-800 ring-1 ring-white/[0.08]">
+                        <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-md border border-slate-200 bg-slate-100">
                           {isGeneratingThis ? (
                             <div className="absolute inset-0 z-[1] flex items-center justify-center bg-black/50">
-                              <Loader2 className="h-5 w-5 animate-spin text-teal-400" />
+                              <Loader2 className="h-5 w-5 animate-spin text-teal-600" />
                             </div>
                           ) : null}
                           <img
@@ -1516,8 +1676,8 @@ export default function AIVideoPage() {
                           />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-xs leading-tight text-zinc-300">{item.prompt}</p>
-                          <p className="mt-0.5 text-xs text-zinc-500">{timeAgo(item.createdAt)}</p>
+                          <p className="truncate text-xs leading-tight text-slate-800">{item.prompt}</p>
+                          <p className="mt-0 text-xs text-slate-500">{timeAgo(item.createdAt)}</p>
                         </div>
                       </button>
                       <div className="flex shrink-0 flex-col gap-0.5">
@@ -1528,7 +1688,8 @@ export default function AIVideoPage() {
                             e.stopPropagation();
                             copyAssetLink(item);
                           }}
-                          className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-500 hover:bg-white/[0.08] hover:text-teal-400 transition-colors"
+                          className={uiAssetActionBtn}
+                          aria-label="复制图片链接"
                         >
                           <Copy className="h-3.5 w-3.5" />
                         </button>
@@ -1539,14 +1700,15 @@ export default function AIVideoPage() {
                             e.stopPropagation();
                             downloadAssetThumb(item);
                           }}
-                          className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-500 hover:bg-white/[0.08] hover:text-teal-400 transition-colors"
+                          className={uiAssetActionBtn}
+                          aria-label="下载封面"
                         >
                           <Download className="h-3.5 w-3.5" />
                         </button>
                       </div>
                     </div>
                     {copiedId === item.id && (
-                      <p className="pr-1 pb-1 text-right text-xs text-teal-500/90">已复制链接</p>
+                      <p className="pr-1 pb-1 text-right text-xs text-teal-600">已复制链接</p>
                     )}
                   </li>
                 );

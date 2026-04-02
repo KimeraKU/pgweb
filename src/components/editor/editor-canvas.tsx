@@ -48,6 +48,16 @@ interface EditorCanvasProps {
   removeBgSourceUrl?: string | null;
   /** 点击 Remove BG 后为 true，对应图层显示生成中，几秒后完成 */
   removeBgInProgress?: boolean;
+  /** 空画布默认态：新建空白 */
+  onCreateBlankCanvas?: () => void;
+  /** 空画布默认态：打开图片 */
+  onOpenImageToCanvas?: () => void;
+  /** 空画布默认态：新建拼图 */
+  onCreateCollage?: () => void;
+  /** 空画布默认态：打开模板 */
+  onOpenTemplateToCanvas?: () => void;
+  /** 是否显示画布初始默认入口 */
+  showCanvasStarter?: boolean;
 }
 
 export function EditorCanvas({ 
@@ -75,6 +85,11 @@ export function EditorCanvas({
   imageEnhancerEnhancingInProgress = false,
   removeBgSourceUrl,
   removeBgInProgress = false,
+  onCreateBlankCanvas,
+  onOpenImageToCanvas,
+  onCreateCollage,
+  onOpenTemplateToCanvas,
+  showCanvasStarter = false,
 }: EditorCanvasProps) {
   const { t } = useLanguage();
   const [zoom, setZoom] = useState(1);
@@ -2003,6 +2018,74 @@ export function EditorCanvas({
                   onRotateLeft90={onRotateLeft90}
                 />
               )}
+            </div>
+          ) : showCanvasStarter ? (
+            <div className="relative flex items-center justify-center" style={{ width: displaySize.width, height: displaySize.height }}>
+              <div className="absolute inset-0 rounded-[28px] bg-slate-900/16 backdrop-blur-[3px]" />
+              <div
+                className="relative z-10 w-full max-w-[760px] rounded-[24px] bg-transparent p-0"
+                onClick={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
+              >
+                <div className="grid grid-cols-2 gap-2 rounded-[24px] bg-transparent p-4 sm:gap-4 sm:bg-white sm:shadow-[0_18px_40px_rgba(109,92,180,0.08)]">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onCreateBlankCanvas?.();
+                    }}
+                    className="group flex min-h-[11.5rem] flex-col items-center justify-center rounded-[20px] border-2 border-dashed border-[#d7d7e2] bg-white px-5 py-6 text-center transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:border-[#2fbdc7] hover:shadow-[0_18px_38px_rgba(47,189,199,0.12)]"
+                  >
+                    <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-[#f1f1f4] text-[#2f2f2f]">
+                      <Plus className="h-4 w-4" />
+                    </div>
+                    <div className="text-sm font-medium text-[#171717] sm:text-lg">{t.starterBlank}</div>
+                    <div className="mt-1.5 max-w-64 text-[0.95rem] leading-normal text-[#8a8a96]">{t.starterBlankHint}</div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpenImageToCanvas?.();
+                    }}
+                    className="group flex min-h-[11.5rem] flex-col items-center justify-center rounded-[20px] border border-solid border-[#ece7f7] bg-white px-5 py-6 text-center transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:border-[#2fbdc7] hover:shadow-[0_18px_38px_rgba(47,189,199,0.12)]"
+                  >
+                    <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-[#EBF6FF] text-[#2fbdc7]">
+                      <ImageIcon className="h-5 w-5" />
+                    </div>
+                    <div className="text-sm font-medium text-[#171717] sm:text-lg">{t.starterOpenImage}</div>
+                    <div className="mt-1.5 max-w-64 text-[0.95rem] leading-normal text-[#8a8a96]">{t.starterOpenImageHint}</div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onCreateCollage?.();
+                    }}
+                    className="group flex min-h-[11.5rem] flex-col items-center justify-center rounded-[20px] border border-solid border-[#ece7f7] bg-white px-5 py-6 text-center transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:border-[#2fbdc7] hover:shadow-[0_18px_38px_rgba(47,189,199,0.12)]"
+                  >
+                    <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-[#EBF6FF] text-[#2fbdc7]">
+                      <Layers className="h-5 w-5" />
+                    </div>
+                    <div className="text-sm font-medium text-[#171717] sm:text-lg">{t.starterCollage}</div>
+                    <div className="mt-1.5 max-w-64 text-[0.95rem] leading-normal text-[#8a8a96]">{t.starterCollageHint}</div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpenTemplateToCanvas?.();
+                    }}
+                    className="group flex min-h-[11.5rem] flex-col items-center justify-center rounded-[20px] border border-solid border-[#ece7f7] bg-white px-5 py-6 text-center transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:border-[#2fbdc7] hover:shadow-[0_18px_38px_rgba(47,189,199,0.12)]"
+                  >
+                    <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-[#EBF6FF] text-[#2fbdc7]">
+                      <Star className="h-5 w-5" />
+                    </div>
+                    <div className="text-sm font-medium text-[#171717] sm:text-lg">{t.starterTemplate}</div>
+                    <div className="mt-1.5 max-w-64 text-[0.95rem] leading-normal text-[#8a8a96]">{t.starterTemplateHint}</div>
+                  </button>
+                </div>
+              </div>
             </div>
           ) : (
             <div 
