@@ -24,6 +24,14 @@ export interface PersistedGeneratedCandidate {
   errorMessage?: string;
 }
 
+export interface PersistedImageRequestSnapshot {
+  creativePrompt: string;
+  modelName: string;
+  sceneName: string;
+  aspectRatio: string;
+  inputImages: string[];
+}
+
 export interface PersistedImageGenerationRun {
   id: string;
   createdAt: number;
@@ -33,6 +41,7 @@ export interface PersistedImageGenerationRun {
   selectedCandidateId: string | null;
   generationCount: number;
   aspectRatio: string;
+  requestSnapshot?: PersistedImageRequestSnapshot;
   errorMessage?: string;
 }
 
@@ -107,6 +116,22 @@ function normalizeSnapshot(input: UGCVideoHistorySnapshot): UGCVideoHistorySnaps
     .map((run) => ({
       ...run,
       creativePrompt: typeof run.creativePrompt === 'string' ? run.creativePrompt : '',
+      requestSnapshot:
+        run.requestSnapshot && typeof run.requestSnapshot === 'object'
+          ? {
+              creativePrompt:
+                typeof run.requestSnapshot.creativePrompt === 'string' ? run.requestSnapshot.creativePrompt : '',
+              modelName:
+                typeof run.requestSnapshot.modelName === 'string' ? run.requestSnapshot.modelName : '',
+              sceneName:
+                typeof run.requestSnapshot.sceneName === 'string' ? run.requestSnapshot.sceneName : '',
+              aspectRatio:
+                typeof run.requestSnapshot.aspectRatio === 'string' ? run.requestSnapshot.aspectRatio : run.aspectRatio,
+              inputImages: Array.isArray(run.requestSnapshot.inputImages)
+                ? run.requestSnapshot.inputImages.filter((url) => typeof url === 'string' && url.length > 0 && !isBlobUrl(url))
+                : [],
+            }
+          : undefined,
       candidates: run.candidates.slice(0, 8).map((candidate) => ({
         ...candidate,
         imageUrl: isBlobUrl(candidate.imageUrl) ? undefined : candidate.imageUrl,
@@ -165,6 +190,27 @@ function parseSnapshot(raw: unknown): UGCVideoHistorySnapshot | null {
         .filter((candidate) => candidate.id.length > 0);
 
       const status = run.status;
+      const requestSnapshotRaw =
+        run.requestSnapshot && typeof run.requestSnapshot === 'object'
+          ? (run.requestSnapshot as Record<string, unknown>)
+          : null;
+      const requestSnapshot: PersistedImageRequestSnapshot | undefined = requestSnapshotRaw
+        ? {
+            creativePrompt:
+              typeof requestSnapshotRaw.creativePrompt === 'string' ? requestSnapshotRaw.creativePrompt : '',
+            modelName:
+              typeof requestSnapshotRaw.modelName === 'string' ? requestSnapshotRaw.modelName : '',
+            sceneName:
+              typeof requestSnapshotRaw.sceneName === 'string' ? requestSnapshotRaw.sceneName : '',
+            aspectRatio:
+              typeof requestSnapshotRaw.aspectRatio === 'string'
+                ? requestSnapshotRaw.aspectRatio
+                : (typeof run.aspectRatio === 'string' ? run.aspectRatio : '9:16'),
+            inputImages: Array.isArray(requestSnapshotRaw.inputImages)
+              ? requestSnapshotRaw.inputImages.filter((url): url is string => typeof url === 'string' && url.length > 0)
+              : [],
+          }
+        : undefined;
       return {
         id: typeof run.id === 'string' ? run.id : '',
         createdAt: typeof run.createdAt === 'number' ? run.createdAt : Date.now(),
@@ -174,6 +220,7 @@ function parseSnapshot(raw: unknown): UGCVideoHistorySnapshot | null {
         selectedCandidateId: typeof run.selectedCandidateId === 'string' ? run.selectedCandidateId : null,
         generationCount: typeof run.generationCount === 'number' ? run.generationCount : candidates.length,
         aspectRatio: typeof run.aspectRatio === 'string' ? run.aspectRatio : '1:1',
+        requestSnapshot,
         errorMessage: typeof run.errorMessage === 'string' ? run.errorMessage : undefined,
       };
     })

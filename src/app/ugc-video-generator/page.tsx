@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft,
@@ -41,6 +41,14 @@ type GeneratedCandidate = {
   errorMessage?: string;
 };
 
+type ImageRequestSnapshot = {
+  creativePrompt: string;
+  modelName: string;
+  sceneName: string;
+  aspectRatio: string;
+  inputImages: string[];
+};
+
 type ImageGenerationRun = {
   id: string;
   createdAt: number;
@@ -50,6 +58,7 @@ type ImageGenerationRun = {
   selectedCandidateId: string | null;
   generationCount: number;
   aspectRatio: string;
+  requestSnapshot?: ImageRequestSnapshot;
   errorMessage?: string;
 };
 
@@ -136,12 +145,13 @@ const PLACEHOLDER_PRODUCTS = [
 const ASPECT_RATIO_OPTIONS = ['1:1', '3:4', '4:3', '9:16', '16:9', '4:5', '5:4', '2:3', '3:2'] as const;
 
 function formatTime(ts: number, language: Language) {
-  return new Intl.DateTimeFormat(language === 'zh' ? 'zh-CN' : 'en-US', {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(ts);
+  void language;
+  const date = new Date(ts);
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hour = String(date.getHours()).padStart(2, '0');
+  const minute = String(date.getMinutes()).padStart(2, '0');
+  return `${month}/${day} ${hour}:${minute}`;
 }
 
 function sleep(ms: number) {
@@ -164,7 +174,9 @@ function normalizeRemoteUrls(urls: Array<string | null | undefined>): string[] {
 const VIDEO_POLL_MAX = 600;
 const IMAGE_POLL_MAX = 600;
 const IMAGE_POLL_INTERVAL_MS = 3000;
+const IMAGE_CREATE_CLICK_COOLDOWN_MS = 1200;
 const IMAGE_QUERY_RETRY_LIMIT = 10;
+const TASK_TITLE_CHAR_LIMIT = 12;
 const VIDEO_RESUMABLE_STATUS_SET = new Set<string>([
   'video_prompting',
   'video_reviewing',
@@ -182,6 +194,9 @@ function UGCVideoGeneratorPageContent() {
   const imageFormSectionRef = useRef<HTMLElement>(null);
   const videoPollTimersRef = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map());
   const videoPollCountRef = useRef<Map<string, number>>(new Map());
+  const activeImageRunIdRef = useRef<string | null>(null);
+  const imageCreateCooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const imageCreateClickLockRef = useRef(false);
 
   const [status, setStatus] = useState<TaskStatus>('draft');
   const [productName, setProductName] = useState('');
@@ -198,7 +213,7 @@ function UGCVideoGeneratorPageContent() {
   const [customSceneFile, setCustomSceneFile] = useState<File | null>(null);
   const [customSceneUrl, setCustomSceneUrl] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState<PickerKind>(null);
-  const [aspectRatio, setAspectRatio] = useState<(typeof ASPECT_RATIO_OPTIONS)[number]>('1:1');
+  const [aspectRatio, setAspectRatio] = useState<(typeof ASPECT_RATIO_OPTIONS)[number]>('9:16');
   const [generationCount, setGenerationCount] = useState(3);
   const [imageCandidates, setImageCandidates] = useState<GeneratedCandidate[]>([]);
   const [imageRuns, setImageRuns] = useState<ImageGenerationRun[]>([]);
@@ -215,6 +230,11 @@ function UGCVideoGeneratorPageContent() {
   const [imageStageHeight, setImageStageHeight] = useState<number | null>(null);
   const [historyHydrated, setHistoryHydrated] = useState(false);
   const [videoSubmitInFlight, setVideoSubmitInFlight] = useState(false);
+  const [isImageCreateCoolingDown, setIsImageCreateCoolingDown] = useState(false);
+  const setActiveImageRun = (runId: string | null) => {
+    activeImageRunIdRef.current = runId;
+    setActiveImageRunId(runId);
+  };
 
   const selectedModelPreset = MODEL_PRESETS.find((item) => item.id === modelPresetId) || MODEL_PRESETS[0];
   const selectedScenePreset = SCENE_PRESETS.find((item) => item.id === scenePresetId) || SCENE_PRESETS[0];
@@ -240,12 +260,27 @@ function UGCVideoGeneratorPageContent() {
     if (!next) return false;
     return !candidates.some((candidate) => candidate.prompt.trim() === next);
   };
+  const buildCurrentImageRequestMeta = () => ({
+    creativePrompt: productName.trim(),
+    modelName: modelMode === 'preset' ? selectedModelPreset.name : modelMode === 'custom' ? t.ugcVideoCustomModel : '',
+    sceneName: sceneMode === 'preset' ? selectedScenePreset.name : sceneMode === 'custom' ? t.ugcVideoCustomScene : '',
+    aspectRatio,
+  });
+
+  useEffect(() => {
+    activeImageRunIdRef.current = activeImageRunId;
+  }, [activeImageRunId]);
 
   useEffect(() => {
     return () => {
       videoPollTimersRef.current.forEach((timer) => clearInterval(timer));
       videoPollTimersRef.current.clear();
       videoPollCountRef.current.clear();
+      if (imageCreateCooldownTimerRef.current) {
+        clearTimeout(imageCreateCooldownTimerRef.current);
+        imageCreateCooldownTimerRef.current = null;
+      }
+      imageCreateClickLockRef.current = false;
     };
   }, []);
 
@@ -315,7 +350,7 @@ function UGCVideoGeneratorPageContent() {
 
         const firstRun = snapshot.imageRuns[0];
         if (firstRun) {
-          setActiveImageRunId(firstRun.id);
+          setActiveImageRun(firstRun.id);
           if (isUserCreativePrompt(firstRun.creativePrompt || '', firstRun.candidates)) {
             setProductName((prev) => (prev.trim() ? prev : firstRun.creativePrompt || ''));
           }
@@ -465,17 +500,21 @@ function UGCVideoGeneratorPageContent() {
     return json.url;
   };
 
-  const refineCreativePrompt = async (candidateIndex: number, totalCount: number) => {
+  const refineCreativePrompt = async (
+    request: Pick<ImageRequestSnapshot, 'creativePrompt' | 'modelName' | 'sceneName' | 'aspectRatio'>,
+    candidateIndex: number,
+    totalCount: number
+  ) => {
     let lastError = '创意提示词优化失败';
     for (let attempt = 0; attempt < 3; attempt += 1) {
       const res = await fetch('/api/ugc/refine-image-prompt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          creativePrompt: productName,
-          modelName: modelMode === 'preset' ? selectedModelPreset.name : modelMode === 'custom' ? t.ugcVideoCustomModel : '',
-          sceneName: sceneMode === 'preset' ? selectedScenePreset.name : sceneMode === 'custom' ? t.ugcVideoCustomScene : '',
-          aspectRatio,
+          creativePrompt: request.creativePrompt,
+          modelName: request.modelName,
+          sceneName: request.sceneName,
+          aspectRatio: request.aspectRatio,
           candidateIndex,
           totalCount,
         }),
@@ -573,13 +612,7 @@ function UGCVideoGeneratorPageContent() {
     return inputImages;
   };
 
-  const computeRunStatus = (candidates: GeneratedCandidate[]): Extract<TaskStatus, 'image_generating' | 'image_ready' | 'failed'> => {
-    if (candidates.some((item) => item.status === 'pending')) return 'image_generating';
-    if (candidates.some((item) => item.status === 'success')) return 'image_ready';
-    return 'failed';
-  };
-
-  const createGeminiCandidate = async (prompt: string, inputImages: string[]) => {
+  const createGeminiCandidate = async (prompt: string, inputImages: string[], targetAspectRatio: string) => {
     let lastError = '创建 Gemini 3 Pro 任务失败';
     for (let attempt = 0; attempt < 3; attempt += 1) {
       const res = await fetch('/api/create-task', {
@@ -588,7 +621,7 @@ function UGCVideoGeneratorPageContent() {
         body: JSON.stringify({
           prompt,
           input_images: inputImages,
-          aspect_ratio: aspectRatio,
+          aspect_ratio: targetAspectRatio,
           size: '2K',
         }),
       });
@@ -645,7 +678,7 @@ function UGCVideoGeneratorPageContent() {
   const generateCandidates = async () => {
     if (!productName.trim() || !productImageUrl || !productImageFile) return;
     let runId = '';
-    const sourceCreativePrompt = productName.trim();
+    const requestMeta = buildCurrentImageRequestMeta();
 
     setActiveFlow('image');
     setStatus('image_generating');
@@ -657,8 +690,12 @@ function UGCVideoGeneratorPageContent() {
 
     try {
       const inputImages = await collectInputImages();
+      const requestSnapshot: ImageRequestSnapshot = {
+        ...requestMeta,
+        inputImages: [...inputImages],
+      };
 
-      const candidateTotal = Math.min(4, Math.max(1, generationCount));
+      const candidateTotal = Math.min(8, Math.max(1, generationCount));
       const requestBase = Date.now();
       runId = `image-run-${requestBase}`;
       const pendingCandidates: GeneratedCandidate[] = Array.from({ length: candidateTotal }, (_, index) => ({
@@ -669,17 +706,18 @@ function UGCVideoGeneratorPageContent() {
 
       setImageCandidates(pendingCandidates);
       setSelectedCandidateId(pendingCandidates[0].id);
-      setActiveImageRunId(runId);
+      setActiveImageRun(runId);
       setImageRuns((prev) => [
         {
           id: runId,
           createdAt: Date.now(),
-          creativePrompt: sourceCreativePrompt,
+          creativePrompt: requestSnapshot.creativePrompt,
           candidates: pendingCandidates,
           status: 'image_generating',
           selectedCandidateId: pendingCandidates[0].id,
           generationCount: candidateTotal,
-          aspectRatio,
+          aspectRatio: requestSnapshot.aspectRatio,
+          requestSnapshot,
         },
         ...prev,
       ]);
@@ -691,7 +729,9 @@ function UGCVideoGeneratorPageContent() {
       const updateRunProgress = () => {
         const settledCount = nextCandidates.filter((item) => item.status !== 'pending').length;
         const isFinished = settledCount === candidateTotal;
-        setImageCandidates([...nextCandidates]);
+        if (activeImageRunIdRef.current === runId) {
+          setImageCandidates([...nextCandidates]);
+        }
         setImageRuns((prev) =>
           prev.map((run) =>
             run.id === runId
@@ -709,10 +749,11 @@ function UGCVideoGeneratorPageContent() {
 
       await Promise.all(
         pendingCandidates.map(async (candidate, index) => {
+          let refinedPrompt = '';
           try {
             await sleep(index * 200);
-            const refinedPrompt = await refineCreativePrompt(index, candidateTotal);
-            const imageUrl = await createGeminiCandidate(refinedPrompt, inputImages);
+            refinedPrompt = await refineCreativePrompt(requestSnapshot, index, candidateTotal);
+            const imageUrl = await createGeminiCandidate(refinedPrompt, requestSnapshot.inputImages, requestSnapshot.aspectRatio);
             nextCandidates[index] = {
               ...candidate,
               imageUrl,
@@ -724,6 +765,7 @@ function UGCVideoGeneratorPageContent() {
           } catch (error) {
             nextCandidates[index] = {
               ...candidate,
+              prompt: refinedPrompt,
               status: 'failed',
               errorMessage: error instanceof Error ? error.message : '生成失败',
             };
@@ -732,8 +774,10 @@ function UGCVideoGeneratorPageContent() {
         })
       );
 
-      setImageCandidates(nextCandidates);
-      setImagePrompt(firstPrompt);
+      if (activeImageRunIdRef.current === runId) {
+        setImageCandidates(nextCandidates);
+        setImagePrompt(firstPrompt);
+      }
       setImageRuns((prev) =>
         prev.map((run) =>
           run.id === runId
@@ -749,20 +793,26 @@ function UGCVideoGeneratorPageContent() {
       );
 
       if (!firstSuccessId) {
-        setStatus('failed');
-        setImageError('Gemini 3 Pro 没有返回可用图片');
+        if (activeImageRunIdRef.current === runId) {
+          setStatus('failed');
+          setImageError('Gemini 3 Pro 没有返回可用图片');
+        }
         return;
       }
 
-      setSelectedCandidateId((prev) => {
-        const current = nextCandidates.find((item) => item.id === prev);
-        return current && current.status === 'success' ? prev : firstSuccessId;
-      });
-      setStatus('image_ready');
+      if (activeImageRunIdRef.current === runId) {
+        setSelectedCandidateId((prev) => {
+          const current = nextCandidates.find((item) => item.id === prev);
+          return current && current.status === 'success' ? prev : firstSuccessId;
+        });
+        setStatus('image_ready');
+      }
     } catch (error) {
-      setStatus('failed');
       const message = error instanceof Error ? error.message : '生成图片失败';
-      setImageError(message);
+      if (activeImageRunIdRef.current === runId) {
+        setStatus('failed');
+        setImageError(message);
+      }
       setImageRuns((prev) =>
         prev.map((run) =>
           run.id === runId
@@ -777,88 +827,140 @@ function UGCVideoGeneratorPageContent() {
     }
   };
 
+  const handleGenerateCandidatesClick = () => {
+    if (imageCreateClickLockRef.current) return;
+    imageCreateClickLockRef.current = true;
+    setIsImageCreateCoolingDown(true);
+    if (imageCreateCooldownTimerRef.current) {
+      clearTimeout(imageCreateCooldownTimerRef.current);
+    }
+    imageCreateCooldownTimerRef.current = setTimeout(() => {
+      imageCreateClickLockRef.current = false;
+      setIsImageCreateCoolingDown(false);
+      imageCreateCooldownTimerRef.current = null;
+    }, IMAGE_CREATE_CLICK_COOLDOWN_MS);
+    void generateCandidates();
+  };
+
   const regenerateSelectedCandidate = async () => {
     if (!selectedCandidateId) return;
-    const run =
+    const sourceRun =
       imageRuns.find((item) => item.id === activeImageRunId) ||
       imageRuns.find((item) => item.candidates.some((candidate) => candidate.id === selectedCandidateId));
-    if (!run) return;
+    if (!sourceRun) return;
 
-    const candidateIndex = run.candidates.findIndex((item) => item.id === selectedCandidateId);
-    if (candidateIndex < 0) return;
+    const sourceCandidate = sourceRun.candidates.find((item) => item.id === selectedCandidateId);
+    if (!sourceCandidate || sourceCandidate.status === 'pending') return;
+    const replayPrompt = sourceCandidate.prompt.trim();
+    if (!replayPrompt) {
+      window.alert(
+        language === 'zh'
+          ? '当前候选图缺少原始 prompt，无法按原请求重生成。'
+          : 'This candidate is missing its original prompt and cannot be regenerated from the original request.'
+      );
+      return;
+    }
+    const snapshot = sourceRun.requestSnapshot;
+    if (!snapshot || snapshot.inputImages.length === 0) {
+      window.alert(
+        language === 'zh'
+          ? '当前任务缺少原始生图请求，无法按任务参数重生成。请在左侧重新发起生成。'
+          : 'This task is missing its original image request snapshot. Please start a new generation from the left form.'
+      );
+      return;
+    }
 
-    const pendingCandidates = run.candidates.map((item) =>
-      item.id === selectedCandidateId
-        ? { ...item, imageUrl: undefined, prompt: '', status: 'pending' as const, errorMessage: undefined }
-        : item
-    );
+    const requestBase = Date.now();
+    const runId = `image-run-${requestBase}`;
+    const candidateId = `candidate-${requestBase}-0`;
+    const pendingCandidate: GeneratedCandidate = {
+      id: candidateId,
+      prompt: sourceCandidate.prompt || '',
+      status: 'pending',
+    };
+    const pendingCandidates: GeneratedCandidate[] = [pendingCandidate];
 
+    setActiveFlow('image');
     setStatus('image_generating');
+    setImageError(null);
     setImageCandidates(pendingCandidates);
-    setActiveImageRunId(run.id);
-    setImageRuns((prev) =>
-      prev.map((item) =>
-        item.id === run.id
-          ? {
-              ...item,
-              candidates: pendingCandidates,
-              status: computeRunStatus(pendingCandidates),
-              selectedCandidateId,
-            }
-          : item
-      )
-    );
+    setSelectedCandidateId(candidateId);
+    setActiveImageRun(runId);
+    setImageRuns((prev) => [
+      {
+        id: runId,
+        createdAt: Date.now(),
+        creativePrompt: snapshot.creativePrompt,
+        candidates: pendingCandidates,
+        status: 'image_generating',
+        selectedCandidateId: candidateId,
+        generationCount: 1,
+        aspectRatio: snapshot.aspectRatio,
+        requestSnapshot: {
+          ...snapshot,
+          inputImages: [...snapshot.inputImages],
+        },
+      },
+      ...prev,
+    ]);
 
     try {
-      const inputImages = await collectInputImages();
-      const refinedPrompt = await refineCreativePrompt(candidateIndex, run.generationCount);
-      const imageUrl = await createGeminiCandidate(refinedPrompt, inputImages);
-      const nextCandidates = pendingCandidates.map((item) =>
-        item.id === selectedCandidateId
-          ? { ...item, imageUrl, prompt: refinedPrompt, status: 'success' as const }
-          : item
-      );
-      const nextStatus = computeRunStatus(nextCandidates);
-      setImagePrompt(refinedPrompt);
-      setImageCandidates(nextCandidates);
+      const imageUrl = await createGeminiCandidate(replayPrompt, snapshot.inputImages, snapshot.aspectRatio);
+      const nextCandidates: GeneratedCandidate[] = [
+        {
+          id: candidateId,
+          imageUrl,
+          prompt: replayPrompt,
+          status: 'success',
+        },
+      ];
+      if (activeImageRunIdRef.current === runId) {
+        setImagePrompt(replayPrompt);
+        setImageCandidates(nextCandidates);
+        setSelectedCandidateId(candidateId);
+        setStatus('image_ready');
+      }
       setImageRuns((prev) =>
         prev.map((item) =>
-          item.id === run.id
+          item.id === runId
             ? {
                 ...item,
                 candidates: nextCandidates,
-                status: nextStatus,
-                selectedCandidateId,
+                status: 'image_ready',
+                selectedCandidateId: candidateId,
                 errorMessage: undefined,
               }
             : item
         )
       );
-      setStatus(nextStatus);
     } catch (error) {
       const message = error instanceof Error ? error.message : '生成失败';
-      const nextCandidates = pendingCandidates.map((item) =>
-        item.id === selectedCandidateId
-          ? { ...item, status: 'failed' as const, errorMessage: message }
-          : item
-      );
-      const nextStatus = computeRunStatus(nextCandidates);
-      setImageCandidates(nextCandidates);
+      const nextCandidates: GeneratedCandidate[] = [
+        {
+          id: candidateId,
+          prompt: replayPrompt,
+          status: 'failed',
+          errorMessage: message,
+        },
+      ];
+      if (activeImageRunIdRef.current === runId) {
+        setImageCandidates(nextCandidates);
+        setStatus('failed');
+        setImageError(message);
+      }
       setImageRuns((prev) =>
         prev.map((item) =>
-          item.id === run.id
+          item.id === runId
             ? {
                 ...item,
                 candidates: nextCandidates,
-                status: nextStatus,
-                selectedCandidateId,
+                status: 'failed',
+                selectedCandidateId: candidateId,
                 errorMessage: message,
               }
             : item
         )
       );
-      setStatus(nextStatus);
-      setImageError(message);
     }
   };
 
@@ -1267,16 +1369,24 @@ function UGCVideoGeneratorPageContent() {
   const showTaskSidebar = imageRuns.length > 0 || videoTasks.length > 0;
   const activeVideoUrl = activeVideoTask?.videoUrl || videoUrl;
   const imageTaskItems = imageRuns.flatMap((run) =>
-    run.candidates.map((candidate, index) => ({
-      runId: run.id,
-      candidateId: candidate.id,
-      createdAt: run.createdAt,
-      aspectRatio: run.aspectRatio,
-      status: candidate.status,
-      imageUrl: candidate.imageUrl,
-      errorMessage: candidate.errorMessage,
-      title: `${t.ugcVideoCandidatePrefix} ${index + 1}`,
-    }))
+    run.candidates.map((candidate, index) => {
+      const promptPreview = (run.requestSnapshot?.creativePrompt || run.creativePrompt || '').replace(/\s+/g, ' ').trim();
+      const shortTitle =
+        promptPreview.length > TASK_TITLE_CHAR_LIMIT
+          ? `${promptPreview.slice(0, TASK_TITLE_CHAR_LIMIT)}...`
+          : promptPreview;
+      return {
+        runId: run.id,
+        candidateId: candidate.id,
+        createdAt: run.createdAt,
+        aspectRatio: run.aspectRatio,
+        status: candidate.status,
+        imageUrl: candidate.imageUrl,
+        errorMessage: candidate.errorMessage,
+        title: shortTitle || `${t.ugcVideoCandidatePrefix} ${index + 1}`,
+        fullPrompt: promptPreview || '',
+      };
+    })
   );
   const handleSelectCandidate = (candidateId: string) => {
     setSelectedCandidateId(candidateId);
@@ -1294,7 +1404,7 @@ function UGCVideoGeneratorPageContent() {
   const handleSelectImageRun = (runId: string) => {
     const run = imageRuns.find((item) => item.id === runId);
     if (!run) return;
-    setActiveImageRunId(runId);
+    setActiveImageRun(runId);
     if (isUserCreativePrompt(run.creativePrompt || '', run.candidates)) {
       setProductName(run.creativePrompt);
     }
@@ -1363,8 +1473,7 @@ function UGCVideoGeneratorPageContent() {
         </div>
 
         <div className="mb-6 px-1">
-          <div className="relative flex items-start justify-start gap-12">
-            <div className="pointer-events-none absolute left-[28px] top-5 h-px w-[180px] bg-white/10" />
+          <div className="inline-flex max-w-full items-start">
             {([
               {
                 id: 'image' as FlowStep,
@@ -1382,32 +1491,33 @@ function UGCVideoGeneratorPageContent() {
               },
             ]).map((step, index, arr) => {
               const isActive = activeFlow === step.id;
-              const isDone = step.id === 'image' ? canEnterVideoFlow : status === 'completed';
               return (
-                <div
-                  key={step.id}
-                  className={`relative z-10 flex flex-col items-start text-left transition-opacity ${
-                    step.enabled ? 'hover:opacity-100' : 'cursor-not-allowed opacity-50'
-                  }`}
-                >
-                  <button
-                    type="button"
-                    onClick={() => step.enabled && setActiveFlow(step.id)}
-                    disabled={!step.enabled}
-                    className={`flex h-10 w-10 items-center justify-center rounded-xl border text-sm font-semibold transition-all duration-300 ${
-                      isActive
-                        ? 'border-white bg-white text-[#17171c] shadow-[0_10px_30px_rgba(255,255,255,0.10)] scale-105'
-                        : isDone
-                        ? 'border-white/20 bg-white/85 text-[#17171c]'
-                        : 'border-white/10 bg-transparent text-white/35'
+                <Fragment key={step.id}>
+                  <div
+                    className={`relative z-10 shrink-0 text-left transition-opacity ${
+                      step.enabled ? 'hover:opacity-100' : 'cursor-not-allowed opacity-50'
                     }`}
                   >
-                    {step.id === 'image' ? '1' : '2'}
-                  </button>
-                  <div className="mt-3 min-w-[148px]">
-                    <p className={`text-[11px] leading-4 transition-colors ${isActive ? 'text-white/70' : 'text-white/32'}`}>{step.description}</p>
+                    <button
+                      type="button"
+                      onClick={() => step.enabled && setActiveFlow(step.id)}
+                      disabled={!step.enabled}
+                      className={`flex h-10 w-10 items-center justify-center rounded-xl border text-sm font-semibold transition-all duration-300 ${
+                        isActive
+                          ? 'border-white bg-white text-[#17171c] shadow-[0_10px_30px_rgba(255,255,255,0.10)] scale-105'
+                          : 'border-white/25 bg-transparent text-white/55'
+                      }`}
+                    >
+                      {step.id === 'image' ? '1' : '2'}
+                    </button>
+                    <div className="mt-3 w-0">
+                      <p className={`whitespace-nowrap text-[11px] leading-4 transition-colors ${isActive ? 'text-white/80' : 'text-white/35'}`}>
+                        {step.description}
+                      </p>
+                    </div>
                   </div>
-                </div>
+                  {index < arr.length - 1 ? <div aria-hidden className="pointer-events-none mx-4 mt-5 h-[2px] w-[clamp(72px,10vw,160px)] shrink-0 rounded-full bg-white/20" /> : null}
+                </Fragment>
               );
             })}
           </div>
@@ -1522,7 +1632,7 @@ function UGCVideoGeneratorPageContent() {
                   {renderAssetPicker('scene')}
                 </div>
 
-                <div className="grid gap-3 sm:grid-cols-[0.92fr_1.08fr]">
+                <div className="grid gap-3 sm:grid-cols-2">
                   <div className="rounded-[18px] bg-white/[0.05] px-4 py-3">
                     <p className="mb-2 text-xs uppercase tracking-[0.18em] text-white/35">{t.ugcVideoGenerateCount}</p>
                     <div className="flex h-11 items-center rounded-xl border border-white/10 bg-white/[0.04]">
@@ -1537,25 +1647,24 @@ function UGCVideoGeneratorPageContent() {
                       <input
                         type="number"
                         min={1}
-                        max={4}
+                        max={8}
                         value={generationCount}
                         onChange={(e) => {
                           const next = Number(e.target.value);
                           if (Number.isNaN(next)) return;
-                          setGenerationCount(Math.min(4, Math.max(1, next)));
+                          setGenerationCount(Math.min(8, Math.max(1, next)));
                         }}
-                        className="h-full w-full bg-transparent px-3 text-center text-sm font-medium text-white focus:outline-none"
+                        className="h-full w-full bg-transparent px-3 text-center text-sm font-medium text-white [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none focus:outline-none"
                       />
                       <div className="h-5 w-px bg-white/10" />
                       <button
                         type="button"
-                        onClick={() => setGenerationCount((prev) => Math.min(4, prev + 1))}
+                        onClick={() => setGenerationCount((prev) => Math.min(8, prev + 1))}
                         className="flex h-full w-11 items-center justify-center text-white/70 transition-colors hover:bg-white/[0.06] hover:text-white"
                       >
                         <Plus className="h-4 w-4" />
                       </button>
                     </div>
-                    <p className="mt-2 text-xs text-white/30">{t.ugcVideoGenerateCountHint}</p>
                   </div>
 
                   <div className="rounded-[18px] bg-white/[0.05] px-4 py-3">
@@ -1574,7 +1683,6 @@ function UGCVideoGeneratorPageContent() {
                       </select>
                       <ChevronRight className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 rotate-90 text-white/40" />
                     </div>
-                    <p className="mt-2 text-xs text-white/30">{t.ugcVideoAspectRatioHint}</p>
                   </div>
                 </div>
 
@@ -1593,11 +1701,11 @@ function UGCVideoGeneratorPageContent() {
 
                 <button
                   type="button"
-                  onClick={generateCandidates}
-                  disabled={!canSubmit || status === 'image_generating' || isVideoBusy}
+                  onClick={handleGenerateCandidatesClick}
+                  disabled={!canSubmit || isVideoBusy || isImageCreateCoolingDown}
                   className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-white text-base font-semibold text-[#17171c] transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {status === 'image_generating' ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}
+                  {isImageCreateCoolingDown ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}
                   {t.ugcVideoGenerateSceneImage}
                 </button>
               </div>
@@ -1768,7 +1876,7 @@ function UGCVideoGeneratorPageContent() {
 
               {showTaskSidebar && (
                 <aside
-                  className="rounded-[28px] border border-white/10 bg-white/[0.04] p-4 shadow-[0_24px_80px_rgba(0,0,0,0.28)] backdrop-blur-sm"
+                  className="min-w-0 rounded-[28px] border border-white/10 bg-white/[0.04] p-4 shadow-[0_24px_80px_rgba(0,0,0,0.28)] backdrop-blur-sm"
                   style={imageStageHeight ? { height: imageStageHeight } : undefined}
                 >
                   <div className="flex h-full flex-col">
@@ -1797,14 +1905,14 @@ function UGCVideoGeneratorPageContent() {
                         {t.ugcVideoVideoTab}
                       </button>
                     </div>
-                    <div className="flex-1 space-y-3 overflow-y-auto pr-1">
+                    <div className="min-w-0 flex-1 space-y-3 overflow-x-hidden overflow-y-auto pr-1">
                       {activeFlow === 'image' ? imageTaskItems.map((item) => {
                         return (
                           <button
                             key={item.candidateId}
                             type="button"
                             onClick={() => handleSelectHistoryItem(item.runId, item.candidateId)}
-                            className={`w-full rounded-2xl border p-3 text-left transition-colors ${
+                            className={`w-full overflow-hidden rounded-2xl border p-3 text-left transition-colors ${
                               selectedCandidateId === item.candidateId
                                 ? 'border-cyan-400 bg-cyan-400/10'
                                 : item.status === 'failed'
@@ -1823,15 +1931,17 @@ function UGCVideoGeneratorPageContent() {
                                 )}
                               </div>
                               <div className="min-w-0 flex-1">
-                                <p className="truncate text-sm font-medium text-white">{item.title}</p>
-                                <p className="mt-1 text-xs text-white/35">{formatTime(item.createdAt, language)}</p>
+                                <div className="flex items-center gap-2">
+                                  <p title={item.fullPrompt || item.title} className="min-w-0 flex-1 truncate text-sm font-medium text-white">{item.title}</p>
+                                  <span className="shrink-0 text-xs text-white/45">{item.aspectRatio}</span>
+                                </div>
+                                <div className="mt-1 flex items-center justify-between text-xs">
+                                  <span className="text-white/35">{formatTime(item.createdAt, language)}</span>
+                                  <span className={`${item.status === 'success' ? 'text-emerald-300' : item.status === 'failed' ? 'text-red-300' : 'text-white/45'}`}>
+                                    {item.status === 'success' ? t.ugcVideoStatusDone : item.status === 'failed' ? t.ugcVideoStatusFailed : t.ugcVideoStatusProcessing}
+                                  </span>
+                                </div>
                               </div>
-                            </div>
-                            <div className="mt-3 flex items-center justify-between text-xs">
-                              <span className="text-white/45">{item.aspectRatio}</span>
-                              <span className={`${item.status === 'success' ? 'text-emerald-300' : item.status === 'failed' ? 'text-red-300' : 'text-white/45'}`}>
-                                {item.status === 'success' ? t.ugcVideoStatusDone : item.status === 'failed' ? t.ugcVideoStatusFailed : t.ugcVideoStatusProcessing}
-                              </span>
                             </div>
                           </button>
                         );
@@ -1870,15 +1980,17 @@ function UGCVideoGeneratorPageContent() {
                                 )}
                               </div>
                               <div className="min-w-0 flex-1">
-                                <p className="truncate text-sm font-medium text-white">{t.ugcVideoTaskPrefix} {videoTasks.length - index}</p>
-                                <p className="mt-1 text-xs text-white/35">{formatTime(task.createdAt, language)}</p>
+                                <div className="flex items-center gap-2">
+                                  <p className="min-w-0 flex-1 truncate text-sm font-medium text-white">{t.ugcVideoTaskPrefix} {videoTasks.length - index}</p>
+                                  <span className="shrink-0 text-xs text-white/45">15s</span>
+                                </div>
+                                <div className="mt-1 flex items-center justify-between text-xs">
+                                  <span className="text-white/35">{formatTime(task.createdAt, language)}</span>
+                                  <span className={`${task.status === 'completed' ? 'text-emerald-300' : task.status === 'failed' ? 'text-red-300' : task.status === 'submitted' ? 'text-amber-200' : task.status === 'video_reviewing' ? 'text-cyan-200' : task.status === 'video_prompting' ? 'text-violet-200' : 'text-white/45'}`}>
+                                    {task.status === 'completed' ? t.ugcVideoStatusDone : task.status === 'failed' ? t.ugcVideoStatusFailed : task.status === 'submitted' ? t.ugcVideoStatusSubmitted : task.status === 'video_reviewing' ? t.ugcVideoStatusReviewing : task.status === 'video_prompting' ? t.ugcVideoStatusPrompting : t.ugcVideoStatusProcessing}
+                                  </span>
+                                </div>
                               </div>
-                            </div>
-                            <div className="mt-3 flex items-center justify-between text-xs">
-                              <span className="text-white/45">15s</span>
-                              <span className={`${task.status === 'completed' ? 'text-emerald-300' : task.status === 'failed' ? 'text-red-300' : task.status === 'submitted' ? 'text-amber-200' : task.status === 'video_reviewing' ? 'text-cyan-200' : task.status === 'video_prompting' ? 'text-violet-200' : 'text-white/45'}`}>
-                                {task.status === 'completed' ? t.ugcVideoStatusDone : task.status === 'failed' ? t.ugcVideoStatusFailed : task.status === 'submitted' ? t.ugcVideoStatusSubmitted : task.status === 'video_reviewing' ? t.ugcVideoStatusReviewing : task.status === 'video_prompting' ? t.ugcVideoStatusPrompting : t.ugcVideoStatusProcessing}
-                              </span>
                             </div>
                           </button>
                         ))
