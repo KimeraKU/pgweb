@@ -23,6 +23,10 @@ import {
   loadUGCVideoHistory,
   saveUGCVideoHistory,
 } from '@/lib/ugc-video-history-idb';
+import {
+  clearRecommendationHandoff,
+  loadRecommendationHandoff,
+} from '@/lib/recommendation-handoff';
 
 type AssetMode = 'none' | 'preset' | 'custom';
 type TaskStatus = 'draft' | 'image_generating' | 'image_ready' | 'image_confirmed' | 'video_prompting' | 'video_reviewing' | 'video_generating' | 'submitted' | 'completed' | 'failed';
@@ -382,6 +386,25 @@ function UGCVideoGeneratorPageContent() {
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const source = new URLSearchParams(window.location.search).get('source');
+    if (source !== 'image-enhancer-reco') return;
+
+    const handoff = loadRecommendationHandoff();
+    if (!handoff?.imageUrl) return;
+
+    setProductImageFile(null);
+    setProductImagePublicUrl(handoff.imageUrl);
+    setProductImageUrl(handoff.imageUrl);
+    setProductFileName(handoff.title || 'enhanced-image.jpg');
+    setProductName((prev) => {
+      if (prev.trim()) return prev;
+      return handoff.intentType === 'product_ecommerce' ? '商品展示视频' : '图片视频创作';
+    });
+    clearRecommendationHandoff();
   }, []);
 
   useEffect(() => {

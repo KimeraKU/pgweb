@@ -44,6 +44,10 @@ import {
   AIVIDEO_AIGC_DEFAULTS,
   type AivideoAigcConfig,
 } from '@/lib/ai-video-aigc-config';
+import {
+  clearRecommendationHandoff,
+  loadRecommendationHandoff,
+} from '@/lib/recommendation-handoff';
 
 type TemplateCategory = 'all' | 'featured' | 'ecommerce' | 'drama' | 'camera';
 
@@ -291,6 +295,44 @@ export default function AIVideoPage() {
     const stored = loadAivideoAigcConfig();
     setAigcForm({ ...AIVIDEO_AIGC_DEFAULTS, ...stored });
   }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const category = new URLSearchParams(window.location.search).get('category');
+    if (
+      category === 'all' ||
+      category === 'featured' ||
+      category === 'ecommerce' ||
+      category === 'drama' ||
+      category === 'camera'
+    ) {
+      setTemplateCategory(category);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const source = new URLSearchParams(window.location.search).get('source');
+    if (source !== 'image-enhancer-reco') return;
+
+    const handoff = loadRecommendationHandoff();
+    if (!handoff?.imageUrl) return;
+
+    setReferenceImages((prev) => {
+      prev.forEach((item) => URL.revokeObjectURL(item.previewUrl));
+      return [];
+    });
+    setReferenceImageUrls([handoff.imageUrl]);
+    setSelectedInputMode('reference');
+    if (!prompt.trim()) {
+      if (handoff.intentType === 'product_ecommerce') {
+        setPrompt('请基于这张商品图生成适合社媒投放的电商展示视频，突出主体卖点与材质细节。');
+      } else {
+        setPrompt('请基于这张图片生成氛围感强、画面精致的短视频，保留主体特征并增强动态表现。');
+      }
+    }
+    clearRecommendationHandoff();
+  }, [prompt]);
 
   useEffect(() => {
     return () => {

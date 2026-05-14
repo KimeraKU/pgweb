@@ -11,6 +11,10 @@ import { EditorToolbar } from '@/components/editor/editor-toolbar';
 import { EditorCanvas } from '@/components/editor/editor-canvas';
 import { RightSidebar } from '@/components/editor/right-sidebar';
 import { generateLayoutTemplates } from '@/data/layout-templates';
+import {
+  clearRecommendationHandoff,
+  loadRecommendationHandoff,
+} from '@/lib/recommendation-handoff';
 
 type SidebarTab =
   | 'apps'
@@ -686,6 +690,44 @@ export default function EditorPage() {
       setGuidedTab(null);
     }
   }, [activeTab, guidedTab]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const targetApp = params.get('app');
+    const source = params.get('source');
+    if (targetApp !== 'ai-filter' || source !== 'image-enhancer-reco') return;
+
+    const handoff = loadRecommendationHandoff();
+    const imageUrl = handoff?.imageUrl;
+    if (!imageUrl) return;
+
+    const newId = `image-${Date.now()}`;
+    setLayers((prev) => {
+      const nextLayer = {
+        id: newId,
+        name: handoff.title || 'Recommended Image',
+        type: 'image' as const,
+        imageUrl,
+        visible: true,
+        locked: false,
+        zIndex: prev.length,
+        x: 10,
+        y: 10,
+        width: 52,
+        height: 52,
+      };
+      return [...prev, nextLayer];
+    });
+    setSelectedLayerId(newId);
+    setSelectedLayerIds(new Set());
+    setShowCanvasStarter(false);
+    setActiveTab('ai-filter');
+    setOpenAppTabs((prev) =>
+      prev.some((tab) => tab.id === 'ai-filter') ? prev : [...prev, { id: 'ai-filter', label: 'AI Filter' }]
+    );
+    clearRecommendationHandoff();
+  }, []);
 
   const router = useRouter();
   const handleOpenAppTab = (appId: string, label: string) => {
