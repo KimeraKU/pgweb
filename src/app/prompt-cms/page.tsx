@@ -6,6 +6,7 @@ type PageMode = 'categories' | 'templates' | 'edit';
 type TemplateStatus = '上架' | '草稿' | '下架';
 type VariableType = 'text' | 'select' | 'select_text';
 type FormMode = 'create' | 'edit';
+type TemplateCategoryFilter = 'all' | string;
 
 type PromptCategory = {
   id: string;
@@ -104,7 +105,7 @@ const productVariables: PromptVariable[] = [
   {
     id: 'var-product-name',
     key: 'product_name',
-    group: 'General',
+    group: '',
     displayNames: {
       zh: '商品名称',
       en: 'Product name',
@@ -118,7 +119,7 @@ const productVariables: PromptVariable[] = [
   {
     id: 'var-style',
     key: 'style',
-    group: 'General',
+    group: '',
     displayNames: {
       zh: '视觉风格',
       en: 'Visual style',
@@ -132,7 +133,7 @@ const productVariables: PromptVariable[] = [
   {
     id: 'var-mood',
     key: 'mood',
-    group: 'General',
+    group: '',
     displayNames: {
       zh: '氛围',
       en: 'Mood',
@@ -152,7 +153,7 @@ const initialTemplates: PromptTemplate[] = [
     name: '商品图生成 Prompt',
     key: 'product_image_prompt',
     status: '上架',
-    variableGroups: ['General'],
+    variableGroups: [],
     prompt: `Create a {{style}} product image for {{product_name}}.
 
 The scene should feel {{mood}}.
@@ -167,13 +168,13 @@ Use a clean composition, premium lighting, and keep the product recognizable.`,
     name: 'UGC 视频脚本 Prompt',
     key: 'ugc_video_script',
     status: '草稿',
-    variableGroups: ['General'],
+    variableGroups: [],
     prompt: 'Write a {{tone}} UGC video script for {{product_name}}. Mention {{selling_point}} in the first 3 seconds.',
     variables: [
       {
         id: 'var-tone',
         key: 'tone',
-        group: 'General',
+        group: '',
         displayNames: {
           zh: '语气',
           en: 'Tone',
@@ -187,7 +188,7 @@ Use a clean composition, premium lighting, and keep the product recognizable.`,
       {
         id: 'var-selling-point',
         key: 'selling_point',
-        group: 'General',
+        group: '',
         displayNames: {
           zh: '卖点',
           en: 'Selling point',
@@ -433,7 +434,7 @@ Body:
 
 const emptyVariableForm: VariableForm = {
   variableName: '',
-  group: 'General',
+  group: '',
   displayNameZh: '',
   displayNameEn: '',
   type: 'text',
@@ -490,7 +491,8 @@ function getVariableDisplayName(variable: PromptVariable) {
 
 function groupVariables(variables: PromptVariable[]) {
   return variables.reduce<Array<{ group: string; variables: PromptVariable[] }>>((groups, variable) => {
-    const group = variable.group || 'General';
+    const group = variable.group.trim();
+    if (!group) return groups;
     const existing = groups.find((item) => item.group === group);
     if (existing) {
       existing.variables.push(variable);
@@ -504,7 +506,7 @@ function groupVariables(variables: PromptVariable[]) {
 function variableToForm(variable: PromptVariable): VariableForm {
   return {
     variableName: variable.key,
-    group: variable.group || 'General',
+    group: variable.group || '',
     displayNameZh: variable.displayNames.zh,
     displayNameEn: variable.displayNames.en,
     type: variable.type,
@@ -519,7 +521,7 @@ function formToVariable(form: VariableForm, key: string, id?: string): PromptVar
   return {
     id: id || `var-${Date.now()}`,
     key,
-    group: form.group || 'General',
+    group: form.group.trim(),
     displayNames: {
       zh: form.displayNameZh || key,
       en: form.displayNameEn || form.displayNameZh || key,
@@ -615,6 +617,7 @@ export default function PromptCmsPage() {
   const [categories, setCategories] = useState<PromptCategory[]>(initialCategories);
   const [templates, setTemplates] = useState<PromptTemplate[]>(initialTemplates);
   const [activeCategoryId, setActiveCategoryId] = useState(initialCategories[0].id);
+  const [templateCategoryFilter, setTemplateCategoryFilter] = useState<TemplateCategoryFilter>('all');
 
   const [categoryFormMode, setCategoryFormMode] = useState<FormMode>('create');
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
@@ -631,7 +634,7 @@ export default function PromptCmsPage() {
   const [draftKey, setDraftKey] = useState('');
   const [draftStatus, setDraftStatus] = useState<TemplateStatus>('草稿');
   const [draftPrompt, setDraftPrompt] = useState('');
-  const [draftVariableGroups, setDraftVariableGroups] = useState<string[]>(['General']);
+  const [draftVariableGroups, setDraftVariableGroups] = useState<string[]>([]);
   const [draftVariables, setDraftVariables] = useState<PromptVariable[]>([]);
   const [previewValues, setPreviewValues] = useState<Record<string, string>>({});
 
@@ -640,12 +643,14 @@ export default function PromptCmsPage() {
   const [variableForm, setVariableForm] = useState<VariableForm>(emptyVariableForm);
   const [showVariableForm, setShowVariableForm] = useState(false);
   const [showVariableGroupForm, setShowVariableGroupForm] = useState(false);
+  const [showVariableGroupEditor, setShowVariableGroupEditor] = useState(false);
   const [editingVariableGroup, setEditingVariableGroup] = useState<string | null>(null);
   const [variableGroupName, setVariableGroupName] = useState('');
 
   const activeCategory = categories.find((category) => category.id === activeCategoryId);
   const selectedVariable = draftVariables.find((variable) => variable.id === selectedVariableId);
-  const categoryTemplates = templates.filter((template) => template.categoryId === activeCategoryId);
+  const categoryTemplates =
+    templateCategoryFilter === 'all' ? templates : templates.filter((template) => template.categoryId === templateCategoryFilter);
   const filteredTemplates = categoryTemplates.filter((template) => {
     const matchesKeyword = `${template.name} ${template.key}`.toLowerCase().includes(keyword.trim().toLowerCase());
     const matchesStatus = statusFilter === '全部状态' || template.status === statusFilter;
@@ -655,7 +660,10 @@ export default function PromptCmsPage() {
     () => renderPrompt(draftPrompt, draftVariables, previewValues),
     [draftPrompt, draftVariables, previewValues]
   );
-  const availableVariableGroups = Array.from(new Set(['General', ...draftVariableGroups, ...draftVariables.map((variable) => variable.group)])).filter(Boolean);
+  const availableVariableGroups = Array.from(
+    new Set([...draftVariableGroups, ...draftVariables.map((variable) => variable.group.trim())])
+  ).filter(Boolean);
+  const ungroupedVariables = draftVariables.filter((variable) => !variable.group.trim());
 
   const openCategoryCreate = () => {
     setCategoryFormMode('create');
@@ -706,6 +714,7 @@ export default function PromptCmsPage() {
 
   const openTemplateList = (categoryId: string) => {
     setActiveCategoryId(categoryId);
+    setTemplateCategoryFilter(categoryId);
     setKeyword('');
     setStatusFilter('全部状态');
     setMode('templates');
@@ -729,17 +738,20 @@ export default function PromptCmsPage() {
   const openVariableGroupCreate = () => {
     setEditingVariableGroup(null);
     setVariableGroupName('');
+    setShowVariableGroupEditor(true);
     setShowVariableGroupForm(true);
   };
 
   const openVariableGroupEdit = (group: string) => {
     setEditingVariableGroup(group);
     setVariableGroupName(group);
+    setShowVariableGroupEditor(true);
     setShowVariableGroupForm(true);
   };
 
   const saveVariableGroup = () => {
-    const nextName = variableGroupName.trim() || 'General';
+    const nextName = variableGroupName.trim();
+    if (!nextName) return;
     if (editingVariableGroup) {
       setDraftVariableGroups((prev) => Array.from(new Set(prev.map((group) => (group === editingVariableGroup ? nextName : group)))));
       setDraftVariables((prev) => prev.map((variable) => (variable.group === editingVariableGroup ? { ...variable, group: nextName } : variable)));
@@ -750,25 +762,27 @@ export default function PromptCmsPage() {
     } else {
       setDraftVariableGroups((prev) => Array.from(new Set([...prev, nextName])));
     }
-    setShowVariableGroupForm(false);
+    setShowVariableGroupEditor(false);
+    setEditingVariableGroup(null);
+    setVariableGroupName('');
   };
 
   const deleteVariableGroup = (group: string) => {
-    if (group === 'General') return;
     setDraftVariableGroups((prev) => prev.filter((item) => item !== group));
-    setDraftVariables((prev) => prev.map((variable) => (variable.group === group ? { ...variable, group: 'General' } : variable)));
+    setDraftVariables((prev) => prev.map((variable) => (variable.group === group ? { ...variable, group: '' } : variable)));
     setVariableForm((prev) => ({
       ...prev,
-      group: prev.group === group ? 'General' : prev.group,
+      group: prev.group === group ? '' : prev.group,
     }));
   };
 
   const createTemplate = () => {
+    const nextCategoryId = templateCategoryFilter === 'all' ? activeCategoryId : templateCategoryFilter;
     const variables: PromptVariable[] = [
       {
         id: `var-${Date.now()}`,
         key: 'subject',
-        group: 'General',
+        group: '',
         displayNames: {
           zh: '主体',
           en: 'Subject',
@@ -782,12 +796,12 @@ export default function PromptCmsPage() {
     ];
 
     setEditingTemplateId(null);
-    setDraftCategoryId(activeCategoryId);
+    setDraftCategoryId(nextCategoryId);
     setDraftName('新 Prompt 模版');
     setDraftKey('new_prompt_template');
     setDraftStatus('草稿');
     setDraftPrompt('Create an image for {{subject}}.');
-    setDraftVariableGroups(['General']);
+    setDraftVariableGroups([]);
     setDraftVariables(variables);
     setPreviewValues({ subject: '' });
     clearVariableForm();
@@ -825,6 +839,7 @@ export default function PromptCmsPage() {
       editingTemplateId ? prev.map((template) => (template.id === editingTemplateId ? payload : template)) : [payload, ...prev]
     );
     setActiveCategoryId(payload.categoryId);
+    setTemplateCategoryFilter(payload.categoryId);
     setMode('templates');
   };
 
@@ -992,10 +1007,15 @@ export default function PromptCmsPage() {
             <label>
               <div className="mb-[7px]">模版分类</div>
               <select
-                value={activeCategoryId}
-                onChange={(event) => setActiveCategoryId(event.target.value)}
+                value={templateCategoryFilter}
+                onChange={(event) => {
+                  const nextValue = event.target.value as TemplateCategoryFilter;
+                  setTemplateCategoryFilter(nextValue);
+                  if (nextValue !== 'all') setActiveCategoryId(nextValue);
+                }}
                 className="h-[30px] w-[180px] rounded border border-[#ccc] px-[8px]"
               >
+                <option value="all">All</option>
                 {categories.map((category) => (
                   <option key={category.id} value={category.id}>
                     {category.name}
@@ -1030,6 +1050,7 @@ export default function PromptCmsPage() {
               onClick={() => {
                 setKeyword('');
                 setStatusFilter('全部状态');
+                setTemplateCategoryFilter('all');
               }}
             >
               重置
@@ -1046,6 +1067,7 @@ export default function PromptCmsPage() {
           <thead>
             <tr className="border-b border-[#ddd]">
               <th className="w-[80px] px-[24px] py-[12px] font-bold">ID</th>
+              <th className="px-[14px] py-[12px] font-bold">模版分类</th>
               <th className="px-[14px] py-[12px] font-bold">模版名称</th>
               <th className="px-[14px] py-[12px] font-bold">模版id</th>
               <th className="px-[14px] py-[12px] font-bold">变量数</th>
@@ -1058,6 +1080,7 @@ export default function PromptCmsPage() {
             {filteredTemplates.map((template) => (
               <tr key={template.id} className="border-b border-[#ddd] bg-[#f7f7f7]">
                 <td className="px-[24px] py-[10px]">{template.id}</td>
+                <td className="px-[14px] py-[10px]">{categories.find((category) => category.id === template.categoryId)?.name || '-'}</td>
                 <td className="px-[14px] py-[10px] font-bold">{template.name}</td>
                 <td className="px-[14px] py-[10px] font-mono text-[13px]">{template.key}</td>
                 <td className="px-[14px] py-[10px]">{template.variables.length}</td>
@@ -1088,7 +1111,7 @@ export default function PromptCmsPage() {
             ))}
             {filteredTemplates.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-[24px] py-[34px] text-center text-[#777]">
+                <td colSpan={8} className="px-[24px] py-[34px] text-center text-[#777]">
                   暂无模版
                 </td>
               </tr>
@@ -1105,24 +1128,26 @@ export default function PromptCmsPage() {
         <div className="mb-[10px] flex items-center justify-between">
           <b className="text-[13px]">变量列表</b>
           <div className="flex gap-[6px]">
-            <Button onClick={openVariableGroupCreate}>管理分类</Button>
+            <Button
+              onClick={() => {
+                setShowVariableGroupForm(true);
+                setShowVariableGroupEditor(false);
+                setEditingVariableGroup(null);
+                setVariableGroupName('');
+              }}
+            >
+              管理分类
+            </Button>
             <Button onClick={openVariableCreate}>+ 新增变量</Button>
           </div>
         </div>
         <div className="max-h-[620px] overflow-y-auto border border-[#ddd]">
-          {availableVariableGroups.map((group) => {
-            const variables = draftVariables.filter((variable) => (variable.group || 'General') === group);
-            return (
-              <div key={group} className="border-b border-[#ddd] last:border-b-0">
-                <div className="flex items-center justify-between bg-[#f8f8f8] px-[10px] py-[7px] text-[12px] font-bold text-[#555]">
-                  <span>{group}</span>
-                  <span>{variables.length}</span>
-                </div>
-                {variables.length === 0 && <div className="px-[10px] py-[10px] text-[12px] text-[#999]">暂无变量</div>}
-                {variables.map((variable) => (
+          {ungroupedVariables.length > 0 && (
+            <div className="border-b border-[#ddd] last:border-b-0">
+              {ungroupedVariables.map((variable) => (
                 <div
                   key={variable.id}
-                  className={`flex min-h-[44px] items-center gap-[6px] border-t border-[#eee] px-[10px] py-[6px] text-[13px] ${
+                  className={`flex min-h-[44px] items-center gap-[6px] border-t border-[#eee] px-[10px] py-[6px] text-[13px] first:border-t-0 ${
                     selectedVariableId === variable.id ? 'bg-[#eaf7ff]' : 'bg-white'
                   }`}
                 >
@@ -1139,15 +1164,61 @@ export default function PromptCmsPage() {
                   </button>
                   <div className="min-w-0 flex-1 text-left">
                     <div className="truncate font-bold">{getVariableDisplayName(variable)}</div>
-                    <div className="text-[11px] text-[#777]">{getVariableTypeLabel(variable.type)} · {variable.displayNames.en}</div>
+                    <div className="text-[11px] text-[#777]">
+                      {getVariableTypeLabel(variable.type)} · {variable.displayNames.en}
+                    </div>
                   </div>
                   <Button onClick={() => selectVariable(variable)}>编辑</Button>
-                  <Button tone="danger" onClick={() => deleteVariableById(variable.id)}>删除</Button>
+                  <Button tone="danger" onClick={() => deleteVariableById(variable.id)}>
+                    删除
+                  </Button>
                 </div>
               ))}
+            </div>
+          )}
+          {availableVariableGroups.map((group) => {
+            const variables = draftVariables.filter((variable) => variable.group === group);
+            return (
+              <div key={group} className="border-b border-[#ddd] last:border-b-0">
+                <div className="flex items-center justify-between bg-[#f8f8f8] px-[10px] py-[7px] text-[12px] font-bold text-[#555]">
+                  <span>{group}</span>
+                  <span>{variables.length}</span>
+                </div>
+                {variables.length === 0 && <div className="px-[10px] py-[10px] text-[12px] text-[#999]">暂无变量</div>}
+                {variables.map((variable) => (
+                  <div
+                    key={variable.id}
+                    className={`flex min-h-[44px] items-center gap-[6px] border-t border-[#eee] px-[10px] py-[6px] text-[13px] ${
+                      selectedVariableId === variable.id ? 'bg-[#eaf7ff]' : 'bg-white'
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      draggable
+                      onDragStart={(event) => handleVariableDragStart(event, variable)}
+                      onClick={() => insertVariable(variable)}
+                      className="cursor-grab rounded border border-[#cfe9f5] bg-white px-[6px] py-[3px] font-mono text-[11px] text-[#0073aa]"
+                    >
+                      {'{{'}
+                      {variable.key}
+                      {'}}'}
+                    </button>
+                    <div className="min-w-0 flex-1 text-left">
+                      <div className="truncate font-bold">{getVariableDisplayName(variable)}</div>
+                      <div className="text-[11px] text-[#777]">
+                        {getVariableTypeLabel(variable.type)} · {variable.displayNames.en}
+                      </div>
+                    </div>
+                    <Button onClick={() => selectVariable(variable)}>编辑</Button>
+                    <Button tone="danger" onClick={() => deleteVariableById(variable.id)}>
+                      删除
+                    </Button>
+                  </div>
+                ))}
               </div>
             );
           })}
+          {draftVariables.length === 0 && <div className="px-[10px] py-[18px] text-center text-[12px] text-[#999]">暂无变量</div>}
         </div>
       </div>
     </Panel>
@@ -1283,6 +1354,7 @@ export default function PromptCmsPage() {
               onChange={(event) => setVariableForm((prev) => ({ ...prev, group: event.target.value }))}
               className="h-[32px] w-full rounded border border-[#ccc] px-[8px]"
             >
+              <option value="">无分类</option>
               {availableVariableGroups.map((group) => (
                 <option key={group} value={group}>
                   {group}
@@ -1375,36 +1447,55 @@ export default function PromptCmsPage() {
 
   const renderVariableGroupModal = () =>
     showVariableGroupForm && (
-      <Modal title={editingVariableGroup ? '编辑变量分类' : '新增变量分类'} onClose={() => setShowVariableGroupForm(false)}>
+      <Modal title="管理变量分类" onClose={() => setShowVariableGroupForm(false)}>
         <div className="space-y-[14px] text-[14px]">
-          <label className="block">
-            <div className="mb-[7px]">分类名称</div>
-            <input
-              value={variableGroupName}
-              onChange={(event) => setVariableGroupName(event.target.value)}
-              className="h-[32px] w-full rounded border border-[#ccc] px-[8px]"
-              placeholder="例如：Basic profile、Face、Body"
-            />
-          </label>
+          <div className="flex justify-end">
+            <Button tone="success" onClick={openVariableGroupCreate}>
+              + 新增分类
+            </Button>
+          </div>
+          {showVariableGroupEditor && (
+            <div className="rounded border border-[#ddd] bg-[#fafafa] p-[12px]">
+              <label className="block">
+                <div className="mb-[7px]">分类名称</div>
+                <input
+                  value={variableGroupName}
+                  onChange={(event) => setVariableGroupName(event.target.value)}
+                  className="h-[32px] w-full rounded border border-[#ccc] px-[8px]"
+                  placeholder="例如：Basic profile、Face、Body"
+                />
+              </label>
+              <div className="mt-[10px] flex justify-end gap-[8px]">
+                <Button
+                  onClick={() => {
+                    setShowVariableGroupEditor(false);
+                    setEditingVariableGroup(null);
+                    setVariableGroupName('');
+                  }}
+                >
+                  取消
+                </Button>
+                <Button tone="primary" onClick={saveVariableGroup}>
+                  保存
+                </Button>
+              </div>
+            </div>
+          )}
           <div className="border border-[#ddd]">
             {availableVariableGroups.map((group) => (
               <div key={group} className="flex items-center gap-[8px] border-b border-[#eee] px-[10px] py-[8px] text-[13px] last:border-b-0">
                 <span className="min-w-0 flex-1 font-bold">{group}</span>
                 <span className="text-[12px] text-[#777]">{draftVariables.filter((variable) => variable.group === group).length} 个变量</span>
                 <Button onClick={() => openVariableGroupEdit(group)}>编辑</Button>
-                {group !== 'General' && (
-                  <Button tone="danger" onClick={() => deleteVariableGroup(group)}>
-                    删除
-                  </Button>
-                )}
+                <Button tone="danger" onClick={() => deleteVariableGroup(group)}>
+                  删除
+                </Button>
               </div>
             ))}
+            {availableVariableGroups.length === 0 && <div className="px-[10px] py-[18px] text-center text-[12px] text-[#999]">暂无变量分类</div>}
           </div>
           <div className="flex justify-end gap-[8px]">
-            <Button onClick={() => setShowVariableGroupForm(false)}>取消</Button>
-            <Button tone="primary" onClick={saveVariableGroup}>
-              保存
-            </Button>
+            <Button onClick={() => setShowVariableGroupForm(false)}>关闭</Button>
           </div>
         </div>
       </Modal>
@@ -1430,6 +1521,7 @@ export default function PromptCmsPage() {
           onClick={() => {
             setKeyword('');
             setStatusFilter('全部状态');
+            setTemplateCategoryFilter('all');
             setMode('templates');
           }}
           className={`h-[38px] px-[18px] ${
