@@ -4233,6 +4233,7 @@ function AIRemovalTabContent({ sourceUrl, brushSize = 30, onBrushSizeChange, has
 function AppsTabContent({ onOpenApp }: { onOpenApp?: (appId: string, label: string) => void }) {
   const { t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
+  const aiAvatarMaterialImage = '/assets/ai-avatar-material.png';
 
   // 首期可点击的 app id（含 ai-video：跳转独立页）
   const AVAILABLE_APP_IDS = ['ai-image-generator', 'ai-filter', 'image-enhancer', 'background-remover', 'ai-removal', 'ai-video', 'ugc-video-generator'];
@@ -4246,6 +4247,7 @@ function AppsTabContent({ onOpenApp }: { onOpenApp?: (appId: string, label: stri
     { id: 'ai-removal', name: 'AI Removal', color: 'from-gray-200 to-slate-200', icon: QuickRemovalIcon },
     { id: 'ai-video', name: 'AI video', color: 'from-teal-300 to-green-200', icon: Clapperboard, hasVideo: true },
     { id: 'ugc-video-generator', name: 'UGC Video Generator', color: 'from-cyan-300 to-emerald-200', icon: Smartphone, hasVideo: true },
+    { id: 'ai-avatar', name: 'AI Avatar', color: 'from-stone-200 to-zinc-100', icon: UserCircle, phase2: true, badge: '2.1', materialImage: aiAvatarMaterialImage },
     { id: 'ai-expand', name: 'AIExpand', color: 'from-gray-100 to-slate-100', icon: Expand, phase2: true, badge: '2.2' },
     { id: 'ai-replace', name: 'AIReplace', color: 'from-indigo-200 to-purple-100', icon: ImageIcon, phase2: true, badge: '2.3' },
     { id: 'ai-detach', name: 'aiDetach', color: 'from-rose-200 to-pink-100', icon: Scissors, phase2: true, badge: '2.4' },
@@ -4292,7 +4294,19 @@ function AppsTabContent({ onOpenApp }: { onOpenApp?: (appId: string, label: stri
               >
                 {/* App Icon */}
                 <div className={`relative w-full aspect-square rounded-xl bg-gradient-to-br ${app.color} flex items-center justify-center mb-2 overflow-hidden transition-shadow ${isAvailable ? 'group-hover:shadow-lg' : 'grayscale'}`}>
-                  <IconComponent className="w-8 h-8 text-gray-700/70" />
+                  {'materialImage' in app && app.materialImage ? (
+                    <>
+                      <img
+                        src={app.materialImage}
+                        alt=""
+                        className="absolute inset-0 h-full w-full object-cover"
+                        draggable={false}
+                      />
+                      <div className="absolute inset-0 bg-black/10" />
+                    </>
+                  ) : (
+                    <IconComponent className="w-8 h-8 text-gray-700/70" />
+                  )}
                   
                   {/* Video play indicator (仅首期显示) */}
                   {app.hasVideo && isAvailable && (

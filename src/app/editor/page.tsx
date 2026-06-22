@@ -696,7 +696,9 @@ export default function EditorPage() {
     const params = new URLSearchParams(window.location.search);
     const targetApp = params.get('app');
     const source = params.get('source');
-    if (targetApp !== 'ai-filter' || source !== 'image-enhancer-reco') return;
+    const isFilterRecommendation = targetApp === 'ai-filter' && source === 'image-enhancer-reco';
+    const isEditFromEnhancer = source === 'image-enhancer-edit';
+    if (!isFilterRecommendation && !isEditFromEnhancer) return;
 
     const handoff = loadRecommendationHandoff();
     const imageUrl = handoff?.imageUrl;
@@ -706,26 +708,34 @@ export default function EditorPage() {
     setLayers((prev) => {
       const nextLayer = {
         id: newId,
-        name: handoff.title || 'Recommended Image',
+        name: handoff.title || (isEditFromEnhancer ? 'Enhanced Image' : 'Recommended Image'),
         type: 'image' as const,
         imageUrl,
         visible: true,
         locked: false,
-        zIndex: prev.length,
-        x: 10,
-        y: 10,
-        width: 52,
-        height: 52,
+        zIndex: isEditFromEnhancer ? 0 : prev.length,
+        x: isEditFromEnhancer ? 0 : 10,
+        y: isEditFromEnhancer ? 0 : 10,
+        width: isEditFromEnhancer ? 100 : 52,
+        height: isEditFromEnhancer ? 100 : 52,
       };
-      return [...prev, nextLayer];
+      return isEditFromEnhancer ? [nextLayer] : [...prev, nextLayer];
     });
     setSelectedLayerId(newId);
     setSelectedLayerIds(new Set());
     setShowCanvasStarter(false);
-    setActiveTab('ai-filter');
-    setOpenAppTabs((prev) =>
-      prev.some((tab) => tab.id === 'ai-filter') ? prev : [...prev, { id: 'ai-filter', label: 'AI Filter' }]
-    );
+    setGuidedTab(null);
+    if (isEditFromEnhancer) {
+      setSelectedLayout(null);
+      setPendingCanvasSetup(null);
+      setActiveTab('image');
+      setBackgroundLayer((prev) => ({ ...prev, color: '#FFFFFF', imageUrl: undefined, gradient: undefined }));
+    } else {
+      setActiveTab('ai-filter');
+      setOpenAppTabs((prev) =>
+        prev.some((tab) => tab.id === 'ai-filter') ? prev : [...prev, { id: 'ai-filter', label: 'AI Filter' }]
+      );
+    }
     clearRecommendationHandoff();
   }, []);
 

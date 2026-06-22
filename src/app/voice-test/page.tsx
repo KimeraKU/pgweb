@@ -104,6 +104,40 @@ function timeAgo(ts: number) {
   return `${Math.floor(seconds / 86400)} 天前`;
 }
 
+function DetailTextCard({ title, text }: { title: string; text: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const canCollapse = text.length > 220;
+
+  return (
+    <div className="rounded-2xl border border-slate-200 p-5">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
+        <button
+          type="button"
+          onClick={() => void navigator.clipboard.writeText(text)}
+          className={`${uiIconBtn} h-7 w-7`}
+          title={`复制${title}`}
+          aria-label={`复制${title}`}
+        >
+          <Copy className="h-3.5 w-3.5" />
+        </button>
+      </div>
+      <p className={`whitespace-pre-wrap text-sm leading-7 text-slate-700 ${canCollapse && !expanded ? 'line-clamp-4' : ''}`}>
+        {text}
+      </p>
+      {canCollapse && (
+        <button
+          type="button"
+          onClick={() => setExpanded((value) => !value)}
+          className={`mt-2 rounded-lg text-xs font-semibold text-teal-700 hover:text-teal-800 ${uiFocus}`}
+        >
+          {expanded ? '收起' : '展开全部'}
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function VoiceTestPage() {
   const [mode, setMode] = useState<VoiceMode>('describe');
   const [prompt, setPrompt] = useState(DEFAULT_PROMPT);
@@ -560,7 +594,9 @@ export default function VoiceTestPage() {
                       </span>
                     )}
                   </div>
-                  <h2 className="text-xl font-semibold text-slate-950">{selectedTask.prompt}</h2>
+                  <h2 className="text-xl font-semibold text-slate-950">
+                    {selectedTask.mode === 'clone' ? selectedTask.prompt : '描述生成声音'}
+                  </h2>
                   <p className="mt-1 text-sm text-slate-500">{timeAgo(selectedTask.createdAt)}</p>
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
@@ -644,12 +680,8 @@ export default function VoiceTestPage() {
                     )}
                   </div>
 
-                  <div className="rounded-2xl border border-slate-200 p-5">
-                    <h3 className="mb-2 text-sm font-semibold text-slate-900">
-                      {selectedTask.mode === 'clone' ? '试听文本' : '示例声音口播'}
-                    </h3>
-                    <p className="whitespace-pre-wrap text-sm leading-7 text-slate-700">{selectedTask.previewText}</p>
-                  </div>
+                  {selectedTask.mode === 'describe' && <DetailTextCard title="声音 Prompt" text={selectedTask.prompt} />}
+                  <DetailTextCard title={selectedTask.mode === 'clone' ? '试听文本' : '示例声音口播'} text={selectedTask.previewText} />
                   {selectedTask.mode === 'clone' && selectedTask.cloneAudioUrl && (
                     <div className="rounded-2xl border border-slate-200 p-5">
                       <h3 className="mb-2 text-sm font-semibold text-slate-900">参考录音</h3>

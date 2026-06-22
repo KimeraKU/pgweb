@@ -609,12 +609,12 @@ function ActivationRequired({
         请查收邮箱并完成验证
       </h2>
       <p className="mt-3 text-sm leading-6 text-slate-500">
-        我们已向
+        验证邮件已发送至
         <span className="mx-1 font-semibold text-slate-700">{email}</span>
-        发送验证邮件。点击邮件中的链接后，你将自动登录并返回首页。
+        。请点击邮件中的链接完成邮箱验证。
       </p>
       <p className="mt-3 text-sm leading-6 text-slate-500">
-        完成验证后，邮件中的链接会自动登录并返回首页。若未自动跳转，你也可以返回登录继续操作。
+        验证完成后，请返回登录页继续登录。
       </p>
 
       <div className="mt-6 flex items-center justify-between text-sm">

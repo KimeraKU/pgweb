@@ -2,21 +2,26 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft,
+  ArrowUpRight,
   ChevronDown,
   ChevronRight,
+  Crown,
+  Download,
+  Edit3,
   Gift,
+  Grid3X3,
   ImagePlus,
   MessageCircleMore,
   Search,
   Sparkles,
   Star,
-  ThumbsDown,
-  ThumbsUp,
   Upload,
   X,
+  ZoomIn,
 } from 'lucide-react';
 import {
   RecommendationIntentType,
@@ -413,58 +418,93 @@ function MarketingNavbar({
   workspaceMode?: boolean;
   onBackHome?: () => void;
 }) {
-  const navItems = [
-    { label: '创作', hot: false },
-    { label: '模板', hot: true },
-    { label: 'AI图像', hot: false },
-    { label: 'AI视频', hot: false },
-    { label: '定价', hot: false },
-    { label: '获取应用', hot: false },
-  ];
+  const navItems = workspaceMode
+    ? [
+        { label: 'AI Image', dropdown: true },
+        { label: 'AI Video', dropdown: true },
+        { label: 'Solutions', dropdown: true },
+        { label: 'Resources', dropdown: true },
+        { label: 'Pricing', dropdown: false },
+      ]
+    : [
+        { label: '创作', dropdown: true, hot: false },
+        { label: '模板', dropdown: true, hot: true },
+        { label: 'AI图像', dropdown: true, hot: false },
+        { label: 'AI视频', dropdown: true, hot: false },
+        { label: '定价', dropdown: false, hot: false },
+        { label: '获取应用', dropdown: false, hot: false },
+      ];
 
   return (
-    <header className="sticky top-0 z-40 border-b border-white/70 bg-white/88 backdrop-blur-xl">
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-4 lg:px-8">
+    <header className={`${workspaceMode ? 'relative' : 'sticky'} top-0 z-40 bg-white/94 backdrop-blur-xl`}>
+      <div className={`${workspaceMode ? 'max-w-none px-6 py-3' : 'mx-auto max-w-7xl px-5 py-4 lg:px-8'} flex items-center justify-between gap-4`}>
+        <div className="flex min-w-0 items-center gap-5">
+          {workspaceMode && (
+            <button
+              type="button"
+              onClick={onBackHome}
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-slate-100 text-slate-800 transition hover:bg-slate-200"
+              aria-label="Back"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+          )}
+
+          <div className="flex shrink-0 items-center gap-2.5">
+            <Image src="/logo.svg" alt="PhotoGrid" width={32} height={32} />
+            <span className="text-[24px] font-semibold tracking-tight text-slate-900">PhotoGrid</span>
+          </div>
+
+          <nav className="hidden items-center gap-8 pl-5 text-[15px] font-medium text-slate-800 lg:flex">
+            {navItems.map((item) => (
+              <a key={item.label} href="#" className="group inline-flex items-center gap-1.5 transition hover:text-slate-950">
+                <span>{item.label}</span>
+                {item.dropdown && (
+                  <ChevronDown className="h-4 w-4 text-slate-500 transition group-hover:text-slate-700" />
+                )}
+                {'hot' in item && item.hot && (
+                  <span className="rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-white">
+                    Hot
+                  </span>
+                )}
+              </a>
+            ))}
+          </nav>
+        </div>
+
         {workspaceMode ? (
+          <div className="flex shrink-0 items-center gap-3">
+            <button
+              type="button"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-slate-50 px-4 text-sm font-semibold text-slate-900 transition hover:bg-slate-100"
+            >
+              <Crown className="h-4 w-4 fill-rose-500 text-rose-500" />
+              Try For Free
+            </button>
+            <button
+              type="button"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-cyan-500 px-5 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(34,211,238,0.18)] transition hover:bg-cyan-600"
+            >
+              <Download className="h-4 w-4" />
+              Download
+            </button>
+            <img
+              src={portraitArt}
+              alt=""
+              className="h-10 w-10 rounded-full object-cover ring-2 ring-white"
+              draggable={false}
+            />
+          </div>
+        ) : (
           <button
             type="button"
             onClick={onBackHome}
-            className="inline-flex items-center gap-3 text-[17px] font-medium text-slate-900 transition hover:text-slate-700"
+            className="hidden items-center gap-3 text-[17px] font-medium text-slate-900 transition hover:text-slate-700"
           >
             <ArrowLeft className="h-5 w-5" />
             <span>主页</span>
           </button>
-        ) : (
-          <div className="flex items-center gap-3">
-            <Image src="/logo.svg" alt="PhotoGrid" width={32} height={32} />
-            <span className="text-[20px] font-semibold tracking-tight text-slate-900">PhotoGrid</span>
-          </div>
         )}
-
-        <nav className="hidden items-center gap-8 text-[15px] font-medium text-slate-700 md:flex">
-          {navItems.map((item) => (
-            <a key={item.label} href="#" className="group inline-flex items-center gap-1.5 transition hover:text-slate-950">
-              <span>{item.label}</span>
-              {item.label !== '定价' && item.label !== '获取应用' && (
-                <ChevronDown className="h-4 w-4 text-slate-400 transition group-hover:text-slate-700" />
-              )}
-              {item.hot && (
-                <span className="rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-white">
-                  Hot
-                </span>
-              )}
-            </a>
-          ))}
-        </nav>
-
-        <div className="flex items-center gap-3">
-          <div className="relative flex h-12 w-12 items-center justify-center rounded-full bg-slate-500 text-white shadow-[0_12px_32px_rgba(100,116,139,0.18)]">
-            <span className="text-lg font-semibold">P</span>
-            <span className="absolute -right-0.5 top-0 rounded-full bg-fuchsia-500 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-              Pro
-            </span>
-          </div>
-        </div>
       </div>
     </header>
   );
@@ -703,29 +743,29 @@ function ResultPreview({
   return (
     <div
       ref={containerRef}
-      className="relative aspect-[1/0.88] w-full max-w-full overflow-hidden rounded-[28px] bg-white"
+      className="relative h-[620px] w-full max-w-full overflow-hidden rounded-lg bg-[#f1f2f4] lg:h-[680px] xl:h-[720px]"
     >
       <img
         src={image}
         alt=""
-        className="absolute inset-0 h-full w-full object-cover blur-[1.2px] brightness-[0.98] saturate-[0.92]"
+        className="absolute inset-0 h-full w-full object-contain blur-[1.2px] brightness-[0.98] saturate-[0.92]"
         draggable={false}
       />
       <img
         src={image}
         alt=""
-        className={`absolute inset-0 h-full w-full object-cover transition ${backgroundBlurEnabled ? 'scale-[1.02] blur-0' : ''}`}
+        className={`absolute inset-0 h-full w-full object-contain transition ${backgroundBlurEnabled ? 'scale-[1.02] blur-0' : ''}`}
         style={{
           clipPath: `inset(0 0 0 ${position}%)`,
           filter: backgroundBlurEnabled ? 'contrast(1.05) saturate(1.05) brightness(1.02)' : 'contrast(1.04) saturate(1.02)',
         }}
         draggable={false}
       />
-      <span className="absolute left-4 top-4 z-10 rounded-full bg-slate-300/84 px-3 py-1 text-xs font-semibold text-white backdrop-blur">
-        处理前 {beforeDimensions ? `${beforeDimensions.width} * ${beforeDimensions.height}` : ''}
+      <span className="absolute left-4 top-4 z-10 rounded-md bg-black/36 px-2.5 py-1 text-xs font-semibold text-white backdrop-blur">
+        Before&nbsp; {beforeDimensions ? `${beforeDimensions.width}x${beforeDimensions.height}` : ''}
       </span>
-      <span className="absolute right-4 top-4 z-10 rounded-full bg-slate-300/84 px-3 py-1 text-xs font-semibold text-white backdrop-blur">
-        处理后 {afterDimensions ? `${afterDimensions.width} * ${afterDimensions.height}` : ''}
+      <span className="absolute right-4 top-4 z-10 rounded-md bg-black/36 px-2.5 py-1 text-xs font-semibold text-white backdrop-blur">
+        After&nbsp; {afterDimensions ? `${afterDimensions.width}x${afterDimensions.height}` : ''}
       </span>
       <div className="absolute inset-y-0 z-20 w-px bg-white" style={{ left: `${position}%` }} />
       <button
@@ -741,9 +781,9 @@ function ResultPreview({
       </button>
       <button
         type="button"
-        className="absolute bottom-5 right-5 flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900/78 text-white shadow-[0_10px_20px_rgba(15,23,42,0.2)]"
+        className="absolute bottom-4 right-4 flex h-8 w-8 items-center justify-center rounded-md bg-black/44 text-white shadow-[0_10px_20px_rgba(15,23,42,0.18)]"
       >
-        <Search className="h-4 w-4" />
+        <ZoomIn className="h-4 w-4" />
       </button>
     </div>
   );
@@ -836,46 +876,67 @@ function RecommendationCardGrid({
 }) {
   if (intentRecoStatus === 'loading') {
     return (
-      <div className={`rounded-xl bg-slate-50 p-3 ${className}`}>
-        <div className="grid grid-cols-2 gap-2">
-          <div className="h-[112px] animate-pulse rounded-xl bg-slate-100" />
-          <div className="h-[112px] animate-pulse rounded-xl bg-slate-100" />
-        </div>
+      <div className={`space-y-2 ${className}`}>
+        {[0, 1, 2].map((item) => (
+          <div key={item} className="flex h-[92px] animate-pulse gap-3 rounded-xl bg-white/72 p-2">
+            <div className="h-full w-[112px] rounded-lg bg-slate-100" />
+            <div className="flex flex-1 flex-col justify-center gap-2">
+              <div className="h-3 w-24 rounded bg-slate-100" />
+              <div className="h-2.5 w-32 rounded bg-slate-100" />
+            </div>
+          </div>
+        ))}
       </div>
     );
   }
 
   if (recommendations.length === 0) {
     return (
-      <div className={`rounded-xl bg-slate-50 p-3 text-xs leading-5 text-slate-500 ${className}`}>
+      <div className={`rounded-xl bg-white/72 p-3 text-xs leading-5 text-slate-500 ${className}`}>
         推荐生成中，稍后会自动展示下一步创作入口。
       </div>
     );
   }
 
+  const displayRecommendations =
+    recommendations.length >= 3
+      ? recommendations.slice(0, 3)
+      : [...recommendations, recommendations[0]].slice(0, 3);
+
   return (
-    <div className={`grid grid-cols-2 gap-2 ${className}`}>
-      {recommendations.slice(0, 2).map((item) => (
+    <div className={`space-y-2 ${className}`}>
+      {displayRecommendations.map((item, index) => (
         <Link
-          key={item.id}
+          key={`${item.id}-${index}`}
           href={item.href}
           onClick={() => onRecommendationClick(item)}
-          className="group min-w-0 rounded-xl border border-slate-100 bg-white p-2 shadow-[0_8px_18px_rgba(148,163,184,0.08)] transition hover:-translate-y-0.5 hover:border-cyan-100 hover:bg-cyan-50/55"
+          className="group relative flex min-h-[92px] gap-3 rounded-xl bg-white/82 p-2 shadow-[0_10px_22px_rgba(255,174,89,0.08)] transition hover:-translate-y-0.5 hover:bg-white"
         >
-          <div className="relative h-[76px] overflow-hidden rounded-lg bg-slate-100">
+          <div className="relative h-[76px] w-[112px] shrink-0 overflow-hidden rounded-lg bg-slate-100">
             <img
               src={item.previewImage}
               alt={item.title}
               className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]"
             />
-            <span className="absolute left-1.5 top-1.5 rounded-full bg-white/90 px-1.5 py-0.5 text-[9px] font-semibold text-cyan-700 shadow-[0_6px_14px_rgba(15,23,42,0.1)]">
-              {item.badge}
+          </div>
+          <div className="flex min-w-0 flex-1 flex-col justify-center">
+            <p className="truncate text-[13px] font-semibold text-slate-900">
+              {index === 1 ? 'Video Effects' : 'AI Filter'}
+            </p>
+            <p className="mt-1 truncate text-[11px] text-slate-500">
+              {index === 0 ? 'Try Trending AI Filters' : 'Try Stunning Video Effects'}
+            </p>
+          </div>
+          {index === 0 && (
+            <span className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-[linear-gradient(135deg,#ffb33d,#ff4fa2)] text-white shadow-[0_10px_20px_rgba(255,79,162,0.22)]">
+              <ArrowUpRight className="h-4 w-4" />
             </span>
-          </div>
-          <div className="mt-2 min-w-0">
-            <p className="truncate text-[13px] font-semibold text-slate-950">{item.title}</p>
-            <p className="mt-0.5 truncate text-[11px] text-slate-500">{item.cta}</p>
-          </div>
+          )}
+          {index === 1 && (
+            <span className="absolute -right-1 -top-2 rounded-full bg-lime-300 px-3 py-1 text-[11px] font-bold text-slate-950 shadow-[0_8px_18px_rgba(132,204,22,0.24)]">
+              Hover
+            </span>
+          )}
         </Link>
       ))}
     </div>
@@ -892,15 +953,14 @@ function RecommendationPanel({
   onRecommendationClick: (item: RecommendationCardItem) => void;
 }) {
   return (
-    <div className="rounded-2xl border border-cyan-100 bg-white/92 p-3 shadow-[0_10px_24px_rgba(34,211,238,0.08)]">
-      <div className="mb-3 flex items-center justify-between gap-3">
+    <div className="rounded-[14px] border border-pink-200 bg-[linear-gradient(145deg,#fffbe8,#fff7fb)] p-3 shadow-[0_10px_24px_rgba(255,174,89,0.08)]">
+      <div className="mb-3 flex items-center justify-between gap-3 px-1">
         <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-cyan-500" />
-          <p className="text-[14px] font-semibold text-slate-950">PG Agent 推荐</p>
+          <Sparkles className="h-4 w-4 text-pink-500" />
+          <p className="bg-[linear-gradient(90deg,#ff4fa2,#ff8b3d)] bg-clip-text text-[14px] font-semibold text-transparent">
+            PG Agent Suggestions
+          </p>
         </div>
-        <span className="rounded-full bg-cyan-50 px-2 py-0.5 text-[10px] font-semibold text-cyan-700">
-          {intentRecoStatus === 'loading' ? '分析中' : '已匹配'}
-        </span>
       </div>
       <RecommendationCardGrid
         intentRecoStatus={intentRecoStatus}
@@ -976,6 +1036,7 @@ function ResultSidebar({
   experimentGroup,
   onToggleBackgroundBlur,
   onContinueUpload,
+  onEditImage,
   onDownloadAll,
   onRecommendationClick,
 }: {
@@ -985,42 +1046,42 @@ function ResultSidebar({
   experimentGroup: RecommendationExperimentGroup;
   onToggleBackgroundBlur: () => void;
   onContinueUpload: () => void;
+  onEditImage: () => void;
   onDownloadAll: () => void;
   onRecommendationClick: (item: RecommendationCardItem) => void;
 }) {
   const shouldShowResultRecommendations = experimentGroup === 'result_card';
 
   return (
-    <div className="flex h-full flex-col justify-between rounded-[28px] border border-white/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.92),rgba(247,252,255,0.9))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)]">
+    <div className="flex h-full flex-col justify-between bg-white">
       <div className="space-y-3">
         <button
           type="button"
-          className="flex w-full items-center justify-between rounded-2xl border border-slate-100 bg-white/88 px-4 py-4 text-left shadow-[0_8px_20px_rgba(148,163,184,0.08)]"
+          className="flex h-[50px] w-full items-center justify-between rounded-lg bg-slate-50 px-4 text-left transition hover:bg-slate-100"
         >
           <div>
-            <p className="text-[15px] font-semibold text-slate-900">通用</p>
+            <p className="text-[14px] font-semibold text-slate-900">Standard</p>
           </div>
-          <ChevronRight className="h-5 w-5 text-slate-500" />
+          <ChevronRight className="h-4 w-4 text-slate-500" />
         </button>
 
-        <div className="rounded-2xl border border-slate-100 bg-white/88 px-4 py-4 shadow-[0_8px_20px_rgba(148,163,184,0.08)]">
+        <div className="rounded-lg bg-slate-50 px-4 py-4">
           <div className="flex w-full items-center justify-between">
             <div className="flex items-center gap-3">
-              <div>
-                <p className="text-[15px] font-semibold text-slate-900">背景虚化</p>
-              </div>
+              <Grid3X3 className="h-5 w-5 text-slate-800" />
+              <p className="text-[14px] font-semibold text-slate-900">Background Blur</p>
             </div>
             <button
               type="button"
               onClick={onToggleBackgroundBlur}
-              className={`relative h-7 w-12 rounded-full transition ${
+              className={`relative h-6 w-10 rounded-full transition ${
                 backgroundBlurEnabled ? 'bg-cyan-500' : 'bg-slate-300'
               }`}
               aria-label="切换背景虚化"
             >
               <span
-                className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${
-                  backgroundBlurEnabled ? 'left-6' : 'left-1'
+                className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition ${
+                  backgroundBlurEnabled ? 'left-[18px]' : 'left-0.5'
                 }`}
               />
             </button>
@@ -1037,23 +1098,34 @@ function ResultSidebar({
 
       </div>
 
-      <div className="mt-3 space-y-2">
+      <div className="mt-8 space-y-2">
+        <button
+          type="button"
+          onClick={onEditImage}
+          className="inline-flex h-[50px] w-full items-center justify-center gap-2 rounded-md border border-cyan-500 bg-white px-3 text-[15px] font-semibold text-cyan-600 transition hover:bg-cyan-50"
+        >
+          <Edit3 className="h-5 w-5" />
+          <span>Edit Image</span>
+        </button>
+        <div className="relative">
+          <span className="absolute -top-2 left-0 z-10 rounded-full bg-amber-400 px-3 py-1 text-[10px] font-bold text-white">
+            Free
+          </span>
+          <button
+            type="button"
+            onClick={onDownloadAll}
+            className="inline-flex h-[50px] w-full items-center justify-center rounded-md bg-cyan-500 px-3 text-[15px] font-semibold text-white shadow-[0_18px_38px_rgba(34,211,238,0.18)] transition hover:bg-cyan-600"
+          >
+            Download All
+          </button>
+        </div>
         <button
           type="button"
           onClick={onContinueUpload}
-          className="inline-flex h-[68px] w-full flex-col items-center justify-center rounded-2xl border border-cyan-200 bg-white px-5 text-cyan-500 shadow-[0_8px_22px_rgba(148,163,184,0.08)] transition hover:border-cyan-300 hover:bg-cyan-50"
+          className="inline-flex h-9 w-full items-center justify-center rounded-md border border-transparent text-[11px] font-semibold text-cyan-500 transition hover:border-cyan-100 hover:bg-cyan-50"
         >
-          <span className="text-[16px] font-semibold">继续上传</span>
-          <span className="mt-0.5 text-xs font-medium text-cyan-400">点击/拖放/粘贴</span>
+          Continue Uploading · Click, Drag &amp; Drop, or Paste
         </button>
-        <button
-          type="button"
-          onClick={onDownloadAll}
-          className="inline-flex h-[68px] w-full items-center justify-center rounded-2xl bg-cyan-500 px-5 text-[17px] font-semibold text-white shadow-[0_18px_38px_rgba(34,211,238,0.22)] transition hover:bg-cyan-600"
-        >
-          下载全部
-        </button>
-        <p className="text-center text-xs text-slate-400">请及时下载</p>
       </div>
     </div>
   );
@@ -1061,17 +1133,56 @@ function ResultSidebar({
 
 function ResultFeedback() {
   return (
-    <div className="fixed bottom-8 right-6 z-30 hidden rounded-[18px] border border-white/70 bg-white/88 p-3 shadow-[0_18px_40px_rgba(15,23,42,0.12)] backdrop-blur 2xl:flex">
-      <div className="flex items-center gap-3">
-        <button type="button" className="flex flex-col items-center gap-1 text-slate-700 transition hover:text-slate-950">
-          <ThumbsDown className="h-5 w-5" />
-          <span className="text-xs font-medium">不喜欢</span>
+    <div className="fixed bottom-7 right-5 z-30 hidden rounded-[24px] bg-white/94 px-3 py-4 shadow-[0_18px_44px_rgba(15,23,42,0.12)] backdrop-blur xl:flex">
+      <div className="flex flex-col items-center gap-5">
+        <button type="button" className="flex h-6 w-6 items-center justify-center text-rose-500 transition hover:text-rose-600">
+          <Gift className="h-5 w-5 fill-rose-100" />
         </button>
-        <button type="button" className="flex flex-col items-center gap-1 text-slate-700 transition hover:text-slate-950">
-          <ThumbsUp className="h-5 w-5" />
-          <span className="text-xs font-medium">喜欢</span>
+        <button type="button" className="flex h-6 w-6 items-center justify-center text-slate-800 transition hover:text-slate-950">
+          <Star className="h-5 w-5" />
+        </button>
+        <button type="button" className="flex h-6 w-6 items-center justify-center text-slate-800 transition hover:text-slate-950">
+          <MessageCircleMore className="h-5 w-5" />
         </button>
       </div>
+    </div>
+  );
+}
+
+function ResultThumbnailStrip({
+  activeImage,
+  selectedHeroId,
+  onSelectSample,
+}: {
+  activeImage: string;
+  selectedHeroId: string;
+  onSelectSample: (sample: DemoItem) => void;
+}) {
+  const thumbnails = [
+    { id: 'current', image: activeImage, title: 'Current' },
+    ...heroSamples.filter((sample) => sample.id !== selectedHeroId).slice(0, 3),
+  ];
+
+  return (
+    <div className="mx-auto mt-5 flex w-full items-center justify-center gap-3">
+      {thumbnails.map((item, index) => {
+        const isActive = index === 0;
+        const sample = heroSamples.find((entry) => entry.id === item.id);
+        return (
+          <button
+            key={`${item.id}-${index}`}
+            type="button"
+            onClick={() => {
+              if (sample) onSelectSample(sample);
+            }}
+            className={`h-16 w-16 overflow-hidden rounded-lg border-2 transition hover:-translate-y-0.5 ${
+              isActive ? 'border-cyan-500 p-1 shadow-[0_12px_28px_rgba(34,211,238,0.24)]' : 'border-transparent'
+            }`}
+          >
+            <img src={item.image} alt={item.title} className="h-full w-full rounded-md object-cover" draggable={false} />
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -1119,6 +1230,7 @@ function FloatingUtilityRail() {
 }
 
 export default function ImageEnhancerPage() {
+  const router = useRouter();
   const singleInputRef = useRef<HTMLInputElement>(null);
   const batchInputRef = useRef<HTMLInputElement>(null);
   const currentBlobRef = useRef<string | null>(null);
@@ -1316,6 +1428,23 @@ export default function ImageEnhancerPage() {
     });
   };
 
+  const handleEditImage = () => {
+    if (!workspaceImage) return;
+    saveRecommendationHandoff({
+      imageUrl: workspaceImage,
+      intentType,
+      sourcePage: 'image-enhancer',
+      target: 'editor',
+      handoffId: createHandoffId(),
+      experimentGroup,
+      recoSurface: 'result_action',
+      title: 'Enhanced Image',
+      category: 'Edit image',
+      createdAt: Date.now(),
+    });
+    router.push('/editor?source=image-enhancer-edit');
+  };
+
   const handleDownloadAll = () => {
     if (typeof document === 'undefined' || !workspaceImage) return;
     const link = document.createElement('a');
@@ -1336,9 +1465,9 @@ export default function ImageEnhancerPage() {
   };
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top_left,rgba(191,242,255,0.55),transparent_22%),radial-gradient(circle_at_85%_18%,rgba(255,235,209,0.34),transparent_18%),linear-gradient(180deg,#ffffff_0%,#f4fcff_48%,#f8fdff_100%)] text-slate-900">
+    <main className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_10%_92%,rgba(191,242,255,0.74),transparent_28%),radial-gradient(circle_at_50%_100%,rgba(213,198,255,0.48),transparent_25%),linear-gradient(180deg,#ffffff_0%,#f7feff_62%,#f3fdff_100%)] text-slate-900">
       <MarketingNavbar workspaceMode={isWorkspaceMode} onBackHome={handleBackHome} />
-      <FloatingUtilityRail />
+      {!isWorkspaceMode && <FloatingUtilityRail />}
 
       <input
         ref={singleInputRef}
@@ -1357,9 +1486,9 @@ export default function ImageEnhancerPage() {
       />
 
       {isWorkspaceMode ? (
-        <div className="mx-auto max-w-7xl px-5 pb-16 pt-16 lg:px-8">
-          <section className="rounded-[32px] border border-white/70 bg-white/84 p-4 shadow-[0_24px_70px_rgba(148,163,184,0.16)] backdrop-blur md:p-5">
-            <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_248px] lg:grid-cols-[minmax(0,1fr)_268px] xl:grid-cols-[minmax(0,1fr)_288px]">
+        <div className="mx-auto w-[calc(100%-48px)] max-w-[1300px] pb-8 pt-8">
+          <section className="rounded-[24px] bg-white p-5 shadow-[0_24px_70px_rgba(148,163,184,0.14)]">
+            <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_320px] lg:grid-cols-[minmax(0,1fr)_344px]">
               <div className="min-w-0 overflow-hidden">
                 {displayStage === 'processing' ? (
                   <ProcessingPreview image={workspaceImage} message="高清增强中，PG Agent 正在分析..." />
@@ -1372,7 +1501,7 @@ export default function ImageEnhancerPage() {
                   />
                 )}
               </div>
-              <div className="min-h-[520px] min-w-0 px-3 py-4">
+              <div className="min-h-[620px] min-w-0 lg:min-h-[680px] xl:min-h-[720px]">
                 {displayStage === 'processing' ? (
                   <ProcessingSidebar activeStep={processingStep} intentRecoStatus={intentRecoStatus} />
                 ) : (
@@ -1383,6 +1512,7 @@ export default function ImageEnhancerPage() {
                     experimentGroup={experimentGroup}
                     onToggleBackgroundBlur={() => setBackgroundBlurEnabled((prev) => !prev)}
                     onContinueUpload={() => singleInputRef.current?.click()}
+                    onEditImage={handleEditImage}
                     onDownloadAll={handleDownloadAll}
                     onRecommendationClick={handleRecommendationClick}
                   />
@@ -1390,6 +1520,18 @@ export default function ImageEnhancerPage() {
               </div>
             </div>
           </section>
+          {displayStage === 'result' && (
+            <ResultThumbnailStrip
+              activeImage={workspaceImage}
+              selectedHeroId={selectedHeroId}
+              onSelectSample={(sample) => {
+                updateUploadedImage(sample.image);
+                setSelectedHeroId(sample.id);
+                setBatchCount(1);
+                setWorkStage('result');
+              }}
+            />
+          )}
         </div>
       ) : (
         <>
