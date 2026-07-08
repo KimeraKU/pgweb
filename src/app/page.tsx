@@ -74,7 +74,7 @@ export default function Home() {
                 立即使用
               </button>
               <a
-                href="/background-remover"
+                href="/creation"
                 className="rounded-xl bg-white px-6 py-3 text-base font-semibold text-slate-800 ring-1 ring-slate-200 transition hover:bg-slate-50"
               >
                 查看工具
