@@ -5,10 +5,9 @@ import Image from 'next/image';
 import {
   BookOpen,
   Box,
-  CalendarDays,
-  Check,
-  ChevronDown,
   ChevronRight,
+  Download,
+  RefreshCw,
   X,
   Eraser,
   FolderKanban,
@@ -26,10 +25,11 @@ import {
   Plus,
   Search,
   Send,
+  Share2,
   Scissors,
   ShoppingBag,
-  SlidersHorizontal,
   Sparkles,
+  Trash2,
   UserRound,
   Video,
   Wand2,
@@ -105,26 +105,26 @@ type AgentGroupCard = AgentModeCard & {
   children: AgentTemplateCard[];
 };
 
-type ProjectType =
+type ProjectTaskType = 'Image' | 'Video' | 'Audio' | 'Agent Sessions' | 'Avatar';
+
+type ProjectToolCategory =
   | 'AI Agent'
   | 'AI Image'
   | 'AI Video'
+  | 'AI Voice'
   | 'AI Photo Editor'
   | 'E-commerce Video'
   | 'AI Avatar'
   | 'Background Remover'
-  | 'Templates';
+  | 'My Upload';
 
 type ProjectGalleryItem = {
   title: string;
-  type: ProjectType;
-  tone: string;
-  size?: 'wide' | 'tall' | 'large' | 'small';
-};
-
-type ProjectDateGroup = {
-  date: string;
-  items: ProjectGalleryItem[];
+  description: string;
+  taskType: ProjectTaskType;
+  tool: ProjectToolCategory;
+  updatedAt: string;
+  fileSize: string;
 };
 
 const sectionNavItems: SectionNavItem[] = [
@@ -314,128 +314,181 @@ const templateCards: HubCard[] = [
   },
 ];
 
-const projectTypeOptions: Array<'All type' | ProjectType> = [
-  'All type',
+const projectTaskTabs: Array<'All' | ProjectTaskType> = ['All', 'Image', 'Video', 'Audio', 'Agent Sessions', 'Avatar'];
+
+const projectToolFilters: Array<'All' | ProjectToolCategory> = [
+  'All',
   'AI Agent',
   'AI Image',
   'AI Video',
+  'AI Voice',
   'AI Photo Editor',
   'E-commerce Video',
   'AI Avatar',
   'Background Remover',
-  'Templates',
+  'My Upload',
 ];
 
-const projectDateGroups: ProjectDateGroup[] = [
+const projectItems: ProjectGalleryItem[] = [
   {
-    date: 'Jun 10',
-    items: [
-      {
-        title: 'Product showcase draft',
-        type: 'E-commerce Video',
-        tone: 'from-[#fed7aa] via-[#cbd5e1] to-[#475569]',
-        size: 'wide',
-      },
-    ],
+    title: 'Product showcase draft',
+    description: 'E-commerce video concept with product close-ups and selling points.',
+    taskType: 'Video',
+    tool: 'E-commerce Video',
+    updatedAt: 'Jun 10, 14:32',
+    fileSize: '48.2 MB',
   },
   {
-    date: 'Jun 09',
-    items: [
-      {
-        title: 'Avatar try-on concept',
-        type: 'AI Avatar',
-        tone: 'from-[#e0f2fe] via-white to-[#64748b]',
-        size: 'tall',
-      },
-      {
-        title: 'Clean product portrait',
-        type: 'AI Photo Editor',
-        tone: 'from-[#f8fafc] via-[#e2e8f0] to-[#94a3b8]',
-        size: 'tall',
-      },
-      {
-        title: 'UGC creator frame',
-        type: 'AI Video',
-        tone: 'from-[#ede9fe] via-[#fce7f3] to-[#94a3b8]',
-        size: 'tall',
-      },
-    ],
+    title: 'Avatar try-on concept',
+    description: 'Avatar-led visual task for creator and outfit testing.',
+    taskType: 'Avatar',
+    tool: 'AI Avatar',
+    updatedAt: 'Jun 09, 18:06',
+    fileSize: '32.8 MB',
   },
   {
-    date: 'Jun 05',
-    items: [
-      {
-        title: 'Listing hero image',
-        type: 'AI Image',
-        tone: 'from-[#fff7ed] via-[#fde68a] to-[#f97316]',
-        size: 'tall',
-      },
-      {
-        title: 'Brand poster template',
-        type: 'Templates',
-        tone: 'from-[#fecdd3] via-white to-[#c4b5fd]',
-        size: 'tall',
-      },
-      {
-        title: 'Background cleanup',
-        type: 'Background Remover',
-        tone: 'from-[#dcfce7] via-white to-[#86efac]',
-        size: 'tall',
-      },
-    ],
+    title: 'Clean product portrait',
+    description: 'Photo edit project with product cleanup and image enhancement.',
+    taskType: 'Image',
+    tool: 'AI Photo Editor',
+    updatedAt: 'Jun 09, 16:44',
+    fileSize: '8.6 MB',
   },
   {
-    date: 'Jun 04',
-    items: [
-      {
-        title: 'Agent campaign brief',
-        type: 'AI Agent',
-        tone: 'from-[#dbeafe] via-white to-[#93c5fd]',
-        size: 'tall',
-      },
-      {
-        title: 'Short drama ad shot',
-        type: 'E-commerce Video',
-        tone: 'from-[#fee2e2] via-[#fed7aa] to-[#ef4444]',
-        size: 'tall',
-      },
-      {
-        title: 'Product variant render',
-        type: 'AI Image',
-        tone: 'from-[#f0fdf4] via-white to-[#22c55e]',
-        size: 'tall',
-      },
-      {
-        title: 'Creator video hook',
-        type: 'AI Video',
-        tone: 'from-[#cffafe] via-white to-[#0f766e]',
-        size: 'small',
-      },
-      {
-        title: 'A+ detail page banner',
-        type: 'Templates',
-        tone: 'from-[#e0e7ff] via-white to-[#6366f1]',
-        size: 'wide',
-      },
-      {
-        title: 'Studio product scene',
-        type: 'AI Photo Editor',
-        tone: 'from-[#fef3c7] via-white to-[#92400e]',
-        size: 'small',
-      },
-      {
-        title: 'Lifestyle background',
-        type: 'Background Remover',
-        tone: 'from-[#dcfce7] via-[#fefce8] to-[#166534]',
-        size: 'wide',
-      },
-      {
-        title: 'Avatar presenter',
-        type: 'AI Avatar',
-        tone: 'from-[#fce7f3] via-white to-[#be185d]',
-        size: 'wide',
-      },
-    ],
+    title: 'UGC creator frame',
+    description: 'Short video task built around creator review angles.',
+    taskType: 'Video',
+    tool: 'AI Video',
+    updatedAt: 'Jun 09, 11:20',
+    fileSize: '64.1 MB',
+  },
+  {
+    title: 'Listing hero image',
+    description: 'AI image generation for marketplace hero visuals.',
+    taskType: 'Image',
+    tool: 'AI Image',
+    updatedAt: 'Jun 05, 20:18',
+    fileSize: '12.4 MB',
+  },
+  {
+    title: 'Background cleanup',
+    description: 'Subject cutout and clean background preparation.',
+    taskType: 'Image',
+    tool: 'Background Remover',
+    updatedAt: 'Jun 05, 10:12',
+    fileSize: '5.7 MB',
+  },
+  {
+    title: 'Uploaded product pack',
+    description: 'Original product photos uploaded for editing and campaign generation.',
+    taskType: 'Image',
+    tool: 'My Upload',
+    updatedAt: 'Jun 05, 09:46',
+    fileSize: '24.9 MB',
+  },
+  {
+    title: 'Uploaded campaign clips',
+    description: 'Reference video clips uploaded for brand direction and reusable assets.',
+    taskType: 'Video',
+    tool: 'My Upload',
+    updatedAt: 'Jun 05, 09:18',
+    fileSize: '38.2 MB',
+  },
+  {
+    title: 'Agent campaign brief',
+    description: 'Agent session for planning a campaign content package.',
+    taskType: 'Agent Sessions',
+    tool: 'AI Agent',
+    updatedAt: 'Jun 04, 19:30',
+    fileSize: '2.1 MB',
+  },
+  {
+    title: 'Short drama ad shot',
+    description: 'Scripted product ad sequence for social video.',
+    taskType: 'Video',
+    tool: 'E-commerce Video',
+    updatedAt: 'Jun 04, 17:08',
+    fileSize: '72.5 MB',
+  },
+  {
+    title: 'Product variant render',
+    description: 'AI image output for product color and scene variants.',
+    taskType: 'Image',
+    tool: 'AI Image',
+    updatedAt: 'Jun 04, 13:26',
+    fileSize: '14.8 MB',
+  },
+  {
+    title: 'Creator video hook',
+    description: 'Opening hook project for a product creator video.',
+    taskType: 'Video',
+    tool: 'AI Video',
+    updatedAt: 'Jun 04, 12:10',
+    fileSize: '39.6 MB',
+  },
+  {
+    title: 'Voiceover music bed',
+    description: 'American English accent',
+    taskType: 'Audio',
+    tool: 'AI Voice',
+    updatedAt: 'Jun 04, 10:45',
+    fileSize: '11.3 MB',
+  },
+  {
+    title: 'Uploaded podcast clip',
+    description: 'Original uploaded audio',
+    taskType: 'Audio',
+    tool: 'My Upload',
+    updatedAt: 'Jun 04, 10:38',
+    fileSize: '13.6 MB',
+  },
+  {
+    title: 'Diego',
+    description: 'Chilean Spanish accent',
+    taskType: 'Audio',
+    tool: 'AI Voice',
+    updatedAt: 'Jun 04, 10:22',
+    fileSize: '8.4 MB',
+  },
+  {
+    title: 'Mariana',
+    description: 'Mexican Spanish accent',
+    taskType: 'Audio',
+    tool: 'AI Voice',
+    updatedAt: 'Jun 04, 09:58',
+    fileSize: '7.9 MB',
+  },
+  {
+    title: 'Lucia',
+    description: 'Latin American Spanish accent',
+    taskType: 'Audio',
+    tool: 'AI Voice',
+    updatedAt: 'Jun 03, 18:40',
+    fileSize: '9.1 MB',
+  },
+  {
+    title: 'Valeria',
+    description: 'Latin American Spanish accent',
+    taskType: 'Audio',
+    tool: 'AI Voice',
+    updatedAt: 'Jun 03, 17:12',
+    fileSize: '9.6 MB',
+  },
+  {
+    title: 'Camila',
+    description: 'Mexican Spanish accent',
+    taskType: 'Audio',
+    tool: 'AI Voice',
+    updatedAt: 'Jun 03, 15:28',
+    fileSize: '8.8 MB',
+  },
+  {
+    title: 'Avatar presenter',
+    description: 'AI avatar presenter task for product introduction.',
+    taskType: 'Avatar',
+    tool: 'AI Avatar',
+    updatedAt: 'Jun 04, 09:22',
+    fileSize: '28.4 MB',
   },
 ];
 
@@ -503,6 +556,16 @@ const promoCards: PromoCard[] = [
     icon: ImageIcon,
   },
 ];
+
+const promoImagePaths = Array.from({ length: 5 }, (_, index) => `/assets/creation/promo-${index + 1}.jpg`);
+const templateImagePaths = Array.from({ length: 18 }, (_, index) => `/assets/creation/template-${index + 1}.jpg`);
+const toolImagePaths = Array.from({ length: 12 }, (_, index) => `/assets/creation/tool-${index + 1}.jpg`);
+const projectImagePaths = Array.from({ length: 16 }, (_, index) => `/assets/creation/project-${index + 1}.jpg`);
+
+function getStableImage(paths: string[], key: string) {
+  const hash = Array.from(key).reduce((total, char) => total + char.charCodeAt(0), 0);
+  return paths[hash % paths.length];
+}
 
 const templateShowcaseSections: TemplateShowcaseSection[] = [
   {
@@ -757,14 +820,24 @@ const sectionMeta: Record<SectionId, { eyebrow: string; title: string; descripti
 
 export default function CreationPage() {
   const [activeSection, setActiveSection] = useState<SectionId>('home');
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const activeMeta = sectionMeta[activeSection];
 
   return (
     <main className="min-h-screen bg-[#f6f8fb] text-slate-950">
       <div className="flex min-h-screen flex-col md:flex-row">
-        <CreationSidebar activeSection={activeSection} onSectionChange={setActiveSection} />
+        <CreationSidebar
+          activeSection={activeSection}
+          isCollapsed={isSidebarCollapsed}
+          onSectionChange={setActiveSection}
+          onToggleCollapse={() => setIsSidebarCollapsed((value) => !value)}
+        />
 
-        <section className="min-w-0 flex-1 bg-white px-4 py-3 sm:px-5 md:ml-[248px] lg:px-6">
+        <section
+          className={`min-w-0 flex-1 bg-white px-4 py-3 transition-[margin] duration-300 sm:px-5 lg:px-6 ${
+            isSidebarCollapsed ? 'md:ml-[84px]' : 'md:ml-[248px]'
+          }`}
+        >
           <div className="mx-auto flex w-full min-w-0 max-w-7xl flex-col gap-4">
             <TopBar activeLabel={activeMeta.eyebrow} />
 
@@ -773,7 +846,7 @@ export default function CreationPage() {
             ) : activeSection === 'tools' ? (
               <ToolsLibraryPanel />
             ) : activeSection === 'projects' ? (
-              <ProjectsPanel />
+              <ProjectsPanel onSectionChange={setActiveSection} />
             ) : (
               <>
                 <SectionHeader eyebrow={activeMeta.eyebrow} title={activeMeta.title} description={activeMeta.description} />
@@ -840,21 +913,24 @@ function OperationsBlock() {
       </div>
 
       <div className="flex min-w-0 gap-3 overflow-x-auto pb-1 scrollbar-hide">
-        {promoCards.map((item) => {
+        {promoCards.map((item, index) => {
           return (
             <a
               key={item.title}
               href="#"
-              className={`group flex min-h-[132px] w-[250px] shrink-0 flex-col justify-between rounded-[14px] bg-gradient-to-br ${item.tone} p-4 ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:shadow-[0_14px_34px_rgba(15,23,42,0.08)]`}
+              className="group relative h-[150px] w-[360px] shrink-0 overflow-hidden rounded-[14px] bg-slate-100 ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:shadow-[0_14px_34px_rgba(15,23,42,0.08)]"
             >
-              <span className="flex items-center justify-between gap-3">
-                <span className="rounded-full bg-white/85 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500 ring-1 ring-white">
-                  {item.kicker}
-                </span>
+              <img
+                src={promoImagePaths[index % promoImagePaths.length]}
+                alt=""
+                className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105"
+              />
+              <span className="absolute inset-0 bg-gradient-to-t from-slate-950/72 via-slate-950/16 to-transparent" />
+              <span className="absolute right-3 top-3 rounded-full bg-white/28 px-2.5 py-1 text-[11px] font-semibold text-white shadow-sm backdrop-blur-md ring-1 ring-white/25">
+                {item.kicker}
               </span>
-              <span>
-                <span className="line-clamp-1 text-base font-semibold text-slate-950">{item.title}</span>
-                <span className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">{item.description}</span>
+              <span className="absolute inset-x-3 bottom-3">
+                <span className="line-clamp-2 text-[17px] font-semibold leading-5 text-white">{item.title}</span>
               </span>
             </a>
           );
@@ -943,76 +1019,110 @@ function RecommendedMoreCell({ onClick }: { onClick: () => void }) {
 }
 
 function TemplateShowcaseBlocks() {
-  return (
-    <div className="grid min-w-0 gap-7">
-      {templateShowcaseSections.map((section) => (
-        <TemplateShowcaseBlock key={section.title} section={section} />
-      ))}
-    </div>
-  );
-}
+  const [activeTemplateIndex, setActiveTemplateIndex] = useState(0);
+  const scrollToTemplateSection = (index: number) => {
+    setActiveTemplateIndex(index);
+    document.getElementById(`template-flow-${index}`)?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start',
+    });
+  };
 
-function TemplateShowcaseBlock({ section }: { section: TemplateShowcaseSection }) {
   return (
-    <section className="min-w-0" aria-labelledby={`template-${section.title.replace(/\s+/g, '-').toLowerCase()}`}>
-      <div className="mb-4 flex flex-wrap items-center gap-x-5 gap-y-2">
-        <h2 id={`template-${section.title.replace(/\s+/g, '-').toLowerCase()}`} className="text-xl font-semibold tracking-tight text-slate-950">
-          {section.title}
-        </h2>
-        <p className="text-sm text-slate-500">{section.description}</p>
-        <a href="#" className="ml-auto hidden items-center gap-1 text-sm font-semibold text-slate-400 transition hover:text-[#2fbfc7] sm:flex">
-          See All
-          <ChevronRight className="h-4 w-4" />
-        </a>
-      </div>
-
-      <div className="mb-4 flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-        {section.tabs.map((tab, index) => (
+    <section className="min-w-0" aria-labelledby="template-showcase">
+      <div className="mb-3 flex gap-2 overflow-x-auto pb-1 scrollbar-hide" role="tablist" aria-label="Template categories">
+        {templateShowcaseSections.map((section, index) => (
           <button
-            key={tab}
+            key={section.title}
             type="button"
-            className={`h-8 shrink-0 rounded-full px-4 text-sm font-semibold transition ${
-              index === 0 ? 'bg-cyan-50 text-[#18aeb8]' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            role="tab"
+            aria-selected={activeTemplateIndex === index}
+            onClick={() => scrollToTemplateSection(index)}
+            className={`h-9 shrink-0 rounded-full px-4 text-sm font-semibold transition ${
+              activeTemplateIndex === index ? 'bg-[#2fbfc7] text-white shadow-[0_10px_22px_rgba(47,191,199,0.2)]' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
           >
-            {tab}
+            {section.title}
           </button>
         ))}
       </div>
 
-      <div className="flex min-w-0 gap-4 overflow-x-auto pb-1 scrollbar-hide">
-        {section.cards.map((card, index) => (
-          <TemplatePreviewCard key={`${section.title}-${card.name}`} card={card} highlight={index === 0} />
+      <div className="grid min-w-0 gap-5">
+        {templateShowcaseSections.map((section, index) => (
+          <TemplateFlowBlock key={section.title} section={section} sectionIndex={index} />
         ))}
       </div>
     </section>
   );
 }
 
-function TemplatePreviewCard({ card, highlight }: { card: TemplatePreviewCard; highlight: boolean }) {
-  const Icon = card.icon;
-
+function TemplateFlowBlock({ section, sectionIndex }: { section: TemplateShowcaseSection; sectionIndex: number }) {
   return (
-    <a href="#" className="group w-[176px] shrink-0 overflow-hidden rounded-[14px] bg-slate-50 ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:shadow-[0_14px_32px_rgba(15,23,42,0.08)]">
-      <div className={`relative h-[216px] overflow-hidden bg-gradient-to-br ${card.tone}`}>
-        <div className="absolute left-3 top-3 rounded-[10px] bg-slate-950/65 px-2.5 py-1 text-xs font-semibold text-white">
-          {card.duration ?? 'Template'}
-        </div>
-        <div className="absolute inset-x-5 top-16 h-28 rounded-[22px] bg-white/30 blur-[1px]" />
-        <div className="absolute bottom-9 left-1/2 flex h-20 w-20 -translate-x-1/2 items-center justify-center rounded-full bg-white/80 text-slate-800 shadow-sm">
-          <Icon className="h-9 w-9" />
-        </div>
-        {highlight ? (
+    <div
+      id={`template-flow-${sectionIndex}`}
+      className="grid min-w-0 scroll-mt-4 gap-4 rounded-[22px] bg-slate-50 p-4 ring-1 ring-slate-100 lg:grid-cols-[220px_minmax(0,1fr)]"
+    >
+      <div className="flex min-h-[250px] flex-col justify-center px-3">
+        <h2 id="template-showcase" className="text-2xl font-semibold tracking-tight text-slate-950">
+          {section.title}
+        </h2>
+        <p className="mt-3 max-w-[180px] text-base font-semibold leading-6 text-slate-400">{section.description}</p>
+        <div className="mt-9 flex gap-3">
           <button
             type="button"
-            className="absolute inset-x-4 bottom-4 h-11 rounded-[12px] bg-[#39c7cf] text-sm font-semibold text-white shadow-[0_10px_22px_rgba(57,199,207,0.22)]"
+            aria-label="Previous template set"
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-slate-400 ring-1 ring-slate-200 transition hover:text-slate-950"
           >
-            Use Template
+            <ChevronRight className="h-5 w-5 rotate-180" />
           </button>
-        ) : null}
+          <button
+            type="button"
+            aria-label="Next template set"
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-slate-700 ring-1 ring-slate-200 transition hover:text-[#2fbfc7]"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
+        </div>
       </div>
-      <div className="px-3 py-3 text-center">
-        <p className="truncate text-sm font-semibold text-slate-800">{card.name}</p>
+
+      <div className="flex min-w-0 gap-2 overflow-x-auto pb-1 scrollbar-hide">
+        {section.cards.map((card, index) => (
+          <TemplateFlowCard key={`${section.title}-${card.name}`} card={card} sectionIndex={sectionIndex} index={index} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TemplateFlowCard({
+  card,
+  sectionIndex,
+  index,
+}: {
+  card: TemplatePreviewCard;
+  sectionIndex: number;
+  index: number;
+}) {
+  const widthClass = index % 5 === 0 ? 'w-[260px]' : index % 5 === 1 ? 'w-[255px]' : index % 5 === 2 ? 'w-[260px]' : index % 5 === 3 ? 'w-[260px]' : 'w-[250px]';
+  const imageSrc = templateImagePaths[(sectionIndex * 6 + index) % templateImagePaths.length];
+
+  return (
+    <a
+      href="#"
+      className={`group relative h-[250px] ${widthClass} shrink-0 overflow-hidden rounded-[12px] bg-slate-100 ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:shadow-[0_16px_36px_rgba(15,23,42,0.12)]`}
+    >
+      <img src={imageSrc} alt="" className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+      <span className="absolute inset-0 bg-gradient-to-t from-slate-950/64 via-slate-950/12 to-transparent" />
+      <div className="absolute inset-0">
+        <button
+          type="button"
+          className="absolute inset-x-6 bottom-12 h-11 rounded-[10px] bg-slate-950/48 text-sm font-semibold text-white opacity-0 backdrop-blur-sm transition group-hover:bg-[#2fbfc7] group-hover:opacity-100"
+        >
+          Use same style
+        </button>
+      </div>
+      <div className="absolute inset-x-0 bottom-0 px-5 py-4">
+        <p className="truncate text-base font-semibold text-white">{card.name}</p>
       </div>
     </a>
   );
@@ -1095,24 +1205,16 @@ function RecentToolCard({ tool }: { tool: HubCard }) {
 
 function ToolLibraryCard({ tool, index }: { tool: HubCard; index: number }) {
   const Icon = tool.icon;
-  const tones = [
-    'from-[#fff7ed] via-[#fef3c7] to-[#fed7aa]',
-    'from-[#e0f2fe] via-[#f8fafc] to-[#bfdbfe]',
-    'from-[#f5f3ff] via-[#fdf2f8] to-[#ddd6fe]',
-    'from-[#f0fdf4] via-[#f8fafc] to-[#bbf7d0]',
-    'from-[#f8fafc] via-[#e2e8f0] to-[#cbd5e1]',
-  ];
+  const imageSrc = getStableImage(toolImagePaths, `${tool.name}-${index}`);
 
   return (
     <a
       href={tool.href}
       className="group overflow-hidden rounded-[14px] bg-white ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:shadow-[0_14px_32px_rgba(15,23,42,0.08)]"
     >
-      <div className={`relative h-[138px] bg-gradient-to-br ${tones[index % tones.length]}`}>
-        <div className="absolute inset-x-4 top-5 grid grid-cols-2 gap-3">
-          <span className="h-20 rounded-[12px] bg-white/70 shadow-sm" />
-          <span className="h-20 rounded-[12px] bg-white/45 shadow-sm" />
-        </div>
+      <div className="relative h-[138px] bg-slate-100">
+        <img src={imageSrc} alt="" className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+        <span className="absolute inset-0 bg-gradient-to-t from-slate-950/18 to-transparent" />
         <span className="absolute bottom-3 left-3 flex h-9 w-9 items-center justify-center rounded-[10px] bg-white text-slate-800 shadow-sm ring-1 ring-slate-200 group-hover:text-[#2fbfc7]">
           <Icon className="h-5 w-5" />
         </span>
@@ -1130,124 +1232,538 @@ function ToolLibraryCard({ tool, index }: { tool: HubCard; index: number }) {
   );
 }
 
-function ProjectsPanel() {
-  const [selectedType, setSelectedType] = useState<'All type' | ProjectType>('All type');
-  const [isTypeOpen, setIsTypeOpen] = useState(false);
-  const visibleGroups = projectDateGroups
-    .map((group) => ({
-      ...group,
-      items: selectedType === 'All type' ? group.items : group.items.filter((item) => item.type === selectedType),
-    }))
-    .filter((group) => group.items.length > 0);
+function ProjectsPanel({ onSectionChange }: { onSectionChange: (section: SectionId) => void }) {
+  const [activeTaskType, setActiveTaskType] = useState<'All' | ProjectTaskType>('All');
+  const [activeTool, setActiveTool] = useState<'All' | ProjectToolCategory>('All');
+  const [selectedProject, setSelectedProject] = useState<ProjectGalleryItem | null>(null);
+  const [openProjectMenu, setOpenProjectMenu] = useState<string | null>(null);
+  const shouldShowProjectToolFilters = activeTaskType !== 'Agent Sessions' && activeTaskType !== 'Avatar';
+  const handleProjectOpen = (project: ProjectGalleryItem) => {
+    setOpenProjectMenu(null);
+
+    if (project.taskType === 'Audio') {
+      return;
+    }
+
+    if (project.taskType === 'Agent Sessions') {
+      onSectionChange('home');
+      window.requestAnimationFrame(() => {
+        document.getElementById('agent-entry')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+      return;
+    }
+
+    if (project.tool === 'AI Photo Editor') {
+      window.location.href = '/editor';
+      return;
+    }
+
+    setSelectedProject(project);
+  };
+  const recentProjects = projectItems.slice(0, 3);
+  const visibleProjects = projectItems.filter((item) => {
+    const matchesTask = activeTaskType === 'All' || item.taskType === activeTaskType;
+    const matchesTool = !shouldShowProjectToolFilters || activeTool === 'All' || item.tool === activeTool;
+    return matchesTask && matchesTool;
+  });
+  const availableToolFilters = projectToolFilters.filter((tool) => {
+    if (tool === 'All') return true;
+    return activeTaskType === 'All' ? projectItems.some((item) => item.tool === tool) : projectItems.some((item) => item.taskType === activeTaskType && item.tool === tool);
+  });
+  const projectSections =
+    activeTaskType === 'All'
+      ? projectTaskTabs
+          .filter((tab): tab is ProjectTaskType => tab !== 'All')
+          .map((taskType) => ({
+            title: taskType,
+            items: visibleProjects.filter((item) => item.taskType === taskType),
+          }))
+          .filter((section) => section.items.length > 0)
+      : !shouldShowProjectToolFilters
+        ? [
+            {
+              title: activeTaskType,
+              items: visibleProjects,
+            },
+          ]
+      : availableToolFilters
+          .filter((tool): tool is ProjectToolCategory => tool !== 'All')
+          .map((tool) => ({
+            title: tool,
+            items: visibleProjects.filter((item) => item.tool === tool),
+          }))
+          .filter((section) => section.items.length > 0);
 
   return (
-    <section className="min-w-0 pb-8" aria-labelledby="projects-gallery">
-      <h1 id="projects-gallery" className="sr-only">
+    <section className="min-w-0 pb-8" aria-labelledby="projects-library">
+      <h1 id="projects-library" className="sr-only">
         Projects
       </h1>
 
-      <div className="mb-5 flex flex-wrap items-center gap-3 border-b border-slate-100 pb-4">
-        <button
-          type="button"
-          className="flex h-10 items-center gap-2 rounded-[8px] bg-slate-50 px-3 text-sm font-semibold text-slate-700 ring-1 ring-slate-200 transition hover:bg-white"
-        >
-          <CalendarDays className="h-4 w-4" />
-          Time Range
-        </button>
-        <button
-          type="button"
-          className="flex h-10 items-center gap-2 rounded-[8px] bg-slate-50 px-3 text-sm font-semibold text-slate-700 ring-1 ring-slate-200 transition hover:bg-white"
-        >
-          <SlidersHorizontal className="h-4 w-4" />
-          View Mode
-        </button>
-
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => setIsTypeOpen((value) => !value)}
-            className={`flex h-10 min-w-[150px] items-center justify-between gap-3 rounded-[8px] bg-white px-3 text-sm font-semibold text-slate-800 ring-1 transition ${
-              isTypeOpen ? 'ring-[#5b6cff]' : 'ring-slate-200 hover:ring-slate-300'
-            }`}
-          >
-            <span>{selectedType}</span>
-            <ChevronDown className={`h-4 w-4 text-slate-500 transition ${isTypeOpen ? 'rotate-180' : ''}`} />
-          </button>
-          {isTypeOpen ? (
-            <div className="absolute left-0 top-12 z-20 w-[230px] overflow-hidden rounded-[14px] bg-white p-2 shadow-[0_18px_46px_rgba(15,23,42,0.14)] ring-1 ring-slate-200">
-              {projectTypeOptions.map((type) => (
-                <button
-                  key={type}
-                  type="button"
-                  onClick={() => {
-                    setSelectedType(type);
-                    setIsTypeOpen(false);
-                  }}
-                  className="flex h-11 w-full items-center gap-3 rounded-[10px] px-3 text-left text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-                >
-                  <span className="flex h-5 w-5 items-center justify-center">
-                    {selectedType === type ? <Check className="h-4 w-4 text-[#2fbfc7]" /> : null}
-                  </span>
-                  {type}
-                </button>
-              ))}
-            </div>
-          ) : null}
-        </div>
-
-        <label className="relative ml-auto block w-full min-w-[240px] sm:w-[420px]">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-300" />
+      <div className="flex flex-col gap-5">
+        <label className="relative block w-full max-w-[420px]">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input
             type="search"
             placeholder="Search projects..."
-            className="h-10 w-full rounded-[10px] bg-slate-50 pl-10 pr-3 text-sm text-slate-800 outline-none ring-1 ring-slate-200 transition placeholder:text-slate-400 focus:bg-white focus:ring-[#2fbfc7]"
+            className="h-9 w-full rounded-[8px] bg-slate-50 pl-9 pr-3 text-sm text-slate-800 outline-none ring-1 ring-slate-200 transition placeholder:text-slate-400 focus:bg-white focus:ring-[#2fbfc7]"
           />
         </label>
-      </div>
 
-      <div className="grid gap-7">
-        {visibleGroups.map((group) => (
-          <section key={group.date} className="min-w-0" aria-labelledby={`project-date-${group.date.replace(/\s+/g, '-').toLowerCase()}`}>
-            <h2 id={`project-date-${group.date.replace(/\s+/g, '-').toLowerCase()}`} className="mb-3 text-base font-semibold text-slate-600">
-              {group.date}
-            </h2>
-            <div className="flex flex-wrap items-start gap-3">
-              {group.items.map((item) => (
-                <ProjectGalleryCard key={`${group.date}-${item.title}`} item={item} />
-              ))}
-            </div>
-          </section>
-        ))}
+        <section className="min-w-0" aria-labelledby="recently-opened-projects">
+          <h2 id="recently-opened-projects" className="mb-3 text-base font-semibold tracking-tight text-slate-950">
+            Recently opened
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+            {recentProjects.map((project, index) => (
+              project.taskType === 'Audio' ? (
+                <AudioProjectCard
+                  key={`recent-${project.title}`}
+                  project={project}
+                  onPlay={() => handleProjectOpen(project)}
+                  isMenuOpen={openProjectMenu === `recent-${project.title}`}
+                  onToggleMenu={() => setOpenProjectMenu((current) => (current === `recent-${project.title}` ? null : `recent-${project.title}`))}
+                  onCloseMenu={() => setOpenProjectMenu(null)}
+                />
+              ) : (
+                <ProjectLibraryCard
+                  key={`recent-${project.title}`}
+                  project={project}
+                  index={index}
+                  onOpen={() => handleProjectOpen(project)}
+                  isMenuOpen={openProjectMenu === `recent-${project.title}`}
+                  onToggleMenu={() => setOpenProjectMenu((current) => (current === `recent-${project.title}` ? null : `recent-${project.title}`))}
+                  onCloseMenu={() => setOpenProjectMenu(null)}
+                />
+              )
+            ))}
+          </div>
+        </section>
+
+        <nav className="flex gap-5 overflow-x-auto border-b border-slate-200 pb-2 scrollbar-hide" aria-label="Project task types">
+          {projectTaskTabs.map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => {
+                setActiveTaskType(tab);
+                setActiveTool('All');
+                setOpenProjectMenu(null);
+              }}
+              className={`shrink-0 text-sm font-semibold transition ${
+                activeTaskType === tab ? 'text-slate-950 underline decoration-slate-950 decoration-2 underline-offset-[10px]' : 'text-slate-500 hover:text-slate-950'
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
+        </nav>
+
+        {shouldShowProjectToolFilters ? (
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide" aria-label="Project tools">
+            {availableToolFilters.map((tool) => (
+              <button
+                key={tool}
+                type="button"
+                onClick={() => {
+                  setActiveTool(tool);
+                  setOpenProjectMenu(null);
+                }}
+                className={`h-8 shrink-0 rounded-full px-3 text-xs font-semibold transition ${
+                  activeTool === tool ? 'bg-cyan-50 text-[#18aeb8] ring-1 ring-cyan-100' : 'bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-800'
+                }`}
+              >
+                {tool}
+              </button>
+            ))}
+          </div>
+        ) : null}
+
+        <div className="grid min-w-0 gap-9">
+          {projectSections.map((section) => (
+            <section key={section.title} className="min-w-0" aria-labelledby={`projects-${section.title.replace(/\s+/g, '-').toLowerCase()}`}>
+              <h2 id={`projects-${section.title.replace(/\s+/g, '-').toLowerCase()}`} className="mb-3 text-base font-semibold text-slate-500">
+                {section.title}
+              </h2>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+                {section.items.map((project, index) => (
+                  project.taskType === 'Audio' ? (
+                    <AudioProjectCard
+                      key={`${section.title}-${project.title}`}
+                      project={project}
+                      onPlay={() => handleProjectOpen(project)}
+                      isMenuOpen={openProjectMenu === `${section.title}-${project.title}`}
+                      onToggleMenu={() => setOpenProjectMenu((current) => (current === `${section.title}-${project.title}` ? null : `${section.title}-${project.title}`))}
+                      onCloseMenu={() => setOpenProjectMenu(null)}
+                    />
+                  ) : (
+                    <ProjectLibraryCard
+                      key={`${section.title}-${project.title}`}
+                      project={project}
+                      index={index}
+                      onOpen={() => handleProjectOpen(project)}
+                      isMenuOpen={openProjectMenu === `${section.title}-${project.title}`}
+                      onToggleMenu={() => setOpenProjectMenu((current) => (current === `${section.title}-${project.title}` ? null : `${section.title}-${project.title}`))}
+                      onCloseMenu={() => setOpenProjectMenu(null)}
+                    />
+                  )
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
       </div>
+      {selectedProject ? (
+        selectedProject.taskType === 'Avatar' ? (
+          <AvatarDetailModal project={selectedProject} onClose={() => setSelectedProject(null)} />
+        ) : (
+          <ProjectDetailModal project={selectedProject} onClose={() => setSelectedProject(null)} />
+        )
+      ) : null}
     </section>
   );
 }
 
-function ProjectGalleryCard({ item }: { item: ProjectGalleryItem }) {
-  const sizeClass =
-    item.size === 'wide'
-      ? 'h-[190px] w-full sm:w-[390px]'
-      : item.size === 'small'
-        ? 'h-[190px] w-[160px]'
-        : item.size === 'large'
-          ? 'h-[280px] w-full sm:w-[460px]'
-          : 'h-[260px] w-[170px]';
+function AudioProjectCard({
+  project,
+  onPlay,
+  isMenuOpen,
+  onToggleMenu,
+  onCloseMenu,
+}: {
+  project: ProjectGalleryItem;
+  onPlay: () => void;
+  isMenuOpen: boolean;
+  onToggleMenu: () => void;
+  onCloseMenu: () => void;
+}) {
+  const waveHeights = [18, 26, 14, 31, 22, 36, 16, 28, 20, 34, 18, 25, 14, 30, 21, 33, 16, 24];
 
   return (
-    <button
-      type="button"
-      className={`group relative overflow-hidden rounded-[12px] bg-gradient-to-br ${item.tone} ${sizeClass} text-left ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:shadow-[0_14px_34px_rgba(15,23,42,0.1)]`}
+    <article
+      role="button"
+      tabIndex={0}
+      onClick={onPlay}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onPlay();
+        }
+      }}
+      className="group cursor-pointer text-left transition hover:-translate-y-0.5"
     >
-      <span className="absolute inset-x-4 top-4 h-10 rounded-[10px] bg-white/35 blur-[1px]" />
-      <span className="absolute bottom-12 left-4 h-16 w-16 rounded-full bg-white/30" />
-      <span className="absolute bottom-5 right-5 h-24 w-24 rounded-[18px] bg-white/35 shadow-sm ring-1 ring-white/40" />
-      <span className="absolute left-3 top-3 rounded-full bg-white/85 px-2.5 py-1 text-[11px] font-semibold text-slate-600 ring-1 ring-white/80">
-        {item.type}
-      </span>
-      <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/50 to-transparent p-3 pt-10">
-        <span className="block truncate text-sm font-semibold text-white">{item.title}</span>
-      </span>
-    </button>
+      <div
+        className="relative aspect-square overflow-hidden rounded-[14px] bg-[linear-gradient(135deg,#f8fafc_0%,#ecfeff_52%,#e0f2fe_100%)] ring-1 ring-slate-200 transition group-hover:shadow-[0_14px_32px_rgba(15,23,42,0.08)]"
+      >
+        <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-semibold text-slate-500 ring-1 ring-white">Audio</span>
+        <button
+          type="button"
+          aria-label="More audio actions"
+          onClick={(event) => {
+            event.stopPropagation();
+            onToggleMenu();
+          }}
+          onKeyDown={(event) => event.stopPropagation()}
+          className={`absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-700 shadow-sm ring-1 ring-slate-200 transition hover:text-[#2fbfc7] ${
+            isMenuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+          }`}
+        >
+          <MoreHorizontal className="h-4 w-4" />
+        </button>
+        {isMenuOpen ? <ProjectMoreMenu onAction={onCloseMenu} /> : null}
+        <div className="absolute inset-0 flex flex-col items-center justify-center px-5">
+          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#4fd2dc] text-white shadow-sm">
+            <Video className="h-6 w-6 fill-white" />
+          </span>
+          <span className="mt-5 flex h-10 items-end gap-1">
+            {waveHeights.map((height, index) => (
+              <span key={index} className="w-1 rounded-full bg-slate-300" style={{ height }} />
+            ))}
+          </span>
+          <span className="mt-3 rounded-[5px] bg-white/80 px-2 py-0.5 text-[10px] font-semibold text-slate-500 ring-1 ring-white">{project.description}</span>
+        </div>
+      </div>
+
+      <div className="pt-3">
+        <h3 className="truncate text-base font-semibold text-slate-950">{project.title}</h3>
+        <div className="mt-1 text-sm leading-5 text-slate-500">
+          <span>{project.fileSize}</span>
+          <span className="px-1.5">·</span>
+          <span>{project.updatedAt}</span>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+const projectTaskIcons: Record<ProjectTaskType, LucideIcon> = {
+  Image: ImageIcon,
+  Video,
+  Audio: Sparkles,
+  'Agent Sessions': Sparkles,
+  Avatar: UserRound,
+};
+
+function ProjectLibraryCard({
+  project,
+  index,
+  onOpen,
+  isMenuOpen,
+  onToggleMenu,
+  onCloseMenu,
+}: {
+  project: ProjectGalleryItem;
+  index: number;
+  onOpen: () => void;
+  isMenuOpen: boolean;
+  onToggleMenu: () => void;
+  onCloseMenu: () => void;
+}) {
+  const imageSrc = getStableImage(projectImagePaths, `${project.title}-${index}`);
+  const label = project.tool === 'AI Photo Editor' ? 'Project' : project.taskType;
+
+  return (
+    <article onClick={onOpen} className="group cursor-pointer text-left transition hover:-translate-y-0.5">
+      <div className="relative aspect-square overflow-hidden rounded-[14px] bg-slate-100 ring-1 ring-slate-200 transition group-hover:shadow-[0_14px_32px_rgba(15,23,42,0.08)]">
+        <img src={imageSrc} alt="" className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+        <span className="absolute inset-0 bg-gradient-to-t from-slate-950/18 to-transparent" />
+        <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-semibold text-slate-500 ring-1 ring-white">
+          {label}
+        </span>
+        <button
+          type="button"
+          aria-label="More project actions"
+          onClick={(event) => {
+            event.stopPropagation();
+            onToggleMenu();
+          }}
+          onKeyDown={(event) => event.stopPropagation()}
+          className={`absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-700 shadow-sm ring-1 ring-slate-200 transition hover:text-[#2fbfc7] ${
+            isMenuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+          }`}
+        >
+          <MoreHorizontal className="h-4 w-4" />
+        </button>
+        {isMenuOpen ? <ProjectMoreMenu onAction={onCloseMenu} /> : null}
+      </div>
+      <div className="pt-3">
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            defaultValue={project.title}
+            aria-label={`${project.title} title`}
+            onClick={(event) => event.stopPropagation()}
+            className="min-w-0 flex-1 truncate rounded-[6px] bg-transparent px-0 py-0.5 text-base font-semibold text-slate-950 outline-none transition focus:bg-slate-50 focus:px-2 focus:ring-1 focus:ring-[#2fbfc7]"
+          />
+          <PenTool className="h-3.5 w-3.5 shrink-0 text-slate-300 transition group-hover:text-[#2fbfc7]" />
+        </div>
+        <div className="mt-1 text-sm leading-5 text-slate-500">
+          <span>{project.fileSize}</span>
+          <span className="px-1.5">·</span>
+          <span>{project.updatedAt}</span>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function ProjectMoreMenu({ onAction }: { onAction: () => void }) {
+  const actions = [
+    { label: 'Rename', icon: PenTool },
+    { label: 'Download', icon: Download },
+    { label: 'Delete', icon: Trash2 },
+  ];
+
+  return (
+    <div
+      onClick={(event) => event.stopPropagation()}
+      onKeyDown={(event) => event.stopPropagation()}
+      className="absolute right-3 top-12 z-20 w-36 overflow-hidden rounded-[12px] bg-white p-1.5 shadow-[0_14px_34px_rgba(15,23,42,0.16)] ring-1 ring-slate-200"
+    >
+      {actions.map(({ label, icon: Icon }) => (
+        <button
+          key={label}
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onAction();
+          }}
+          className="flex h-9 w-full items-center gap-2 rounded-[8px] px-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-[#2fbfc7]"
+        >
+          <Icon className="h-4 w-4 shrink-0" />
+          <span>{label}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ProjectDetailModal({ project, onClose }: { project: ProjectGalleryItem; onClose: () => void }) {
+  const imageSrc = getStableImage(projectImagePaths, project.title);
+  const promptBlocks = [
+    ['Task Type', project.taskType],
+    ['Tool', project.tool],
+    ['Goal', project.description],
+    ['Style', project.taskType === 'Video' ? 'Natural UGC pacing with clear product focus.' : 'Clean commercial composition with reusable output.'],
+    ['Output', project.taskType === 'Video' ? 'Preview video with editable scene structure.' : 'High quality creative asset with source task metadata.'],
+  ];
+  const details = [
+    ['Model', project.tool],
+    ['Type', project.taskType],
+    ['Size', project.fileSize],
+    ['Updated', project.updatedAt],
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label={`${project.title} details`}>
+      <div className="grid max-h-[88vh] w-full max-w-6xl grid-cols-1 gap-3 overflow-hidden rounded-[18px] bg-white p-3 shadow-[0_24px_80px_rgba(15,23,42,0.28)] lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="relative min-h-[420px] overflow-hidden rounded-[12px] bg-slate-950">
+          <img src={imageSrc} alt="" className="absolute inset-0 h-full w-full object-contain" />
+          <button
+            type="button"
+            className="absolute right-4 top-4 rounded-full bg-white/10 px-3 py-1.5 text-xs font-semibold text-white ring-1 ring-white/30 backdrop-blur-md"
+          >
+            Good
+          </button>
+        </div>
+
+        <aside className="flex min-h-0 flex-col rounded-[12px] bg-slate-50 p-3 ring-1 ring-slate-200">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="min-w-0 truncate text-base font-semibold text-slate-950">{project.title}</h2>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close project details"
+              className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 transition hover:bg-white hover:text-slate-950"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="mb-3 flex gap-2">
+            {[0, 1, 2, 3].map((item) => (
+              <span key={item} className="h-10 w-10 overflow-hidden rounded-[8px] bg-white ring-1 ring-slate-200">
+                <img src={getStableImage(projectImagePaths, `${project.title}-${item}`)} alt="" className="h-full w-full object-cover" />
+              </span>
+            ))}
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto rounded-[10px] bg-white p-3 text-sm leading-6 text-slate-700 ring-1 ring-slate-200">
+            <h3 className="mb-2 text-sm font-semibold text-slate-950">Prompt</h3>
+            {promptBlocks.map(([label, value]) => (
+              <p key={label} className="mb-2">
+                <span className="block font-semibold text-slate-950">[{label}]</span>
+                <span>{value}</span>
+              </p>
+            ))}
+          </div>
+
+          <div className="mt-3 rounded-[10px] bg-white p-3 ring-1 ring-slate-200">
+            {details.map(([label, value]) => (
+              <div key={label} className="grid grid-cols-[76px_minmax(0,1fr)] gap-2 py-1 text-xs">
+                <span className="font-semibold text-slate-400">{label}</span>
+                <span className="truncate font-medium text-slate-700">{value}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <button type="button" className="flex h-10 items-center justify-center gap-2 rounded-[8px] bg-[#33c4cc] text-sm font-semibold text-white transition hover:bg-[#28b5bd]">
+              <RefreshCw className="h-4 w-4" />
+              Recreate
+            </button>
+            <button type="button" className="flex h-10 items-center justify-center gap-2 rounded-[8px] bg-[#33c4cc] text-sm font-semibold text-white transition hover:bg-[#28b5bd]">
+              <Share2 className="h-4 w-4" />
+              Edit
+            </button>
+            <button type="button" className="col-span-2 flex h-10 items-center justify-center gap-2 rounded-[8px] bg-[#33c4cc] text-sm font-semibold text-white transition hover:bg-[#28b5bd]">
+              <Download className="h-4 w-4" />
+              Download
+            </button>
+          </div>
+        </aside>
+      </div>
+    </div>
+  );
+}
+
+function AvatarDetailModal({ project, onClose }: { project: ProjectGalleryItem; onClose: () => void }) {
+  const baseImage = getStableImage(projectImagePaths, `${project.title}-base`);
+  const viewImages = [0, 1, 2, 3].map((index) => getStableImage(projectImagePaths, `${project.title}-view-${index}`));
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/30 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label={`${project.title} avatar details`}>
+      <div className="max-h-[90vh] w-full max-w-6xl overflow-hidden rounded-[18px] bg-white p-4 text-slate-950 shadow-[0_24px_80px_rgba(15,23,42,0.22)]">
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex min-w-0 items-center gap-2">
+            <h2 className="truncate text-base font-semibold">{project.title}</h2>
+            <PenTool className="h-4 w-4 text-slate-400" />
+          </div>
+          <button type="button" onClick={onClose} aria-label="Close avatar details" className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-950">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-[380px_minmax(0,1fr)]">
+          <section className="rounded-[16px] bg-slate-50 p-4 ring-1 ring-slate-200">
+            <h3 className="mb-4 text-sm font-semibold text-slate-500">Base Image</h3>
+            <div className="relative h-[452px] overflow-hidden rounded-[12px] bg-slate-100">
+              <img src={baseImage} alt="" className="h-full w-full object-cover" />
+            </div>
+          </section>
+
+          <div className="grid min-w-0 gap-4">
+            <section className="rounded-[16px] bg-slate-50 p-4 ring-1 ring-slate-200">
+              <h3 className="mb-4 text-sm font-semibold text-slate-500">Body Three Views</h3>
+              <div className="overflow-hidden rounded-[12px] bg-white ring-1 ring-slate-200">
+                <div className="grid h-[270px] grid-cols-4 gap-0 bg-white">
+                  {viewImages.map((image, index) => (
+                    <div key={image} className="relative overflow-hidden border-r border-slate-100 last:border-r-0">
+                      <img src={image} alt="" className="h-full w-full object-cover" />
+                      {index > 0 ? <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/35 to-transparent p-2 text-center text-xs font-semibold text-white">{['Front', 'Side', 'Back'][index - 1]}</span> : null}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            <section className="rounded-[16px] bg-slate-50 p-4 ring-1 ring-slate-200">
+              <h3 className="mb-4 text-sm font-semibold text-slate-500">Voice</h3>
+              <div className="flex items-center gap-4 rounded-[14px] bg-white p-3 ring-1 ring-slate-200">
+                <button type="button" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#4fd2dc] text-white">
+                  <Video className="h-4 w-4 fill-white" />
+                </button>
+                <div className="flex h-8 flex-1 items-center gap-1">
+                  {[18, 24, 14, 29, 20, 34, 16, 26, 22, 30, 18, 25, 12, 28, 19, 32, 15, 23, 18, 26, 14, 30].map((height, index) => (
+                    <span key={index} className="w-1 rounded-full bg-slate-300" style={{ height }} />
+                  ))}
+                </div>
+                <span className="text-xs font-semibold text-slate-600">Diego</span>
+                <button type="button" className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-200">
+                  Switch voice
+                </button>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+          <button type="button" className="flex h-10 items-center gap-2 rounded-[8px] bg-slate-100 px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-200">
+            <RefreshCw className="h-4 w-4" />
+            Recreate
+          </button>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className="flex h-10 items-center gap-2 rounded-[8px] bg-slate-100 px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-200">
+              <Share2 className="h-4 w-4" />
+              Create Similar Avatar
+            </button>
+            <button type="button" className="h-10 rounded-[8px] bg-[#4fd2dc] px-5 text-sm font-semibold text-white transition hover:bg-[#39c7cf]">
+              Generate Video
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -1490,7 +2006,7 @@ function AgentEntryPrototype() {
   };
 
   return (
-    <section className="min-w-0 rounded-[20px] bg-[linear-gradient(180deg,#f8fafc_0%,#ffffff_100%)] px-4 py-6 ring-1 ring-slate-200">
+    <section id="agent-entry" className="min-w-0 scroll-mt-4">
       <div className="mx-auto max-w-5xl">
         <h1 className="text-center text-[28px] font-semibold leading-tight tracking-tight text-slate-950 sm:text-[40px]">
           Create images, videos, posters, and brand assets with AI
@@ -1659,28 +2175,62 @@ function AgentSelectedTemplatePill({ template, onClear }: { template: AgentTempl
 
 function CreationSidebar({
   activeSection,
+  isCollapsed,
   onSectionChange,
+  onToggleCollapse,
 }: {
   activeSection: SectionId;
+  isCollapsed: boolean;
   onSectionChange: (section: SectionId) => void;
+  onToggleCollapse: () => void;
 }) {
   return (
-    <aside className="flex w-full shrink-0 flex-col border-b border-slate-200 bg-white md:fixed md:inset-y-0 md:left-0 md:z-20 md:w-[248px] md:border-b-0 md:border-r">
-      <div className="flex items-center gap-2 px-4 py-3">
-        <span className="flex w-8 shrink-0 justify-center">
-          <Image src="/logo.svg" alt="PhotoGrid" width={24} height={24} priority />
-        </span>
-        <span className="text-[17px] font-semibold tracking-tight text-slate-950">PhotoGrid</span>
+    <aside
+      className={`flex w-full shrink-0 flex-col border-b border-slate-200 bg-white transition-[width] duration-300 md:fixed md:inset-y-0 md:left-0 md:z-20 md:border-b-0 md:border-r ${
+        isCollapsed ? 'md:w-[84px]' : 'md:w-[248px]'
+      }`}
+    >
+      <div className={`group/logo flex items-center px-4 py-3 ${isCollapsed ? 'md:justify-center' : 'gap-2'}`}>
+        {isCollapsed ? (
+          <button
+            type="button"
+            aria-label="Expand sidebar"
+            onClick={onToggleCollapse}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition md:hover:bg-slate-50"
+          >
+            <span className="block group-hover/logo:hidden">
+              <Image src="/logo.svg" alt="PhotoGrid" width={28} height={28} priority />
+            </span>
+            <ChevronRight className="hidden h-4 w-4 text-slate-500 transition group-hover/logo:block" />
+          </button>
+        ) : (
+          <>
+            <span className="flex w-9 shrink-0 justify-center">
+              <Image src="/logo.svg" alt="PhotoGrid" width={28} height={28} priority />
+            </span>
+            <span className="text-[19px] font-semibold tracking-tight text-slate-950">PhotoGrid</span>
+            <button
+              type="button"
+              aria-label="Collapse sidebar"
+              onClick={onToggleCollapse}
+              className="ml-auto hidden h-7 w-7 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-50 hover:text-[#2fbfc7] md:flex"
+            >
+              <ChevronRight className="h-4 w-4 rotate-180" />
+            </button>
+          </>
+        )}
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pb-4 sidebar-scrollbar">
+      <div className={`flex min-h-0 flex-1 flex-col overflow-y-auto pb-4 sidebar-scrollbar ${isCollapsed ? 'px-3 md:px-2' : 'px-4'}`}>
         <button
           type="button"
           onClick={() => onSectionChange('home')}
-          className="mb-4 flex h-11 w-full items-center justify-center rounded-full bg-[#39c7cf] text-[15px] font-semibold text-white shadow-[0_12px_26px_rgba(57,199,207,0.2)] transition hover:bg-[#30b9c1]"
+          className={`mb-4 flex h-11 w-full items-center justify-center rounded-full bg-[#39c7cf] text-[15px] font-semibold text-white shadow-[0_12px_26px_rgba(57,199,207,0.2)] transition hover:bg-[#30b9c1] ${
+            isCollapsed ? 'md:mx-auto md:w-11' : ''
+          }`}
         >
-          <Plus className="mr-2 h-5 w-5" />
-          Create New
+          <Plus className={`h-5 w-5 ${isCollapsed ? '' : 'mr-2'}`} />
+          <span className={isCollapsed ? 'md:hidden' : ''}>Create New</span>
         </button>
 
         <nav className="flex flex-col gap-2" aria-label="Creation navigation">
@@ -1689,16 +2239,17 @@ function CreationSidebar({
               key={item.id}
               item={item}
               isActive={activeSection === item.id}
+              isCollapsed={isCollapsed}
               onClick={() => onSectionChange(item.id)}
             />
           ))}
         </nav>
 
         <div className="mt-auto pt-5">
-          <p className="mb-2 px-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">Resources</p>
+          <p className={`mb-2 px-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400 ${isCollapsed ? 'md:hidden' : ''}`}>Resources</p>
           <div className="grid gap-1.5">
             {resourceCards.map((item) => (
-              <SidebarResourceLink key={item.name} item={item} />
+              <SidebarResourceLink key={item.name} item={item} isCollapsed={isCollapsed} />
             ))}
           </div>
         </div>
@@ -1710,10 +2261,12 @@ function CreationSidebar({
 function SidebarSectionButton({
   item,
   isActive,
+  isCollapsed,
   onClick,
 }: {
   item: SectionNavItem;
   isActive: boolean;
+  isCollapsed: boolean;
   onClick: () => void;
 }) {
   const Icon = item.icon;
@@ -1722,31 +2275,38 @@ function SidebarSectionButton({
     <button
       type="button"
       onClick={onClick}
-      className={`group flex min-h-[44px] items-center gap-3 rounded-[8px] pl-0 pr-3 text-left transition ${
+      className={`group flex min-h-[44px] rounded-[8px] text-left transition ${
         isActive ? 'bg-cyan-50 text-[#2fbfc7]' : 'text-slate-700 hover:bg-slate-50 hover:text-[#2fbfc7]'
-      }`}
+      } ${isCollapsed ? 'md:min-h-[58px] md:flex-col md:items-center md:justify-center md:gap-1 md:px-1' : 'items-center gap-3 pl-0 pr-3'}`}
+      title={item.label}
     >
-      <span className="flex w-8 shrink-0 justify-center">
-        <Icon className={`h-5 w-5 ${isActive ? 'text-[#2fbfc7]' : 'text-current'}`} />
+      <span className={`flex shrink-0 justify-center ${isCollapsed ? 'md:w-auto' : 'w-8'}`}>
+        <Icon className={`${isCollapsed ? 'md:h-[19px] md:w-[19px]' : 'h-5 w-5'} ${isActive ? 'text-[#2fbfc7]' : 'text-current'}`} />
       </span>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-[15px] font-semibold">{item.label}</span>
+      <span className={`min-w-0 flex-1 ${isCollapsed ? 'md:flex-none' : ''}`}>
+        <span className={`block truncate font-semibold ${isCollapsed ? 'md:max-w-[64px] md:text-center md:text-[11px]' : 'text-[15px]'}`}>{item.label}</span>
       </span>
-      <ChevronRight className={`h-4 w-4 shrink-0 ${isActive ? 'text-[#2fbfc7]' : 'text-slate-300'}`} />
+      <ChevronRight className={`h-4 w-4 shrink-0 ${isActive ? 'text-[#2fbfc7]' : 'text-slate-300'} ${isCollapsed ? 'md:hidden' : ''}`} />
     </button>
   );
 }
 
-function SidebarResourceLink({ item }: { item: HubCard }) {
+function SidebarResourceLink({ item, isCollapsed }: { item: HubCard; isCollapsed: boolean }) {
   const Icon = item.icon;
 
   return (
-    <a href={item.href} className="group flex h-10 items-center gap-3 rounded-[8px] pl-0 pr-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-[#2fbfc7]">
-      <span className="flex w-8 shrink-0 justify-center">
+    <a
+      href={item.href}
+      title={item.name}
+      className={`group flex h-10 items-center gap-3 rounded-[8px] text-sm font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-[#2fbfc7] ${
+        isCollapsed ? 'md:justify-center md:px-0' : 'pl-0 pr-2.5'
+      }`}
+    >
+      <span className={`flex shrink-0 justify-center ${isCollapsed ? 'md:w-auto' : 'w-8'}`}>
         <Icon className="h-[18px] w-[18px] text-current" />
       </span>
-      <span className="min-w-0 flex-1 truncate">{item.name}</span>
-      {item.name === 'Language' ? <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-[#2fbfc7]" /> : null}
+      <span className={`min-w-0 flex-1 truncate ${isCollapsed ? 'md:hidden' : ''}`}>{item.name}</span>
+      {item.name === 'Language' ? <ChevronRight className={`h-4 w-4 text-slate-300 group-hover:text-[#2fbfc7] ${isCollapsed ? 'md:hidden' : ''}`} /> : null}
     </a>
   );
 }
