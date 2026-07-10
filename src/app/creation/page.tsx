@@ -5,6 +5,8 @@ import Image from 'next/image';
 import {
   BookOpen,
   Box,
+  CalendarDays,
+  Check,
   ChevronRight,
   Download,
   RefreshCw,
@@ -28,6 +30,7 @@ import {
   Share2,
   Scissors,
   ShoppingBag,
+  SlidersHorizontal,
   Sparkles,
   Trash2,
   UserRound,
@@ -106,6 +109,8 @@ type AgentGroupCard = AgentModeCard & {
 };
 
 type ProjectTaskType = 'Image' | 'Video' | 'Audio' | 'Agent Sessions' | 'Avatar';
+type UploadTaskType = Extract<ProjectTaskType, 'Image' | 'Video' | 'Audio'>;
+type GalleryGrouping = 'date' | 'flat';
 
 type ProjectToolCategory =
   | 'AI Agent'
@@ -315,6 +320,7 @@ const templateCards: HubCard[] = [
 ];
 
 const projectTaskTabs: Array<'All' | ProjectTaskType> = ['All', 'Image', 'Video', 'Audio', 'Agent Sessions', 'Avatar'];
+const uploadTaskTabs: Array<'All' | UploadTaskType> = ['All', 'Image', 'Video', 'Audio'];
 
 const projectToolFilters: Array<'All' | ProjectToolCategory> = [
   'All',
@@ -326,7 +332,6 @@ const projectToolFilters: Array<'All' | ProjectToolCategory> = [
   'E-commerce Video',
   'AI Avatar',
   'Background Remover',
-  'My Upload',
 ];
 
 const projectItems: ProjectGalleryItem[] = [
@@ -379,22 +384,6 @@ const projectItems: ProjectGalleryItem[] = [
     fileSize: '5.7 MB',
   },
   {
-    title: 'Uploaded product pack',
-    description: 'Original product photos uploaded for editing and campaign generation.',
-    taskType: 'Image',
-    tool: 'My Upload',
-    updatedAt: 'Jun 05, 09:46',
-    fileSize: '24.9 MB',
-  },
-  {
-    title: 'Uploaded campaign clips',
-    description: 'Reference video clips uploaded for brand direction and reusable assets.',
-    taskType: 'Video',
-    tool: 'My Upload',
-    updatedAt: 'Jun 05, 09:18',
-    fileSize: '38.2 MB',
-  },
-  {
     title: 'Agent campaign brief',
     description: 'Agent session for planning a campaign content package.',
     taskType: 'Agent Sessions',
@@ -433,14 +422,6 @@ const projectItems: ProjectGalleryItem[] = [
     tool: 'AI Voice',
     updatedAt: 'Jun 04, 10:45',
     fileSize: '11.3 MB',
-  },
-  {
-    title: 'Uploaded podcast clip',
-    description: 'Original uploaded audio',
-    taskType: 'Audio',
-    tool: 'My Upload',
-    updatedAt: 'Jun 04, 10:38',
-    fileSize: '13.6 MB',
   },
   {
     title: 'Diego',
@@ -489,6 +470,33 @@ const projectItems: ProjectGalleryItem[] = [
     tool: 'AI Avatar',
     updatedAt: 'Jun 04, 09:22',
     fileSize: '28.4 MB',
+  },
+];
+
+const uploadItems: ProjectGalleryItem[] = [
+  {
+    title: 'Uploaded product pack',
+    description: 'Original product photos uploaded for editing and campaign generation.',
+    taskType: 'Image',
+    tool: 'My Upload',
+    updatedAt: 'Jun 05, 09:46',
+    fileSize: '24.9 MB',
+  },
+  {
+    title: 'Uploaded campaign clips',
+    description: 'Reference video clips uploaded for brand direction and reusable assets.',
+    taskType: 'Video',
+    tool: 'My Upload',
+    updatedAt: 'Jun 05, 09:18',
+    fileSize: '38.2 MB',
+  },
+  {
+    title: 'Uploaded podcast clip',
+    description: 'Original uploaded audio',
+    taskType: 'Audio',
+    tool: 'My Upload',
+    updatedAt: 'Jun 04, 10:38',
+    fileSize: '13.6 MB',
   },
 ];
 
@@ -839,7 +847,7 @@ export default function CreationPage() {
           }`}
         >
           <div className="mx-auto flex w-full min-w-0 max-w-7xl flex-col gap-4">
-            <TopBar activeLabel={activeMeta.eyebrow} />
+            {activeSection === 'home' || activeSection === 'projects' ? null : <PageTitle title={activeMeta.eyebrow} />}
 
             {activeSection === 'home' ? (
               <HomePanel onSectionChange={setActiveSection} />
@@ -860,24 +868,10 @@ export default function CreationPage() {
   );
 }
 
-function TopBar({ activeLabel }: { activeLabel: string }) {
+function PageTitle({ title }: { title: string }) {
   return (
-    <header className="flex h-10 items-center justify-between gap-4">
-      <div className="flex min-w-0 items-center gap-3 text-sm font-semibold text-slate-700">
-        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-slate-700">F</span>
-        <span className="truncate">Feng Lin&apos;s workspace</span>
-        <ChevronRight className="h-4 w-4 rotate-90 text-slate-400" />
-        <span className="h-5 w-px bg-slate-200" />
-        <span className="text-slate-950">{activeLabel}</span>
-      </div>
-      <div className="hidden items-center gap-2 sm:flex">
-        <a href="#" className="rounded-full bg-white px-3 py-2 text-xs font-semibold text-slate-700 ring-1 ring-slate-200">
-          Help
-        </a>
-        <a href="#" className="rounded-full bg-[#14d969] px-4 py-2 text-xs font-semibold text-slate-950 shadow-[0_10px_24px_rgba(20,217,105,0.18)]">
-          Upgrade
-        </a>
-      </div>
+    <header className="-mb-1 flex items-center">
+      <h1 className="text-[15px] font-semibold tracking-tight text-slate-950">{title}</h1>
     </header>
   );
 }
@@ -1233,11 +1227,37 @@ function ToolLibraryCard({ tool, index }: { tool: HubCard; index: number }) {
 }
 
 function ProjectsPanel({ onSectionChange }: { onSectionChange: (section: SectionId) => void }) {
+  const [activeProjectLibrary, setActiveProjectLibrary] = useState<'projects' | 'uploads'>('projects');
   const [activeTaskType, setActiveTaskType] = useState<'All' | ProjectTaskType>('All');
   const [activeTool, setActiveTool] = useState<'All' | ProjectToolCategory>('All');
   const [selectedProject, setSelectedProject] = useState<ProjectGalleryItem | null>(null);
   const [openProjectMenu, setOpenProjectMenu] = useState<string | null>(null);
+  const [isProjectSelectionMode, setIsProjectSelectionMode] = useState(false);
+  const [selectedProjectKeys, setSelectedProjectKeys] = useState<string[]>([]);
+  const [projectGrouping, setProjectGrouping] = useState<GalleryGrouping>('date');
+  const [activeUploadType, setActiveUploadType] = useState<'All' | UploadTaskType>('All');
+  const [selectedUpload, setSelectedUpload] = useState<ProjectGalleryItem | null>(null);
+  const [openUploadMenu, setOpenUploadMenu] = useState<string | null>(null);
+  const [isUploadSelectionMode, setIsUploadSelectionMode] = useState(false);
+  const [selectedUploadKeys, setSelectedUploadKeys] = useState<string[]>([]);
+  const [uploadGrouping, setUploadGrouping] = useState<GalleryGrouping>('date');
   const shouldShowProjectToolFilters = activeTaskType !== 'Agent Sessions' && activeTaskType !== 'Avatar';
+  const toggleProjectSelection = (project: ProjectGalleryItem) => {
+    const key = getGalleryItemKey(project);
+    setSelectedProjectKeys((current) => (current.includes(key) ? current.filter((item) => item !== key) : [...current, key]));
+  };
+  const clearProjectSelection = () => {
+    setIsProjectSelectionMode(false);
+    setSelectedProjectKeys([]);
+  };
+  const toggleUploadSelection = (project: ProjectGalleryItem) => {
+    const key = getGalleryItemKey(project);
+    setSelectedUploadKeys((current) => (current.includes(key) ? current.filter((item) => item !== key) : [...current, key]));
+  };
+  const clearUploadSelection = () => {
+    setIsUploadSelectionMode(false);
+    setSelectedUploadKeys([]);
+  };
   const handleProjectOpen = (project: ProjectGalleryItem) => {
     setOpenProjectMenu(null);
 
@@ -1260,7 +1280,15 @@ function ProjectsPanel({ onSectionChange }: { onSectionChange: (section: Section
 
     setSelectedProject(project);
   };
-  const recentProjects = projectItems.slice(0, 3);
+  const handleUploadOpen = (project: ProjectGalleryItem) => {
+    setOpenUploadMenu(null);
+
+    if (project.taskType === 'Audio') {
+      return;
+    }
+
+    setSelectedUpload(project);
+  };
   const visibleProjects = projectItems.filter((item) => {
     const matchesTask = activeTaskType === 'All' || item.taskType === activeTaskType;
     const matchesTool = !shouldShowProjectToolFilters || activeTool === 'All' || item.tool === activeTool;
@@ -1270,157 +1298,603 @@ function ProjectsPanel({ onSectionChange }: { onSectionChange: (section: Section
     if (tool === 'All') return true;
     return activeTaskType === 'All' ? projectItems.some((item) => item.tool === tool) : projectItems.some((item) => item.taskType === activeTaskType && item.tool === tool);
   });
-  const projectSections =
-    activeTaskType === 'All'
-      ? projectTaskTabs
-          .filter((tab): tab is ProjectTaskType => tab !== 'All')
-          .map((taskType) => ({
-            title: taskType,
-            items: visibleProjects.filter((item) => item.taskType === taskType),
-          }))
-          .filter((section) => section.items.length > 0)
-      : !shouldShowProjectToolFilters
-        ? [
-            {
-              title: activeTaskType,
-              items: visibleProjects,
-            },
-          ]
-      : availableToolFilters
-          .filter((tool): tool is ProjectToolCategory => tool !== 'All')
-          .map((tool) => ({
-            title: tool,
-            items: visibleProjects.filter((item) => item.tool === tool),
-          }))
-          .filter((section) => section.items.length > 0);
+  const projectSections = buildGallerySections(visibleProjects, projectGrouping, 'All projects');
+  const visibleUploads = uploadItems.filter((item) => activeUploadType === 'All' || item.taskType === activeUploadType);
+  const uploadSections = buildGallerySections(visibleUploads, uploadGrouping, 'All uploads');
 
   return (
     <section className="min-w-0 pb-8" aria-labelledby="projects-library">
-      <h1 id="projects-library" className="sr-only">
-        Projects
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <div id="projects-library" className="flex items-center gap-4" aria-label="Project library switcher">
+          {[
+            { id: 'projects', label: 'Projects' },
+            { id: 'uploads', label: 'My Upload' },
+          ].map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => {
+                setActiveProjectLibrary(item.id as 'projects' | 'uploads');
+                setOpenProjectMenu(null);
+                setSelectedProject(null);
+                clearProjectSelection();
+              }}
+              className={`text-[15px] font-semibold tracking-tight transition ${
+                activeProjectLibrary === item.id ? 'text-slate-950' : 'text-slate-400 hover:text-slate-700'
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+        <div className="ml-auto flex min-w-0 flex-1 justify-end">
+          {activeProjectLibrary === 'projects' ? (
+            <SelectionActions
+              isSelecting={isProjectSelectionMode}
+              selectedCount={selectedProjectKeys.length}
+              onStart={() => {
+                setIsProjectSelectionMode(true);
+                setOpenProjectMenu(null);
+              }}
+              onCancel={clearProjectSelection}
+              onAction={clearProjectSelection}
+            />
+          ) : (
+            <SelectionActions
+              isSelecting={isUploadSelectionMode}
+              selectedCount={selectedUploadKeys.length}
+              onStart={() => {
+                setIsUploadSelectionMode(true);
+                setOpenUploadMenu(null);
+              }}
+              onCancel={clearUploadSelection}
+              onAction={clearUploadSelection}
+            />
+          )}
+        </div>
+      </div>
+
+      {activeProjectLibrary === 'uploads' ? (
+        <>
+          <MyUploadPanel
+            activeUploadType={activeUploadType}
+            uploadGrouping={uploadGrouping}
+            uploadSections={uploadSections}
+            openUploadMenu={openUploadMenu}
+            isUploadSelectionMode={isUploadSelectionMode}
+            selectedUploadKeys={selectedUploadKeys}
+            onUploadGroupingChange={setUploadGrouping}
+            onUploadTypeChange={(tab) => {
+              setActiveUploadType(tab);
+              setOpenUploadMenu(null);
+              clearUploadSelection();
+            }}
+            onUploadOpen={handleUploadOpen}
+            onToggleUploadMenu={(key) => setOpenUploadMenu((current) => (current === key ? null : key))}
+            onCloseUploadMenu={() => setOpenUploadMenu(null)}
+            onToggleUploadSelection={toggleUploadSelection}
+          />
+          {selectedUpload ? <ProjectDetailModal project={selectedUpload} onClose={() => setSelectedUpload(null)} /> : null}
+        </>
+      ) : (
+        <>
+          <div className="flex flex-col gap-5">
+            <div className="flex items-start justify-between gap-3 border-b border-slate-200 pb-2">
+              <nav className="flex min-w-0 flex-1 gap-5 overflow-x-auto pt-2 scrollbar-hide" aria-label="Project task types">
+                {projectTaskTabs.map((tab) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    onClick={() => {
+                      setActiveTaskType(tab);
+                      setActiveTool('All');
+                      setOpenProjectMenu(null);
+                      clearProjectSelection();
+                    }}
+                    className={`shrink-0 text-sm font-semibold transition ${
+                      activeTaskType === tab ? 'text-slate-950 underline decoration-slate-950 decoration-2 underline-offset-[10px]' : 'text-slate-500 hover:text-slate-950'
+                    }`}
+                  >
+                    {tab}
+                  </button>
+                ))}
+              </nav>
+              <GalleryListToolbar
+                grouping={projectGrouping}
+                onGroupingChange={setProjectGrouping}
+                searchPlaceholder="Search projects..."
+                filterLabel="Tool"
+                filterOptions={shouldShowProjectToolFilters ? availableToolFilters.map((tool) => ({ label: tool, value: tool })) : undefined}
+                activeFilter={activeTool}
+                onFilterChange={(value) => {
+                  setActiveTool(value as 'All' | ProjectToolCategory);
+                  setOpenProjectMenu(null);
+                  clearProjectSelection();
+                }}
+              />
+            </div>
+
+            <div className="grid min-w-0 gap-9">
+              {projectSections.map((section) => (
+                <section key={section.title} className="min-w-0" aria-labelledby={`projects-${section.title.replace(/\s+/g, '-').toLowerCase()}`}>
+                  <h2 id={`projects-${section.title.replace(/\s+/g, '-').toLowerCase()}`} className="mb-3 text-base font-semibold text-slate-500">
+                    {section.title}
+                  </h2>
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+                    {section.items.map((project, index) => (
+                      project.taskType === 'Audio' ? (
+                        <AudioProjectCard
+                          key={`${section.title}-${project.title}`}
+                          project={project}
+                          onPlay={() => handleProjectOpen(project)}
+                          isMenuOpen={openProjectMenu === `${section.title}-${project.title}`}
+                          onToggleMenu={() => setOpenProjectMenu((current) => (current === `${section.title}-${project.title}` ? null : `${section.title}-${project.title}`))}
+                          onCloseMenu={() => setOpenProjectMenu(null)}
+                          isSelecting={isProjectSelectionMode}
+                          isSelected={selectedProjectKeys.includes(getGalleryItemKey(project))}
+                          onToggleSelect={() => toggleProjectSelection(project)}
+                        />
+                      ) : (
+                        <ProjectLibraryCard
+                          key={`${section.title}-${project.title}`}
+                          project={project}
+                          index={index}
+                          onOpen={() => handleProjectOpen(project)}
+                          isMenuOpen={openProjectMenu === `${section.title}-${project.title}`}
+                          onToggleMenu={() => setOpenProjectMenu((current) => (current === `${section.title}-${project.title}` ? null : `${section.title}-${project.title}`))}
+                          onCloseMenu={() => setOpenProjectMenu(null)}
+                          isSelecting={isProjectSelectionMode}
+                          isSelected={selectedProjectKeys.includes(getGalleryItemKey(project))}
+                          onToggleSelect={() => toggleProjectSelection(project)}
+                        />
+                      )
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+          </div>
+          {selectedProject ? (
+            selectedProject.taskType === 'Avatar' ? (
+              <AvatarDetailModal project={selectedProject} onClose={() => setSelectedProject(null)} />
+            ) : (
+              <ProjectDetailModal project={selectedProject} onClose={() => setSelectedProject(null)} />
+            )
+          ) : null}
+        </>
+      )}
+    </section>
+  );
+}
+
+function MyUploadPanel({
+  activeUploadType,
+  uploadGrouping,
+  uploadSections,
+  openUploadMenu,
+  isUploadSelectionMode,
+  selectedUploadKeys,
+  onUploadGroupingChange,
+  onUploadTypeChange,
+  onUploadOpen,
+  onToggleUploadMenu,
+  onCloseUploadMenu,
+  onToggleUploadSelection,
+}: {
+  activeUploadType: 'All' | UploadTaskType;
+  uploadGrouping: GalleryGrouping;
+  uploadSections: Array<{ title: string; items: ProjectGalleryItem[] }>;
+  openUploadMenu: string | null;
+  isUploadSelectionMode: boolean;
+  selectedUploadKeys: string[];
+  onUploadGroupingChange: (grouping: GalleryGrouping) => void;
+  onUploadTypeChange: (tab: 'All' | UploadTaskType) => void;
+  onUploadOpen: (project: ProjectGalleryItem) => void;
+  onToggleUploadMenu: (key: string) => void;
+  onCloseUploadMenu: () => void;
+  onToggleUploadSelection: (project: ProjectGalleryItem) => void;
+}) {
+  return (
+    <section className="min-w-0 pb-8" aria-labelledby="uploads-library">
+      <h1 id="uploads-library" className="sr-only">
+        My Upload
       </h1>
 
       <div className="flex flex-col gap-5">
-        <label className="relative block w-full max-w-[420px]">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input
-            type="search"
-            placeholder="Search projects..."
-            className="h-9 w-full rounded-[8px] bg-slate-50 pl-9 pr-3 text-sm text-slate-800 outline-none ring-1 ring-slate-200 transition placeholder:text-slate-400 focus:bg-white focus:ring-[#2fbfc7]"
-          />
-        </label>
-
-        <section className="min-w-0" aria-labelledby="recently-opened-projects">
-          <h2 id="recently-opened-projects" className="mb-3 text-base font-semibold tracking-tight text-slate-950">
-            Recently opened
-          </h2>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-            {recentProjects.map((project, index) => (
-              project.taskType === 'Audio' ? (
-                <AudioProjectCard
-                  key={`recent-${project.title}`}
-                  project={project}
-                  onPlay={() => handleProjectOpen(project)}
-                  isMenuOpen={openProjectMenu === `recent-${project.title}`}
-                  onToggleMenu={() => setOpenProjectMenu((current) => (current === `recent-${project.title}` ? null : `recent-${project.title}`))}
-                  onCloseMenu={() => setOpenProjectMenu(null)}
-                />
-              ) : (
-                <ProjectLibraryCard
-                  key={`recent-${project.title}`}
-                  project={project}
-                  index={index}
-                  onOpen={() => handleProjectOpen(project)}
-                  isMenuOpen={openProjectMenu === `recent-${project.title}`}
-                  onToggleMenu={() => setOpenProjectMenu((current) => (current === `recent-${project.title}` ? null : `recent-${project.title}`))}
-                  onCloseMenu={() => setOpenProjectMenu(null)}
-                />
-              )
-            ))}
-          </div>
-        </section>
-
-        <nav className="flex gap-5 overflow-x-auto border-b border-slate-200 pb-2 scrollbar-hide" aria-label="Project task types">
-          {projectTaskTabs.map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              onClick={() => {
-                setActiveTaskType(tab);
-                setActiveTool('All');
-                setOpenProjectMenu(null);
-              }}
-              className={`shrink-0 text-sm font-semibold transition ${
-                activeTaskType === tab ? 'text-slate-950 underline decoration-slate-950 decoration-2 underline-offset-[10px]' : 'text-slate-500 hover:text-slate-950'
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
-        </nav>
-
-        {shouldShowProjectToolFilters ? (
-          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide" aria-label="Project tools">
-            {availableToolFilters.map((tool) => (
+        <div className="flex items-start justify-between gap-3 border-b border-slate-200 pb-2">
+          <nav className="flex min-w-0 flex-1 gap-5 overflow-x-auto pt-2 scrollbar-hide" aria-label="Upload media types">
+            {uploadTaskTabs.map((tab) => (
               <button
-                key={tool}
+                key={tab}
                 type="button"
-                onClick={() => {
-                  setActiveTool(tool);
-                  setOpenProjectMenu(null);
-                }}
-                className={`h-8 shrink-0 rounded-full px-3 text-xs font-semibold transition ${
-                  activeTool === tool ? 'bg-cyan-50 text-[#18aeb8] ring-1 ring-cyan-100' : 'bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-800'
+                onClick={() => onUploadTypeChange(tab)}
+                className={`shrink-0 text-sm font-semibold transition ${
+                  activeUploadType === tab ? 'text-slate-950 underline decoration-slate-950 decoration-2 underline-offset-[10px]' : 'text-slate-500 hover:text-slate-950'
                 }`}
               >
-                {tool}
+                {tab}
               </button>
             ))}
-          </div>
-        ) : null}
+          </nav>
+          <GalleryListToolbar
+            grouping={uploadGrouping}
+            onGroupingChange={onUploadGroupingChange}
+            showSearch={false}
+          />
+        </div>
 
         <div className="grid min-w-0 gap-9">
-          {projectSections.map((section) => (
-            <section key={section.title} className="min-w-0" aria-labelledby={`projects-${section.title.replace(/\s+/g, '-').toLowerCase()}`}>
-              <h2 id={`projects-${section.title.replace(/\s+/g, '-').toLowerCase()}`} className="mb-3 text-base font-semibold text-slate-500">
+          {uploadSections.map((section) => (
+            <section key={section.title} className="min-w-0" aria-labelledby={`uploads-${section.title.replace(/\s+/g, '-').toLowerCase()}`}>
+              <h2 id={`uploads-${section.title.replace(/\s+/g, '-').toLowerCase()}`} className="mb-3 text-base font-semibold text-slate-500">
                 {section.title}
               </h2>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-                {section.items.map((project, index) => (
+                {section.items.map((project, index) =>
                   project.taskType === 'Audio' ? (
                     <AudioProjectCard
-                      key={`${section.title}-${project.title}`}
+                      key={`upload-${section.title}-${project.title}`}
                       project={project}
-                      onPlay={() => handleProjectOpen(project)}
-                      isMenuOpen={openProjectMenu === `${section.title}-${project.title}`}
-                      onToggleMenu={() => setOpenProjectMenu((current) => (current === `${section.title}-${project.title}` ? null : `${section.title}-${project.title}`))}
-                      onCloseMenu={() => setOpenProjectMenu(null)}
+                      onPlay={() => onUploadOpen(project)}
+                      isMenuOpen={openUploadMenu === `upload-${section.title}-${project.title}`}
+                      onToggleMenu={() => onToggleUploadMenu(`upload-${section.title}-${project.title}`)}
+                      onCloseMenu={onCloseUploadMenu}
+                      isSelecting={isUploadSelectionMode}
+                      isSelected={selectedUploadKeys.includes(getGalleryItemKey(project))}
+                      onToggleSelect={() => onToggleUploadSelection(project)}
                     />
                   ) : (
                     <ProjectLibraryCard
-                      key={`${section.title}-${project.title}`}
+                      key={`upload-${section.title}-${project.title}`}
                       project={project}
                       index={index}
-                      onOpen={() => handleProjectOpen(project)}
-                      isMenuOpen={openProjectMenu === `${section.title}-${project.title}`}
-                      onToggleMenu={() => setOpenProjectMenu((current) => (current === `${section.title}-${project.title}` ? null : `${section.title}-${project.title}`))}
-                      onCloseMenu={() => setOpenProjectMenu(null)}
+                      onOpen={() => onUploadOpen(project)}
+                      isMenuOpen={openUploadMenu === `upload-${section.title}-${project.title}`}
+                      onToggleMenu={() => onToggleUploadMenu(`upload-${section.title}-${project.title}`)}
+                      onCloseMenu={onCloseUploadMenu}
+                      isSelecting={isUploadSelectionMode}
+                      isSelected={selectedUploadKeys.includes(getGalleryItemKey(project))}
+                      onToggleSelect={() => onToggleUploadSelection(project)}
                     />
-                  )
-                ))}
+                  ),
+                )}
               </div>
             </section>
           ))}
         </div>
       </div>
-      {selectedProject ? (
-        selectedProject.taskType === 'Avatar' ? (
-          <AvatarDetailModal project={selectedProject} onClose={() => setSelectedProject(null)} />
-        ) : (
-          <ProjectDetailModal project={selectedProject} onClose={() => setSelectedProject(null)} />
-        )
-      ) : null}
     </section>
+  );
+}
+
+function getGalleryItemKey(project: ProjectGalleryItem) {
+  return `${project.taskType}-${project.tool}-${project.title}`;
+}
+
+function getGalleryItemDate(project: ProjectGalleryItem) {
+  return project.updatedAt.split(',')[0] || project.updatedAt;
+}
+
+function groupGalleryItemsByDate(items: ProjectGalleryItem[]) {
+  return items.reduce<Array<{ title: string; items: ProjectGalleryItem[] }>>((sections, item) => {
+    const title = getGalleryItemDate(item);
+    const existingSection = sections.find((section) => section.title === title);
+
+    if (existingSection) {
+      existingSection.items.push(item);
+    } else {
+      sections.push({ title, items: [item] });
+    }
+
+    return sections;
+  }, []);
+}
+
+function buildGallerySections(items: ProjectGalleryItem[], grouping: GalleryGrouping, flatTitle: string) {
+  if (grouping === 'flat') {
+    return items.length > 0 ? [{ title: flatTitle, items }] : [];
+  }
+
+  return groupGalleryItemsByDate(items);
+}
+
+function GalleryListToolbar({
+  grouping,
+  onGroupingChange,
+  searchPlaceholder,
+  showSearch = true,
+  filterLabel = 'Filter',
+  filterOptions,
+  activeFilter,
+  onFilterChange,
+}: {
+  grouping: GalleryGrouping;
+  onGroupingChange: (grouping: GalleryGrouping) => void;
+  searchPlaceholder?: string;
+  showSearch?: boolean;
+  filterLabel?: string;
+  filterOptions?: Array<{ label: string; value: string }>;
+  activeFilter?: string;
+  onFilterChange?: (value: string) => void;
+}) {
+  const [openPanel, setOpenPanel] = useState<'filter' | 'time' | 'view' | null>(null);
+  const activeFilterLabel = filterOptions?.find((option) => option.value === activeFilter)?.label ?? 'All';
+
+  return (
+    <div className="flex shrink-0 items-start justify-end gap-2">
+      <div className="flex shrink-0 gap-2">
+        {filterOptions && activeFilter && onFilterChange ? (
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setOpenPanel((panel) => (panel === 'filter' ? null : 'filter'))}
+              className={`flex h-9 items-center gap-1.5 rounded-[8px] px-2.5 text-xs font-semibold transition ${
+                openPanel === 'filter' ? 'bg-white text-slate-950 shadow-sm ring-1 ring-slate-200' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              }`}
+            >
+              <LayoutGrid className="h-4 w-4" />
+              <span>{filterLabel}</span>
+              <span className="text-slate-400">/</span>
+              <span>{activeFilterLabel}</span>
+              <ChevronRight className={`h-4 w-4 rotate-90 text-slate-400 transition ${openPanel === 'filter' ? '-rotate-90' : ''}`} />
+            </button>
+            {openPanel === 'filter' ? (
+              <FilterPopover
+                label={filterLabel}
+                options={filterOptions}
+                activeValue={activeFilter}
+                onSelect={(value) => {
+                  onFilterChange(value);
+                  setOpenPanel(null);
+                }}
+              />
+            ) : null}
+          </div>
+        ) : null}
+
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setOpenPanel((panel) => (panel === 'time' ? null : 'time'))}
+              className={`flex h-9 items-center gap-1.5 rounded-[8px] px-2.5 text-xs font-semibold transition ${
+              openPanel === 'time' ? 'bg-white text-slate-950 shadow-sm ring-1 ring-slate-200' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
+          >
+            <CalendarDays className="h-4 w-4" />
+            Time Range
+          </button>
+          {openPanel === 'time' ? <TimeRangePopover /> : null}
+        </div>
+
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setOpenPanel((panel) => (panel === 'view' ? null : 'view'))}
+              className={`flex h-9 items-center gap-1.5 rounded-[8px] px-2.5 text-xs font-semibold transition ${
+              openPanel === 'view' ? 'bg-white text-slate-950 shadow-sm ring-1 ring-slate-200' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+            View Mode
+          </button>
+          {openPanel === 'view' ? (
+            <ViewModePopover
+              grouping={grouping}
+              onGroupingChange={(value) => {
+                onGroupingChange(value);
+                setOpenPanel(null);
+              }}
+            />
+          ) : null}
+        </div>
+      </div>
+
+      {showSearch ? (
+        <label className="relative block w-[220px] shrink-0">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input
+            type="search"
+            placeholder={searchPlaceholder}
+            className="h-9 w-full rounded-[8px] bg-slate-50 pl-9 pr-3 text-sm text-slate-800 outline-none ring-1 ring-slate-200 transition placeholder:text-slate-400 focus:bg-white focus:ring-[#2fbfc7]"
+          />
+        </label>
+      ) : null}
+    </div>
+  );
+}
+
+function TimeRangePopover() {
+  const calendarCells = [...Array.from({ length: 3 }, (_, index) => `empty-${index}`), ...Array.from({ length: 31 }, (_, index) => String(index + 1))];
+
+  return (
+    <div className="absolute left-0 top-11 z-30 w-[320px] rounded-[14px] bg-white p-3 shadow-[0_18px_46px_rgba(15,23,42,0.18)] ring-1 ring-slate-200">
+      <div className="grid grid-cols-2 rounded-[10px] bg-slate-100 p-1 text-sm font-medium text-slate-700">
+        <button type="button" className="h-8 rounded-[8px] bg-white shadow-sm">
+          All time
+        </button>
+        <button type="button" className="h-8 rounded-[8px] text-slate-600 transition hover:bg-white">
+          Today
+        </button>
+      </div>
+
+      <div className="mt-3 flex items-center justify-center gap-4 text-sm font-medium text-slate-700">
+        <button type="button" className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-50 text-slate-500 ring-1 ring-slate-200">
+          <ChevronRight className="h-4 w-4 rotate-180" />
+        </button>
+        <span>2026</span>
+        <button type="button" className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-50 text-slate-500 ring-1 ring-slate-200">
+          <ChevronRight className="h-4 w-4" />
+        </button>
+        <button type="button" className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-50 text-slate-500 ring-1 ring-slate-200">
+          <ChevronRight className="h-4 w-4 rotate-180" />
+        </button>
+        <span>07</span>
+        <button type="button" className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-50 text-slate-500 ring-1 ring-slate-200">
+          <ChevronRight className="h-4 w-4" />
+        </button>
+      </div>
+
+      <div className="mt-4 grid grid-cols-7 gap-y-3 text-center text-sm font-semibold text-slate-700">
+        {calendarCells.map((day) =>
+          day.startsWith('empty') ? (
+            <span key={day} />
+          ) : (
+            <button
+              key={day}
+              type="button"
+              className={`mx-auto flex h-7 w-7 items-center justify-center rounded-full transition ${
+                day === '10' ? 'bg-cyan-50 text-[#2fbfc7] ring-1 ring-[#7de0e6]' : day === '3' ? 'text-[#2fbfc7]' : 'hover:bg-slate-100'
+              }`}
+            >
+              {day}
+            </button>
+          ),
+        )}
+      </div>
+    </div>
+  );
+}
+
+function FilterPopover({
+  label,
+  options,
+  activeValue,
+  onSelect,
+}: {
+  label: string;
+  options: Array<{ label: string; value: string }>;
+  activeValue: string;
+  onSelect: (value: string) => void;
+}) {
+  return (
+    <div className="absolute left-0 top-11 z-30 w-52 rounded-[14px] bg-white p-2 shadow-[0_18px_46px_rgba(15,23,42,0.18)] ring-1 ring-slate-200">
+      <p className="px-2 pb-2 pt-1 text-xs font-semibold text-slate-400">{label}</p>
+      {options.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          onClick={() => onSelect(option.value)}
+          className={`flex h-9 w-full items-center justify-between rounded-[8px] px-2 text-sm transition ${
+            activeValue === option.value ? 'bg-slate-100 font-semibold text-slate-950' : 'text-slate-700 hover:bg-slate-50'
+          }`}
+        >
+          {option.label}
+          {activeValue === option.value ? <Check className="h-4 w-4 text-slate-500" /> : null}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ViewModePopover({
+  grouping,
+  onGroupingChange,
+}: {
+  grouping: GalleryGrouping;
+  onGroupingChange: (grouping: GalleryGrouping) => void;
+}) {
+  return (
+    <div className="absolute left-0 top-11 z-30 w-56 rounded-[14px] bg-white p-2 shadow-[0_18px_46px_rgba(15,23,42,0.18)] ring-1 ring-slate-200">
+      <p className="px-2 pb-2 pt-1 text-xs font-semibold text-slate-400">Grouping</p>
+      {[
+        { id: 'date', label: 'Group by date' },
+        { id: 'flat', label: 'Flat list' },
+      ].map((item) => (
+        <button
+          key={item.id}
+          type="button"
+          onClick={() => onGroupingChange(item.id as GalleryGrouping)}
+          className={`flex h-9 w-full items-center justify-between rounded-[8px] px-2 text-sm transition ${
+            grouping === item.id ? 'bg-slate-100 font-semibold text-slate-950' : 'text-slate-700 hover:bg-slate-50'
+          }`}
+        >
+          {item.label}
+          {grouping === item.id ? <Check className="h-4 w-4 text-slate-500" /> : null}
+        </button>
+      ))}
+
+      <p className="px-2 pb-2 pt-4 text-xs font-semibold text-slate-400">Card size</p>
+      <div className="grid grid-cols-2 gap-1 rounded-[10px] bg-slate-100 p-1">
+        <button type="button" className="h-8 rounded-[8px] bg-white text-xs font-semibold text-slate-800 shadow-sm">
+          Medium
+        </button>
+        <button type="button" className="h-8 rounded-[8px] text-xs font-semibold text-slate-500 transition hover:bg-white">
+          Compact
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function SelectionActions({
+  isSelecting,
+  selectedCount,
+  onStart,
+  onCancel,
+  onAction,
+}: {
+  isSelecting: boolean;
+  selectedCount: number;
+  onStart: () => void;
+  onCancel: () => void;
+  onAction: () => void;
+}) {
+  if (!isSelecting) {
+    return (
+      <button
+        type="button"
+        onClick={onStart}
+        className="ml-auto h-8 rounded-full bg-slate-100 px-3 text-xs font-semibold text-slate-600 transition hover:bg-slate-200 hover:text-slate-950"
+      >
+        Select
+      </button>
+    );
+  }
+
+  return (
+    <div className="ml-auto flex flex-wrap items-center gap-2">
+      <span className="rounded-full bg-cyan-50 px-3 py-1.5 text-xs font-semibold text-[#18aeb8] ring-1 ring-cyan-100">{selectedCount} selected</span>
+      <button
+        type="button"
+        onClick={onAction}
+        disabled={selectedCount === 0}
+        className="flex h-8 items-center gap-1.5 rounded-full bg-slate-100 px-3 text-xs font-semibold text-slate-600 transition hover:bg-slate-200 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-45"
+      >
+        <Download className="h-3.5 w-3.5" />
+        Download
+      </button>
+      <button
+        type="button"
+        onClick={onAction}
+        disabled={selectedCount === 0}
+        className="flex h-8 items-center gap-1.5 rounded-full bg-slate-100 px-3 text-xs font-semibold text-slate-600 transition hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-45"
+      >
+        <Trash2 className="h-3.5 w-3.5" />
+        Delete
+      </button>
+      <button type="button" onClick={onCancel} className="h-8 rounded-full px-3 text-xs font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-slate-950">
+        Cancel
+      </button>
+    </div>
+  );
+}
+
+function SelectionCheckbox({ isSelected, onToggle }: { isSelected: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-label={isSelected ? 'Deselect item' : 'Select item'}
+      onClick={(event) => {
+        event.stopPropagation();
+        onToggle();
+      }}
+      onKeyDown={(event) => event.stopPropagation()}
+      className={`absolute left-3 top-3 z-10 flex h-7 w-7 items-center justify-center rounded-[8px] shadow-sm ring-1 transition ${
+        isSelected ? 'bg-[#2fbfc7] text-white ring-[#2fbfc7]' : 'bg-white/90 text-transparent ring-white hover:text-slate-300'
+      }`}
+    >
+      <Check className="h-4 w-4" />
+    </button>
   );
 }
 
@@ -1430,12 +1904,18 @@ function AudioProjectCard({
   isMenuOpen,
   onToggleMenu,
   onCloseMenu,
+  isSelecting = false,
+  isSelected = false,
+  onToggleSelect,
 }: {
   project: ProjectGalleryItem;
   onPlay: () => void;
   isMenuOpen: boolean;
   onToggleMenu: () => void;
   onCloseMenu: () => void;
+  isSelecting?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
 }) {
   const waveHeights = [18, 26, 14, 31, 22, 36, 16, 28, 20, 34, 18, 25, 14, 30, 21, 33, 16, 24];
 
@@ -1443,34 +1923,51 @@ function AudioProjectCard({
     <article
       role="button"
       tabIndex={0}
-      onClick={onPlay}
+      onClick={() => {
+        if (isSelecting) {
+          onToggleSelect?.();
+          return;
+        }
+        onPlay();
+      }}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
+          if (isSelecting) {
+            onToggleSelect?.();
+            return;
+          }
           onPlay();
         }
       }}
       className="group cursor-pointer text-left transition hover:-translate-y-0.5"
     >
       <div
-        className="relative aspect-square overflow-hidden rounded-[14px] bg-[linear-gradient(135deg,#f8fafc_0%,#ecfeff_52%,#e0f2fe_100%)] ring-1 ring-slate-200 transition group-hover:shadow-[0_14px_32px_rgba(15,23,42,0.08)]"
+        className={`relative aspect-square overflow-hidden rounded-[14px] bg-[linear-gradient(135deg,#f8fafc_0%,#ecfeff_52%,#e0f2fe_100%)] transition group-hover:shadow-[0_14px_32px_rgba(15,23,42,0.08)] ${
+          isSelected ? 'ring-2 ring-[#2fbfc7] ring-offset-2' : 'ring-1 ring-slate-200'
+        }`}
       >
-        <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-semibold text-slate-500 ring-1 ring-white">Audio</span>
-        <button
-          type="button"
-          aria-label="More audio actions"
-          onClick={(event) => {
-            event.stopPropagation();
-            onToggleMenu();
-          }}
-          onKeyDown={(event) => event.stopPropagation()}
-          className={`absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-700 shadow-sm ring-1 ring-slate-200 transition hover:text-[#2fbfc7] ${
-            isMenuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-          }`}
-        >
-          <MoreHorizontal className="h-4 w-4" />
-        </button>
-        {isMenuOpen ? <ProjectMoreMenu onAction={onCloseMenu} /> : null}
+        {isSelecting && onToggleSelect ? <SelectionCheckbox isSelected={isSelected} onToggle={onToggleSelect} /> : null}
+        <span className={`absolute top-3 rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-semibold text-slate-500 ring-1 ring-white ${isSelecting ? 'left-12' : 'left-3'}`}>Audio</span>
+        {!isSelecting ? (
+          <>
+            <button
+              type="button"
+              aria-label="More audio actions"
+              onClick={(event) => {
+                event.stopPropagation();
+                onToggleMenu();
+              }}
+              onKeyDown={(event) => event.stopPropagation()}
+              className={`absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-700 shadow-sm ring-1 ring-slate-200 transition hover:text-[#2fbfc7] ${
+                isMenuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+              }`}
+            >
+              <MoreHorizontal className="h-4 w-4" />
+            </button>
+            {isMenuOpen ? <ProjectMoreMenu onAction={onCloseMenu} /> : null}
+          </>
+        ) : null}
         <div className="absolute inset-0 flex flex-col items-center justify-center px-5">
           <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#4fd2dc] text-white shadow-sm">
             <Video className="h-6 w-6 fill-white" />
@@ -1511,6 +2008,9 @@ function ProjectLibraryCard({
   isMenuOpen,
   onToggleMenu,
   onCloseMenu,
+  isSelecting = false,
+  isSelected = false,
+  onToggleSelect,
 }: {
   project: ProjectGalleryItem;
   index: number;
@@ -1518,33 +2018,54 @@ function ProjectLibraryCard({
   isMenuOpen: boolean;
   onToggleMenu: () => void;
   onCloseMenu: () => void;
+  isSelecting?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
 }) {
   const imageSrc = getStableImage(projectImagePaths, `${project.title}-${index}`);
   const label = project.tool === 'AI Photo Editor' ? 'Project' : project.taskType;
 
   return (
-    <article onClick={onOpen} className="group cursor-pointer text-left transition hover:-translate-y-0.5">
-      <div className="relative aspect-square overflow-hidden rounded-[14px] bg-slate-100 ring-1 ring-slate-200 transition group-hover:shadow-[0_14px_32px_rgba(15,23,42,0.08)]">
+    <article
+      onClick={() => {
+        if (isSelecting) {
+          onToggleSelect?.();
+          return;
+        }
+        onOpen();
+      }}
+      className="group cursor-pointer text-left transition hover:-translate-y-0.5"
+    >
+      <div
+        className={`relative aspect-square overflow-hidden rounded-[14px] bg-slate-100 transition group-hover:shadow-[0_14px_32px_rgba(15,23,42,0.08)] ${
+          isSelected ? 'ring-2 ring-[#2fbfc7] ring-offset-2' : 'ring-1 ring-slate-200'
+        }`}
+      >
         <img src={imageSrc} alt="" className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105" />
         <span className="absolute inset-0 bg-gradient-to-t from-slate-950/18 to-transparent" />
-        <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-semibold text-slate-500 ring-1 ring-white">
+        {isSelecting && onToggleSelect ? <SelectionCheckbox isSelected={isSelected} onToggle={onToggleSelect} /> : null}
+        <span className={`absolute top-3 rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-semibold text-slate-500 ring-1 ring-white ${isSelecting ? 'left-12' : 'left-3'}`}>
           {label}
         </span>
-        <button
-          type="button"
-          aria-label="More project actions"
-          onClick={(event) => {
-            event.stopPropagation();
-            onToggleMenu();
-          }}
-          onKeyDown={(event) => event.stopPropagation()}
-          className={`absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-700 shadow-sm ring-1 ring-slate-200 transition hover:text-[#2fbfc7] ${
-            isMenuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-          }`}
-        >
-          <MoreHorizontal className="h-4 w-4" />
-        </button>
-        {isMenuOpen ? <ProjectMoreMenu onAction={onCloseMenu} /> : null}
+        {!isSelecting ? (
+          <>
+            <button
+              type="button"
+              aria-label="More project actions"
+              onClick={(event) => {
+                event.stopPropagation();
+                onToggleMenu();
+              }}
+              onKeyDown={(event) => event.stopPropagation()}
+              className={`absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-700 shadow-sm ring-1 ring-slate-200 transition hover:text-[#2fbfc7] ${
+                isMenuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+              }`}
+            >
+              <MoreHorizontal className="h-4 w-4" />
+            </button>
+            {isMenuOpen ? <ProjectMoreMenu onAction={onCloseMenu} /> : null}
+          </>
+        ) : null}
       </div>
       <div className="pt-3">
         <div className="flex items-center gap-2">
@@ -1552,7 +2073,12 @@ function ProjectLibraryCard({
             type="text"
             defaultValue={project.title}
             aria-label={`${project.title} title`}
-            onClick={(event) => event.stopPropagation()}
+            readOnly={isSelecting}
+            onClick={(event) => {
+              if (!isSelecting) {
+                event.stopPropagation();
+              }
+            }}
             className="min-w-0 flex-1 truncate rounded-[6px] bg-transparent px-0 py-0.5 text-base font-semibold text-slate-950 outline-none transition focus:bg-slate-50 focus:px-2 focus:ring-1 focus:ring-[#2fbfc7]"
           />
           <PenTool className="h-3.5 w-3.5 shrink-0 text-slate-300 transition group-hover:text-[#2fbfc7]" />
@@ -2252,6 +2778,7 @@ function CreationSidebar({
               <SidebarResourceLink key={item.name} item={item} isCollapsed={isCollapsed} />
             ))}
           </div>
+          <SidebarUserProfile isCollapsed={isCollapsed} />
         </div>
       </div>
     </aside>
@@ -2288,6 +2815,22 @@ function SidebarSectionButton({
       </span>
       <ChevronRight className={`h-4 w-4 shrink-0 ${isActive ? 'text-[#2fbfc7]' : 'text-slate-300'} ${isCollapsed ? 'md:hidden' : ''}`} />
     </button>
+  );
+}
+
+function SidebarUserProfile({ isCollapsed }: { isCollapsed: boolean }) {
+  return (
+    <div
+      title="Feng Lin"
+      className={`mt-4 flex items-center border-t border-slate-100 pt-4 ${isCollapsed ? 'md:justify-center' : 'gap-3'}`}
+    >
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-200 text-sm font-semibold text-slate-700 ring-1 ring-slate-200">
+        F
+      </span>
+      <span className={`min-w-0 ${isCollapsed ? 'md:hidden' : ''}`}>
+        <span className="block truncate text-sm font-semibold text-slate-800">Feng Lin</span>
+      </span>
+    </div>
   );
 }
 
