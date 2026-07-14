@@ -205,6 +205,14 @@ const toolCards: HubCard[] = [
     iconTone: 'text-slate-600',
   },
   {
+    name: 'AI Filter',
+    description: 'Apply reusable styles and visual presets.',
+    icon: Sparkles,
+    href: '#',
+    tone: 'bg-white',
+    iconTone: 'text-slate-600',
+  },
+  {
     name: 'Image Upscaler',
     description: 'Improve resolution and visual clarity.',
     icon: Maximize,
@@ -272,15 +280,15 @@ const toolCategoryTabs = ['Image', 'Video', 'Utility'];
 const toolLibrarySections: Array<{ title: string; cards: HubCard[] }> = [
   {
     title: 'Image Tools',
-    cards: [toolCards[0], toolCards[1], toolCards[7], toolCards[4], toolCards[3], toolCards[2]],
+    cards: [featuredToolCards[0], featuredToolCards[2], toolCards[0], toolCards[1], toolCards[2], toolCards[8], toolCards[5], toolCards[4], toolCards[3]],
   },
   {
     title: 'Video Tools',
-    cards: [featuredToolCards[1], toolCards[5], toolCards[6]],
+    cards: [featuredToolCards[1], toolCards[6], toolCards[7]],
   },
   {
     title: 'Creative Utilities',
-    cards: [agentToolCard, featuredToolCards[2], toolCards[0], toolCards[1], toolCards[7]],
+    cards: [agentToolCard],
   },
 ];
 
@@ -2525,10 +2533,11 @@ function AgentEntryPrototype() {
   const agentGridWidth = visibleAgentModes.length === 3 ? 'max-w-2xl' : 'max-w-3xl';
   const selectAgentGroup = (group: AgentGroupCard) => {
     setActiveAgentGroupId(group.id);
-    setSelectedAgentTemplateId(group.children[0]?.id ?? null);
+    setSelectedAgentTemplateId(null);
   };
   const clearSelectedAgentTemplate = () => {
     setSelectedAgentTemplateId(null);
+    setActiveAgentGroupId(null);
   };
 
   return (
@@ -2600,7 +2609,10 @@ function AgentEntryPrototype() {
             <span className="text-sm font-semibold text-slate-500">{activeAgentGroup.name}</span>
             <button
               type="button"
-              onClick={() => setActiveAgentGroupId(null)}
+              onClick={() => {
+                setActiveAgentGroupId(null);
+                setSelectedAgentTemplateId(null);
+              }}
               className="text-sm font-semibold text-[#2fbfc7] transition hover:text-[#249aa1]"
             >
               Back
