@@ -8,6 +8,7 @@ import {
   CalendarDays,
   Check,
   ChevronRight,
+  Crown,
   Download,
   RefreshCw,
   X,
@@ -78,6 +79,26 @@ type TemplatePreviewCard = {
   duration?: string;
   tone: string;
   icon: LucideIcon;
+};
+
+type TemplateLibraryCategoryId = 'ai-video' | 'ai-image' | 'ecommerce-video' | 'avatar' | 'design';
+
+type TemplateLibraryItem = {
+  title: string;
+  filter: string;
+  image: string;
+  duration?: string;
+  label?: string;
+};
+
+type TemplateLibraryCategory = {
+  id: TemplateLibraryCategoryId;
+  label: string;
+  resultLabel: string;
+  icon: LucideIcon;
+  filters: string[];
+  aspectClass: string;
+  items: TemplateLibraryItem[];
 };
 
 type AgentModeCard = {
@@ -324,6 +345,146 @@ const templateCards: HubCard[] = [
     href: '#',
     tone: 'bg-white',
     iconTone: 'text-slate-600',
+  },
+];
+
+const templateLibraryCategories: TemplateLibraryCategory[] = [
+  {
+    id: 'ai-video',
+    label: 'AI Video',
+    resultLabel: 'AI Video templates',
+    icon: Video,
+    filters: ['Trending', 'Romance', 'Sports', 'Fantasy', 'Celebration', 'Pets'],
+    aspectClass: 'aspect-[4/5]',
+    items: [
+      ['Heart Drift', 'Romance', 1, '12s'],
+      ['Love Booth', 'Romance', 2, '15s'],
+      ['Match Day', 'Sports', 3, '10s'],
+      ['Super Dad', 'Celebration', 4, '15s'],
+      ['The Final Hug', 'Romance', 5, '12s'],
+      ['Kiss Cam', 'Sports', 6, '9s'],
+      ['Tiny Fairy', 'Fantasy', 7, '8s'],
+      ['Wish Pets', 'Pets', 8, '12s'],
+      ['Survival Game', 'Fantasy', 9, '15s'],
+      ['Courtside Cam', 'Sports', 10, '10s'],
+      ["Mother's Day Card", 'Celebration', 11, '12s'],
+      ['Midnight Kiss', 'Romance', 12, '9s'],
+    ].map(([title, filter, image, duration]) => ({
+      title: String(title),
+      filter: String(filter),
+      image: `/assets/creation/template-${Number(image)}.jpg`,
+      duration: String(duration),
+      label: 'Video',
+    })),
+  },
+  {
+    id: 'ai-image',
+    label: 'AI Image',
+    resultLabel: 'AI Image styles',
+    icon: ImageIcon,
+    filters: ['E-commerce', 'Hot', 'AI Yearbook', 'AI Light', 'Portrait', 'Product'],
+    aspectClass: 'aspect-square',
+    items: [
+      ['Botanical Care', 'E-commerce', 13],
+      ['Geometric Beauty', 'Product', 14],
+      ['Fresh Clean', 'E-commerce', 15],
+      ['Pure Green', 'Product', 16],
+      ['Sky Hold', 'Hot', 17],
+      ['Shadow Touch', 'AI Light', 18],
+      ['Luxury Reveal', 'Product', 1],
+      ['Bloom Scene', 'AI Light', 2],
+      ['Scale Contrast', 'Hot', 3],
+      ['Chair Display', 'E-commerce', 4],
+      ['Retro Yearbook', 'AI Yearbook', 5],
+      ['Editorial Portrait', 'Portrait', 6],
+    ].map(([title, filter, image]) => ({
+      title: String(title),
+      filter: String(filter),
+      image: `/assets/creation/template-${Number(image)}.jpg`,
+      label: 'Image',
+    })),
+  },
+  {
+    id: 'ecommerce-video',
+    label: 'E-commerce Video',
+    resultLabel: 'E-commerce video templates',
+    icon: ShoppingBag,
+    filters: ['UGC Review', 'Product Demo', 'Unboxing', 'Before & After', 'Lifestyle'],
+    aspectClass: 'aspect-[4/5]',
+    items: [
+      ['Real Results, Real Glow', 'UGC Review', 1, '15s'],
+      ["Why I Can't Live Without This", 'UGC Review', 2, '18s'],
+      ['Game Changer for Daily Cleaning', 'Product Demo', 3, '15s'],
+      ['Best Coffee at Home', 'Product Demo', 4, '20s'],
+      ['Sneakers That Do It All', 'Lifestyle', 5, '15s'],
+      ['Small Size, Big Performance', 'Product Demo', 6, '12s'],
+      ['Derm Approved & Loved', 'UGC Review', 7, '17s'],
+      ['First Look Unboxing', 'Unboxing', 8, '20s'],
+      ['Instant Room Refresh', 'Before & After', 9, '12s'],
+      ['Everyday Carry', 'Lifestyle', 10, '15s'],
+      ['One Step Upgrade', 'Before & After', 11, '12s'],
+      ['Made for Busy Mornings', 'Lifestyle', 12, '18s'],
+    ].map(([title, filter, image, duration]) => ({
+      title: String(title),
+      filter: String(filter),
+      image: `/assets/creation/tool-${Number(image)}.jpg`,
+      duration: String(duration),
+      label: 'Ad format',
+    })),
+  },
+  {
+    id: 'avatar',
+    label: 'AI Avatar',
+    resultLabel: 'AI Avatar templates',
+    icon: UserRound,
+    filters: ['Lifestyle', 'Business', 'Fashion', 'Sports', 'Young Adult', 'Mature'],
+    aspectClass: 'aspect-[3/4]',
+    items: [
+      ['Karen', 'Business', 1],
+      ['Griffin', 'Business', 2],
+      ['Darius', 'Lifestyle', 3],
+      ['Everett', 'Mature', 4],
+      ['Yoko', 'Fashion', 5],
+      ['Camille', 'Young Adult', 6],
+      ['Natalie', 'Lifestyle', 7],
+      ['Kenji', 'Sports', 8],
+      ['Lucas', 'Young Adult', 9],
+      ['Alexandra', 'Fashion', 10],
+      ['Audrey', 'Business', 11],
+      ['Claire', 'Sports', 12],
+    ].map(([title, filter, image]) => ({
+      title: String(title),
+      filter: String(filter),
+      image: `/assets/creation/project-${Number(image)}.jpg`,
+      label: 'Avatar',
+    })),
+  },
+  {
+    id: 'design',
+    label: 'Collage & Poster',
+    resultLabel: 'Collage & poster templates',
+    icon: LayoutTemplate,
+    filters: ['Marketing', 'Social', 'Planner', 'Creative', 'Moments', 'Festivals'],
+    aspectClass: 'aspect-[4/5]',
+    items: [
+      ['Back to School Poster', 'Marketing', 7],
+      ['Missing Pet Notice', 'Marketing', 8],
+      ['Instagram Story Collage', 'Social', 9],
+      ['Photo Dump', 'Social', 10],
+      ['Weekly Planner', 'Planner', 11],
+      ['Memory Journal', 'Planner', 12],
+      ['Keep Calm Poster', 'Creative', 13],
+      ['Editorial Collage', 'Creative', 14],
+      ['Birthday Memories', 'Moments', 15],
+      ['Family Album', 'Moments', 16],
+      ['New Year Collage', 'Festivals', 17],
+      ['Holiday Greeting', 'Festivals', 18],
+    ].map(([title, filter, image]) => ({
+      title: String(title),
+      filter: String(filter),
+      image: `/assets/creation/template-${Number(image)}.jpg`,
+      label: 'Design',
+    })),
   },
 ];
 
@@ -861,6 +1022,8 @@ export default function CreationPage() {
               <HomePanel onSectionChange={setActiveSection} />
             ) : activeSection === 'tools' ? (
               <ToolsLibraryPanel />
+            ) : activeSection === 'templates' ? (
+              <TemplatesLibraryPanel />
             ) : activeSection === 'projects' ? (
               <ProjectsPanel onSectionChange={setActiveSection} />
             ) : (
@@ -1127,6 +1290,153 @@ function TemplateFlowCard({
         <p className="truncate text-base font-semibold text-white">{card.name}</p>
       </div>
     </a>
+  );
+}
+
+function TemplatesLibraryPanel() {
+  const [activeCategoryId, setActiveCategoryId] = useState<TemplateLibraryCategoryId>('ai-video');
+  const [activeFilter, setActiveFilter] = useState('All');
+  const [query, setQuery] = useState('');
+  const activeCategory = templateLibraryCategories.find((category) => category.id === activeCategoryId) ?? templateLibraryCategories[0];
+  const normalizedQuery = query.trim().toLowerCase();
+  const filteredItems = activeCategory.items.filter((item) => {
+    const matchesFilter = activeFilter === 'All' || item.filter === activeFilter;
+    const matchesQuery = !normalizedQuery || item.title.toLowerCase().includes(normalizedQuery) || item.filter.toLowerCase().includes(normalizedQuery);
+    return matchesFilter && matchesQuery;
+  });
+
+  const selectCategory = (category: TemplateLibraryCategory) => {
+    setActiveCategoryId(category.id);
+    setActiveFilter('All');
+    setQuery('');
+  };
+
+  return (
+    <section className="min-w-0 pb-8" aria-labelledby="template-results-title">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5" role="tablist" aria-label="Template types">
+        {templateLibraryCategories.map((category) => {
+          const Icon = category.icon;
+          const isActive = category.id === activeCategory.id;
+
+          return (
+            <button
+              key={category.id}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              onClick={() => selectCategory(category)}
+              className={`flex h-12 min-w-0 items-center gap-2.5 rounded-[10px] px-3 text-left transition ring-1 ${
+                isActive
+                  ? 'bg-[#eafcfd] text-slate-950 ring-[#72d8de]'
+                  : 'bg-slate-50 text-slate-600 ring-slate-200 hover:bg-white hover:text-slate-950'
+              }`}
+            >
+              <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] ${isActive ? 'bg-[#35c3cb] text-white' : 'bg-white text-slate-500 ring-1 ring-slate-200'}`}>
+                <Icon className="h-4 w-4" />
+              </span>
+              <span className="truncate text-sm font-semibold">{category.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="mt-4 flex min-w-0 flex-col gap-3 border-b border-slate-200 pb-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex min-w-0 gap-1.5 overflow-x-auto pb-1 scrollbar-hide" role="tablist" aria-label={`${activeCategory.label} categories`}>
+          {['All', ...activeCategory.filters].map((filter) => (
+            <button
+              key={filter}
+              type="button"
+              role="tab"
+              aria-selected={activeFilter === filter}
+              onClick={() => setActiveFilter(filter)}
+              className={`h-8 shrink-0 rounded-full px-3 text-xs font-semibold transition ${
+                activeFilter === filter ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-950'
+              }`}
+            >
+              {filter}
+            </button>
+          ))}
+        </div>
+
+        <label className="relative block w-full shrink-0 lg:w-[280px]">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={`Search ${activeCategory.label}`}
+            className="h-9 w-full rounded-[8px] bg-slate-50 pl-9 pr-3 text-sm text-slate-800 outline-none ring-1 ring-slate-200 transition placeholder:text-slate-400 focus:bg-white focus:ring-[#2fbfc7]"
+          />
+        </label>
+      </div>
+
+      <div className="mb-3 mt-5 flex items-end justify-between gap-3">
+        <div>
+          <h2 id="template-results-title" className="text-xl font-semibold tracking-tight text-slate-950">{activeCategory.resultLabel}</h2>
+          <p className="mt-1 text-xs text-slate-400">{filteredItems.length} templates</p>
+        </div>
+      </div>
+
+      {filteredItems.length ? (
+        <div className="min-w-0 columns-2 gap-3 sm:columns-3 lg:columns-4 xl:columns-5">
+          {filteredItems.map((item, index) => (
+            <TemplateLibraryCard key={`${activeCategory.id}-${item.title}`} item={item} category={activeCategory} index={index} />
+          ))}
+        </div>
+      ) : (
+        <div className="flex min-h-[280px] flex-col items-center justify-center rounded-[12px] bg-slate-50 text-center ring-1 ring-slate-200">
+          <Search className="h-6 w-6 text-slate-300" />
+          <p className="mt-3 text-sm font-semibold text-slate-700">No templates found</p>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveFilter('All');
+              setQuery('');
+            }}
+            className="mt-3 text-sm font-semibold text-[#2fbfc7]"
+          >
+            Clear filters
+          </button>
+        </div>
+      )}
+    </section>
+  );
+}
+
+const templateMasonryAspects: Record<TemplateLibraryCategoryId, string[]> = {
+  'ai-video': ['aspect-[3/4]', 'aspect-[4/5]', 'aspect-[2/3]', 'aspect-[5/6]'],
+  'ai-image': ['aspect-square', 'aspect-[4/5]', 'aspect-[3/4]', 'aspect-[5/4]', 'aspect-[2/3]'],
+  'ecommerce-video': ['aspect-[4/5]', 'aspect-[3/4]', 'aspect-[2/3]', 'aspect-[5/6]'],
+  avatar: ['aspect-[3/4]', 'aspect-[2/3]', 'aspect-[4/5]', 'aspect-[5/6]'],
+  design: ['aspect-[4/5]', 'aspect-[3/4]', 'aspect-[2/3]', 'aspect-[5/4]'],
+};
+
+function TemplateLibraryCard({ item, category, index }: { item: TemplateLibraryItem; category: TemplateLibraryCategory; index: number }) {
+  const aspectClass = templateMasonryAspects[category.id][index % templateMasonryAspects[category.id].length];
+
+  return (
+    <article className="group mb-3 inline-block w-full break-inside-avoid align-top">
+      <a
+        href="#"
+        className={`relative block w-full ${aspectClass} overflow-hidden rounded-[10px] bg-slate-100 ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:shadow-[0_14px_30px_rgba(15,23,42,0.12)]`}
+      >
+        <img src={item.image} alt="" className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+        <span className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-slate-950/10 to-transparent opacity-0 transition group-hover:opacity-100" />
+        {item.duration ? (
+          <span className="absolute right-2.5 top-2.5 rounded-full bg-slate-950/60 px-2 py-1 text-[10px] font-semibold text-white backdrop-blur-sm">
+            {item.duration}
+          </span>
+        ) : null}
+        <h3 className="absolute left-3 right-14 top-3 -translate-y-2 truncate text-sm font-semibold text-white opacity-0 drop-shadow-sm transition group-hover:translate-y-0 group-hover:opacity-100">
+          {item.title}
+        </h3>
+        <div className="absolute inset-x-3 bottom-3 translate-y-3 opacity-0 transition group-hover:translate-y-0 group-hover:opacity-100">
+          <span className="flex h-9 items-center justify-center rounded-[8px] bg-white text-xs font-semibold text-slate-950 shadow-lg">
+            Use template
+          </span>
+        </div>
+      </a>
+    </article>
   );
 }
 
@@ -2378,11 +2688,11 @@ function AgentEntryPrototype() {
           icon: UserRound,
           tone: 'from-[#f59e0b] via-[#f97316] to-[#ef4444]',
           fields: [
-            { type: 'input', placeholder: 'Product name' },
-            { type: 'select', value: 'Creator', options: ['Creator', 'Founder', 'Customer'] },
-            { type: 'select', value: '15s', options: ['15s', '30s', '60s'] },
+            { type: 'input', placeholder: 'Enter product name' },
             { type: 'select', value: 'English', options: ['English', 'Chinese', 'Spanish'] },
-            { type: 'select', value: 'US', options: ['US', 'UK', 'AU'] },
+            { type: 'select', value: 'TikTok/Reels - 9:16', options: ['TikTok/Reels - 9:16', 'YouTube Shorts - 9:16', 'Instagram Feed - 1:1'] },
+            { type: 'select', value: 'Auto', options: ['Auto', 'Gen Z', 'Parents', 'Beauty shoppers', 'Tech buyers'] },
+            { type: 'select', value: 'Auto', options: ['Auto', 'Product demo', 'Unboxing', 'Review', 'Problem solution'] },
           ],
         },
         {
@@ -2657,6 +2967,10 @@ function AgentTemplateFields({
   template: AgentTemplateCard;
   onClear: () => void;
 }) {
+  if (template.id === 'ugc-ad') {
+    return <UgcAdTemplateFields template={template} onClear={onClear} />;
+  }
+
   return (
     <div className="mb-5 flex flex-wrap gap-2">
       <AgentSelectedTemplatePill template={template} onClear={onClear} />
@@ -2686,6 +3000,68 @@ function AgentTemplateFields({
           </select>
         );
       })}
+    </div>
+  );
+}
+
+function UgcAdTemplateFields({ template, onClear }: { template: AgentTemplateCard; onClear: () => void }) {
+  return (
+    <div className="mb-5 flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2">
+        <AgentSelectedTemplatePill template={template} onClear={onClear} />
+      </div>
+
+      <input
+        type="text"
+        placeholder="Product name"
+        maxLength={50}
+        className="h-10 min-w-[150px] rounded-[8px] bg-slate-100 px-3 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-[#78b7ff]"
+      />
+
+      <select
+        defaultValue="English"
+        className="h-10 rounded-[8px] bg-slate-100 px-3 text-sm font-semibold text-slate-800 outline-none transition focus:bg-white focus:ring-2 focus:ring-[#78b7ff]"
+      >
+        {['English', 'Chinese', 'Spanish'].map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+
+      <select
+        defaultValue="TikTok/Reels - 9:16"
+        className="h-10 rounded-[8px] bg-slate-100 px-3 text-sm font-semibold text-slate-800 outline-none transition focus:bg-white focus:ring-2 focus:ring-[#78b7ff]"
+      >
+        {['TikTok/Reels - 9:16', 'YouTube Shorts - 9:16', 'Instagram Feed - 1:1'].map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+
+      <select
+        defaultValue="Auto"
+        className="h-10 rounded-[8px] bg-slate-100 px-3 text-sm font-semibold text-slate-800 outline-none transition focus:bg-white focus:ring-2 focus:ring-[#78b7ff]"
+      >
+        {['Auto', 'Gen Z', 'Parents', 'Beauty shoppers', 'Tech buyers'].map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+
+      <select
+        defaultValue="Auto"
+        className="h-10 rounded-[8px] bg-slate-100 px-3 text-sm font-semibold text-slate-800 outline-none transition focus:bg-white focus:ring-2 focus:ring-[#78b7ff]"
+      >
+        {['Auto', 'Product demo', 'Unboxing', 'Review', 'Problem solution'].map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+
     </div>
   );
 }
@@ -2783,8 +3159,7 @@ function CreationSidebar({
           ))}
         </nav>
 
-        <div className="mt-auto pt-5">
-          <p className={`mb-2 px-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400 ${isCollapsed ? 'md:hidden' : ''}`}>Resources</p>
+        <div className="mt-auto pt-3">
           <div className="grid gap-1.5">
             {resourceCards.map((item) => (
               <SidebarResourceLink key={item.name} item={item} isCollapsed={isCollapsed} />
@@ -2832,16 +3207,55 @@ function SidebarSectionButton({
 
 function SidebarUserProfile({ isCollapsed }: { isCollapsed: boolean }) {
   return (
-    <div
-      title="Feng Lin"
-      className={`mt-4 flex items-center border-t border-slate-100 pt-4 ${isCollapsed ? 'md:justify-center' : 'gap-3'}`}
-    >
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-200 text-sm font-semibold text-slate-700 ring-1 ring-slate-200">
-        F
-      </span>
-      <span className={`min-w-0 ${isCollapsed ? 'md:hidden' : ''}`}>
-        <span className="block truncate text-sm font-semibold text-slate-800">Feng Lin</span>
-      </span>
+    <div className="mt-4 border-t border-slate-100 pt-3">
+      <button
+        type="button"
+        aria-label="Upgrade plan, 50% off"
+        title="Upgrade plan - 50% off"
+        className={`group/upgrade relative flex h-10 items-center rounded-full bg-[linear-gradient(90deg,#d946ef_0%,#ff2d89_58%,#ff7958_100%)] font-semibold text-white shadow-[0_8px_20px_rgba(236,72,153,0.2)] transition hover:brightness-105 ${
+          isCollapsed ? 'md:mx-auto md:w-10 md:justify-center md:px-0' : 'w-full gap-2 px-3'
+        }`}
+      >
+        <Crown className="h-[17px] w-[17px] shrink-0" />
+        <span className={`truncate text-[13px] ${isCollapsed ? 'md:hidden' : ''}`}>Upgrade 50% off</span>
+        <span
+          className={`absolute -right-1 -top-1 rounded-full bg-white px-1 py-0.5 text-[8px] font-bold leading-none text-[#e83e8c] shadow-sm ring-1 ring-pink-100 ${
+            isCollapsed ? 'md:block' : 'hidden'
+          }`}
+        >
+          50%
+        </span>
+      </button>
+
+      <button
+        type="button"
+        aria-label="6,234 credits. Add credits"
+        title="6,234 credits"
+        className={`group/credits relative mt-2 flex h-10 items-center bg-slate-50 text-slate-800 ring-1 ring-slate-200 transition hover:bg-white hover:ring-[#8ddfe3] hover:shadow-[0_8px_20px_rgba(15,23,42,0.08)] ${
+          isCollapsed
+            ? 'md:mx-auto md:h-[52px] md:w-12 md:flex-col md:justify-center md:gap-0.5 md:rounded-[12px] md:px-0'
+            : 'w-full gap-2 rounded-full px-3'
+        }`}
+      >
+        <Sparkles className={`shrink-0 text-[#ff9d2e] ${isCollapsed ? 'md:h-4 md:w-4' : 'h-[17px] w-[17px]'}`} />
+        <span className={`font-semibold tabular-nums ${isCollapsed ? 'md:text-[10px] md:leading-none' : 'text-sm'}`}>{isCollapsed ? '6.2k' : '6,234'}</span>
+        <span
+          className={`flex shrink-0 items-center justify-center rounded-full bg-[#35c3cb] text-white transition group-hover/credits:bg-[#28b5bd] ${
+            isCollapsed ? 'md:absolute md:-right-1 md:-top-1 md:h-[18px] md:w-[18px] md:shadow-sm md:ring-2 md:ring-white' : 'ml-auto h-7 w-7'
+          }`}
+        >
+          <Plus className={isCollapsed ? 'h-3 w-3' : 'h-4 w-4'} />
+        </span>
+      </button>
+
+      <div title="Feng Lin" className={`mt-3 flex items-center ${isCollapsed ? 'md:justify-center' : 'gap-3'}`}>
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-200 text-sm font-semibold text-slate-700 ring-1 ring-slate-200">
+          F
+        </span>
+        <span className={`min-w-0 ${isCollapsed ? 'md:hidden' : ''}`}>
+          <span className="block truncate text-sm font-semibold text-slate-800">Feng Lin</span>
+        </span>
+      </div>
     </div>
   );
 }
