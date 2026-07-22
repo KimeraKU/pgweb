@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Image from 'next/image';
 import {
+  AudioLines,
   BookOpen,
   Box,
   CalendarDays,
@@ -21,13 +22,17 @@ import {
   LayoutGrid,
   LayoutTemplate,
   LockKeyhole,
+  LogOut,
   Maximize,
   MoreHorizontal,
   Newspaper,
   PenTool,
+  Pause,
+  Play,
   Plus,
   Search,
   Send,
+  Settings,
   Share2,
   Scissors,
   ShoppingBag,
@@ -81,7 +86,7 @@ type TemplatePreviewCard = {
   icon: LucideIcon;
 };
 
-type TemplateLibraryCategoryId = 'ai-video' | 'ai-image' | 'ecommerce-video' | 'avatar' | 'design';
+type TemplateLibraryCategoryId = 'ai-video' | 'ai-image' | 'ecommerce-video' | 'avatar' | 'ai-voice' | 'design';
 
 type TemplateLibraryItem = {
   title: string;
@@ -99,6 +104,15 @@ type TemplateLibraryCategory = {
   filters: string[];
   aspectClass: string;
   items: TemplateLibraryItem[];
+};
+
+type VoiceTemplate = {
+  name: string;
+  language: 'English' | 'Spanish';
+  accent: string;
+  gender: 'Male' | 'Female';
+  sample: string;
+  hideGenderTag?: boolean;
 };
 
 type AgentModeCard = {
@@ -129,7 +143,7 @@ type AgentGroupCard = AgentModeCard & {
   children: AgentTemplateCard[];
 };
 
-type ProjectTaskType = 'Image' | 'Video' | 'Audio' | 'Agent Sessions' | 'Avatar';
+type ProjectTaskType = 'Image' | 'Video' | 'Audio' | 'Design' | 'Agent Sessions' | 'Avatar';
 type UploadTaskType = Extract<ProjectTaskType, 'Image' | 'Video' | 'Audio'>;
 type GalleryGrouping = 'date' | 'flat';
 
@@ -141,6 +155,7 @@ type ProjectToolCategory =
   | 'AI Photo Editor'
   | 'E-commerce Video'
   | 'AI Avatar'
+  | 'Design'
   | 'Background Remover'
   | 'My Upload';
 
@@ -348,6 +363,59 @@ const templateCards: HubCard[] = [
   },
 ];
 
+const voiceTemplates: VoiceTemplate[] = [
+  {
+    name: 'Ethan',
+    language: 'English',
+    accent: 'American English accent',
+    gender: 'Male',
+    hideGenderTag: true,
+    sample: 'Hi, I am Ethan. Let us turn your next idea into a clear and engaging story.',
+  },
+  {
+    name: 'Diego',
+    language: 'Spanish',
+    accent: 'Chilean Spanish accent',
+    gender: 'Male',
+    sample: 'Hola, soy Diego. Estoy listo para darle una voz natural y cercana a tu proyecto.',
+  },
+  {
+    name: 'Mariana',
+    language: 'Spanish',
+    accent: 'Mexican Spanish accent',
+    gender: 'Female',
+    sample: 'Hola, soy Mariana. Hagamos que tu mensaje suene claro, cálido y memorable.',
+  },
+  {
+    name: 'Lucia',
+    language: 'Spanish',
+    accent: 'Latin American Spanish accent',
+    gender: 'Female',
+    sample: 'Hola, soy Lucia. Puedo ayudarte a crear una narración natural para cualquier audiencia.',
+  },
+  {
+    name: 'Valeria',
+    language: 'Spanish',
+    accent: 'Latin American Spanish accent',
+    gender: 'Female',
+    sample: 'Hola, soy Valeria. Demos vida a tu contenido con una voz expresiva y profesional.',
+  },
+  {
+    name: 'Camila',
+    language: 'Spanish',
+    accent: 'Mexican Spanish accent',
+    gender: 'Female',
+    sample: 'Hola, soy Camila. Tu próxima historia puede sonar fresca, auténtica y fácil de recordar.',
+  },
+  {
+    name: 'Sophie',
+    language: 'English',
+    accent: 'American English accent',
+    gender: 'Female',
+    sample: 'Hi, I am Sophie. I can give your content a warm, confident, and polished voice.',
+  },
+];
+
 const templateLibraryCategories: TemplateLibraryCategory[] = [
   {
     id: 'ai-video',
@@ -460,9 +528,18 @@ const templateLibraryCategories: TemplateLibraryCategory[] = [
     })),
   },
   {
+    id: 'ai-voice',
+    label: 'AI Voice',
+    resultLabel: 'AI Voice templates',
+    icon: AudioLines,
+    filters: [],
+    aspectClass: 'aspect-auto',
+    items: [],
+  },
+  {
     id: 'design',
-    label: 'Collage & Poster',
-    resultLabel: 'Collage & poster templates',
+    label: 'Design',
+    resultLabel: 'Design templates',
     icon: LayoutTemplate,
     filters: ['Marketing', 'Social', 'Planner', 'Creative', 'Moments', 'Festivals'],
     aspectClass: 'aspect-[4/5]',
@@ -488,7 +565,7 @@ const templateLibraryCategories: TemplateLibraryCategory[] = [
   },
 ];
 
-const projectTaskTabs: Array<'All' | ProjectTaskType> = ['All', 'Image', 'Video', 'Audio', 'Agent Sessions', 'Avatar'];
+const projectTaskTabs: Array<'All' | ProjectTaskType> = ['All', 'Image', 'Video', 'Audio', 'Design', 'Agent Sessions', 'Avatar'];
 const uploadTaskTabs: Array<'All' | UploadTaskType> = ['All', 'Image', 'Video', 'Audio'];
 
 const projectToolFilters: Array<'All' | ProjectToolCategory> = [
@@ -500,6 +577,7 @@ const projectToolFilters: Array<'All' | ProjectToolCategory> = [
   'AI Photo Editor',
   'E-commerce Video',
   'AI Avatar',
+  'Design',
   'Background Remover',
 ];
 
@@ -559,6 +637,30 @@ const projectItems: ProjectGalleryItem[] = [
     tool: 'AI Agent',
     updatedAt: 'Jun 04, 19:30',
     fileSize: '2.1 MB',
+  },
+  {
+    title: 'Summer sale poster',
+    description: 'Editable campaign poster with product, offer, and call-to-action layout.',
+    taskType: 'Design',
+    tool: 'Design',
+    updatedAt: 'Jun 04, 18:54',
+    fileSize: '6.8 MB',
+  },
+  {
+    title: 'Product launch story',
+    description: 'Vertical social story design for a new product launch campaign.',
+    taskType: 'Design',
+    tool: 'Design',
+    updatedAt: 'Jun 04, 18:12',
+    fileSize: '5.4 MB',
+  },
+  {
+    title: 'Weekly content planner',
+    description: 'Reusable weekly planning layout for social publishing and approvals.',
+    taskType: 'Design',
+    tool: 'Design',
+    updatedAt: 'Jun 04, 17:46',
+    fileSize: '4.9 MB',
   },
   {
     title: 'Short drama ad shot',
@@ -1015,11 +1117,16 @@ export default function CreationPage() {
             isSidebarCollapsed ? 'md:ml-[84px]' : 'md:ml-[248px]'
           }`}
         >
-          <div className="mx-auto flex w-full min-w-0 max-w-7xl flex-col gap-4">
-            {activeSection === 'home' || activeSection === 'projects' ? null : <PageTitle title={activeMeta.eyebrow} />}
+          {activeSection === 'home' ? null : (
+            <div className="mx-auto mb-3 flex w-full max-w-7xl items-center justify-between gap-3">
+              {activeSection === 'projects' ? <span /> : <PageTitle title={activeMeta.eyebrow} />}
+              <CreationAccountMenu />
+            </div>
+          )}
 
+          <div className="mx-auto flex w-full min-w-0 max-w-7xl flex-col gap-4">
             {activeSection === 'home' ? (
-              <HomePanel onSectionChange={setActiveSection} />
+              <HomePanel onSectionChange={setActiveSection} accountSlot={<CreationAccountMenu />} />
             ) : activeSection === 'tools' ? (
               <ToolsLibraryPanel />
             ) : activeSection === 'templates' ? (
@@ -1039,9 +1146,143 @@ export default function CreationPage() {
   );
 }
 
+function CreationAccountMenu() {
+  const [isCreditsOpen, setIsCreditsOpen] = useState(false);
+  const [isAccountOpen, setIsAccountOpen] = useState(false);
+  const accountMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handlePointerDown = (event: PointerEvent) => {
+      if (accountMenuRef.current && !accountMenuRef.current.contains(event.target as Node)) {
+        setIsAccountOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsAccountOpen(false);
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
+
+  return (
+    <div ref={accountMenuRef} className="relative z-40 flex w-fit items-center justify-end gap-2.5">
+      <div
+        className="relative"
+        onMouseEnter={() => {
+          setIsAccountOpen(false);
+          setIsCreditsOpen(true);
+        }}
+        onMouseLeave={() => setIsCreditsOpen(false)}
+        onFocus={() => setIsCreditsOpen(true)}
+        onBlur={(event) => {
+          if (!(event.relatedTarget instanceof Node) || !event.currentTarget.contains(event.relatedTarget)) {
+            setIsCreditsOpen(false);
+          }
+        }}
+      >
+        <button
+          type="button"
+          aria-label="6,234 credits. Add credits"
+          aria-expanded={isCreditsOpen}
+          className="group flex h-10 items-center gap-2 rounded-full bg-white py-1 pl-3 pr-1.5 text-slate-900 shadow-[0_6px_16px_rgba(15,23,42,0.04)] ring-1 ring-[#eceeef] transition hover:shadow-[0_9px_22px_rgba(15,23,42,0.09)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2fbfc7]"
+        >
+          <Sparkles className="h-5 w-5 shrink-0 fill-current text-[#ff9f17]" strokeWidth={2.4} />
+          <span className="text-lg font-bold leading-none tracking-normal text-[#383d40] tabular-nums">6,234</span>
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#35bdc7] text-white transition group-hover:bg-[#2aafb8]">
+            <Plus className="h-[18px] w-[18px]" strokeWidth={2} />
+          </span>
+        </button>
+
+        <div
+          data-testid="creation-account-hover-card"
+          className={`absolute right-0 top-full w-[min(88vw,300px)] pt-3 transition duration-200 ${
+            isCreditsOpen ? 'visible pointer-events-auto translate-y-0 opacity-100' : 'invisible pointer-events-none translate-y-2 opacity-0'
+          }`}
+        >
+          <div className="overflow-hidden rounded-[20px] bg-white text-left shadow-[0_20px_54px_rgba(15,23,42,0.16)] ring-1 ring-slate-100">
+            <div className="relative h-[112px] overflow-hidden bg-[radial-gradient(circle_at_64%_28%,#fff8d9_0%,#fff3c0_20%,transparent_43%),linear-gradient(110deg,#ffb494_0%,#fff9ec_48%,#ffba70_100%)] px-6 py-6">
+              <span className="absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(255,255,255,0.72)_0%,transparent_32%),radial-gradient(circle_at_82%_76%,rgba(255,255,255,0.46)_0%,transparent_28%)] opacity-80" />
+              <span className="absolute inset-0 opacity-[0.16] [background-image:linear-gradient(90deg,rgba(255,255,255,.5)_1px,transparent_1px),linear-gradient(0deg,rgba(255,255,255,.5)_1px,transparent_1px)] [background-size:3px_3px]" />
+              <div className="relative">
+                <p className="text-base font-semibold leading-none text-[#817b75]">Total purchased credits</p>
+                <div className="mt-5 flex items-center gap-3">
+                  <Sparkles className="h-8 w-8 shrink-0 fill-current text-[#ff9f17]" strokeWidth={2.5} />
+                  <span className="text-[40px] font-bold leading-none tracking-normal text-[#464649] tabular-nums">6,234</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="px-5 py-5">
+              <a href="#" className="flex min-h-8 items-center justify-between gap-4 text-lg font-semibold text-[#50575a] transition hover:text-slate-950">
+                <span>Usage details</span>
+                <ChevronRight className="h-6 w-6 shrink-0" strokeWidth={2.6} />
+              </a>
+              <button
+                type="button"
+                className="mt-5 flex h-12 w-full items-center justify-center rounded-[14px] bg-[#191b1b] px-5 text-lg font-bold leading-none text-white transition hover:bg-slate-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ffb52f] focus-visible:ring-offset-2"
+              >
+                Get more credits
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        aria-label="Open Feng Lin account"
+        aria-haspopup="menu"
+        aria-expanded={isAccountOpen}
+        onClick={() => {
+          setIsCreditsOpen(false);
+          setIsAccountOpen((value) => !value);
+        }}
+        className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-[#fff0bd] ring-1 ring-[#f4e8bf] transition hover:shadow-[0_8px_18px_rgba(15,23,42,0.12)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2fbfc7]"
+      >
+        <img src="/login-hero-woman.png" alt="Feng Lin" className="h-full w-full scale-[1.85] object-cover object-[58%_42%]" />
+      </button>
+
+      <div
+        role="menu"
+        data-testid="creation-profile-menu"
+        className={`absolute right-0 top-full w-[210px] pt-3 transition duration-150 ${
+          isAccountOpen ? 'visible pointer-events-auto translate-y-0 opacity-100' : 'invisible pointer-events-none translate-y-1 opacity-0'
+        }`}
+      >
+        <div className="rounded-[18px] bg-white p-4 text-left shadow-[0_18px_46px_rgba(15,23,42,0.15)] ring-1 ring-slate-100">
+          <p className="truncate text-sm font-semibold text-[#9ca1a3]">demo@photogrid.com</p>
+          <button
+            type="button"
+            role="menuitem"
+            aria-label="Plan, current plan Free"
+            className="mt-3 flex h-10 w-full items-center gap-3 rounded-[8px] px-1 text-base font-semibold text-[#505657] transition hover:bg-slate-50 hover:text-slate-950"
+          >
+            <Crown className="h-6 w-6 shrink-0" strokeWidth={2} />
+            <span>Plan</span>
+            <span className="ml-auto text-sm font-semibold text-[#9ca1a3]">Free</span>
+          </button>
+          <button type="button" role="menuitem" className="mt-1 flex h-10 w-full items-center gap-3 rounded-[8px] px-1 text-base font-semibold text-[#505657] transition hover:bg-slate-50 hover:text-slate-950">
+            <Settings className="h-6 w-6 shrink-0" strokeWidth={2} />
+            <span>Settings</span>
+          </button>
+          <button type="button" role="menuitem" className="mt-1 flex h-10 w-full items-center gap-3 rounded-[8px] px-1 text-base font-semibold text-[#505657] transition hover:bg-slate-50 hover:text-slate-950">
+            <LogOut className="h-6 w-6 shrink-0" strokeWidth={2} />
+            <span>Log out</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function PageTitle({ title }: { title: string }) {
   return (
-    <header className="-mb-1 flex items-center">
+    <header className="flex min-w-0 items-center">
       <h1 className="text-[15px] font-semibold tracking-tight text-slate-950">{title}</h1>
     </header>
   );
@@ -1057,10 +1298,13 @@ function SectionHeader({ eyebrow, title, description }: { eyebrow: string; title
   );
 }
 
-function HomePanel({ onSectionChange }: { onSectionChange: (section: SectionId) => void }) {
+function HomePanel({ onSectionChange, accountSlot }: { onSectionChange: (section: SectionId) => void; accountSlot?: ReactNode }) {
   return (
     <div className="grid min-w-0 gap-5">
-      <AgentEntryPrototype />
+      <div className="relative min-w-0">
+        {accountSlot ? <div className="mb-4 flex justify-end 2xl:absolute 2xl:right-0 2xl:top-0 2xl:mb-0">{accountSlot}</div> : null}
+        <AgentEntryPrototype />
+      </div>
       <OperationsBlock />
       <HomeToolsBlock onSectionChange={onSectionChange} />
       <TemplateShowcaseBlocks />
@@ -1297,6 +1541,7 @@ function TemplatesLibraryPanel() {
   const [activeCategoryId, setActiveCategoryId] = useState<TemplateLibraryCategoryId>('ai-video');
   const [activeFilter, setActiveFilter] = useState('All');
   const [query, setQuery] = useState('');
+  const [selectedTemplate, setSelectedTemplate] = useState<{ item: TemplateLibraryItem; category: TemplateLibraryCategory } | null>(null);
   const activeCategory = templateLibraryCategories.find((category) => category.id === activeCategoryId) ?? templateLibraryCategories[0];
   const normalizedQuery = query.trim().toLowerCase();
   const filteredItems = activeCategory.items.filter((item) => {
@@ -1309,11 +1554,12 @@ function TemplatesLibraryPanel() {
     setActiveCategoryId(category.id);
     setActiveFilter('All');
     setQuery('');
+    setSelectedTemplate(null);
   };
 
   return (
-    <section className="min-w-0 pb-8" aria-labelledby="template-results-title">
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5" role="tablist" aria-label="Template types">
+    <section className="min-w-0 pb-8" aria-label="Templates">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6" role="tablist" aria-label="Template types">
         {templateLibraryCategories.map((category) => {
           const Icon = category.icon;
           const isActive = category.id === activeCategory.id;
@@ -1340,6 +1586,10 @@ function TemplatesLibraryPanel() {
         })}
       </div>
 
+      {activeCategory.id === 'ai-voice' ? (
+        <VoiceTemplateLibrary />
+      ) : (
+        <>
       <div className="mt-4 flex min-w-0 flex-col gap-3 border-b border-slate-200 pb-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex min-w-0 gap-1.5 overflow-x-auto pb-1 scrollbar-hide" role="tablist" aria-label={`${activeCategory.label} categories`}>
           {['All', ...activeCategory.filters].map((filter) => (
@@ -1370,21 +1620,20 @@ function TemplatesLibraryPanel() {
         </label>
       </div>
 
-      <div className="mb-3 mt-5 flex items-end justify-between gap-3">
-        <div>
-          <h2 id="template-results-title" className="text-xl font-semibold tracking-tight text-slate-950">{activeCategory.resultLabel}</h2>
-          <p className="mt-1 text-xs text-slate-400">{filteredItems.length} templates</p>
-        </div>
-      </div>
-
       {filteredItems.length ? (
-        <div className="min-w-0 columns-2 gap-3 sm:columns-3 lg:columns-4 xl:columns-5">
+        <div className="mt-5 min-w-0 columns-2 gap-3 sm:columns-3 lg:columns-4 xl:columns-5">
           {filteredItems.map((item, index) => (
-            <TemplateLibraryCard key={`${activeCategory.id}-${item.title}`} item={item} category={activeCategory} index={index} />
+            <TemplateLibraryCard
+              key={`${activeCategory.id}-${item.title}`}
+              item={item}
+              category={activeCategory}
+              index={index}
+              onOpen={() => setSelectedTemplate({ item, category: activeCategory })}
+            />
           ))}
         </div>
       ) : (
-        <div className="flex min-h-[280px] flex-col items-center justify-center rounded-[12px] bg-slate-50 text-center ring-1 ring-slate-200">
+        <div className="mt-5 flex min-h-[280px] flex-col items-center justify-center rounded-[12px] bg-slate-50 text-center ring-1 ring-slate-200">
           <Search className="h-6 w-6 text-slate-300" />
           <p className="mt-3 text-sm font-semibold text-slate-700">No templates found</p>
           <button
@@ -1399,7 +1648,203 @@ function TemplatesLibraryPanel() {
           </button>
         </div>
       )}
+      {selectedTemplate ? (
+        <TemplateDetailModal
+          item={selectedTemplate.item}
+          category={selectedTemplate.category}
+          onClose={() => setSelectedTemplate(null)}
+        />
+      ) : null}
+        </>
+      )}
     </section>
+  );
+}
+
+function VoiceTemplateLibrary() {
+  const [language, setLanguage] = useState('All');
+  const [accent, setAccent] = useState('All');
+  const [gender, setGender] = useState('All');
+  const [voiceQuery, setVoiceQuery] = useState('');
+  const [selectedVoiceName, setSelectedVoiceName] = useState('Ethan');
+  const [playingVoiceName, setPlayingVoiceName] = useState<string | null>(null);
+  const accents = Array.from(new Set(voiceTemplates.map((voice) => voice.accent)));
+  const normalizedVoiceQuery = voiceQuery.trim().toLowerCase();
+  const filteredVoices = voiceTemplates.filter((voice) => {
+    const matchesLanguage = language === 'All' || voice.language === language;
+    const matchesAccent = accent === 'All' || voice.accent === accent;
+    const matchesGender = gender === 'All' || voice.gender === gender;
+    const matchesQuery = !normalizedVoiceQuery || `${voice.name} ${voice.language} ${voice.accent} ${voice.gender}`.toLowerCase().includes(normalizedVoiceQuery);
+    return matchesLanguage && matchesAccent && matchesGender && matchesQuery;
+  });
+
+  useEffect(() => {
+    return () => {
+      window.speechSynthesis?.cancel();
+    };
+  }, []);
+
+  const toggleVoicePlayback = (voice: VoiceTemplate) => {
+    if (!('speechSynthesis' in window)) return;
+
+    if (playingVoiceName === voice.name) {
+      window.speechSynthesis.cancel();
+      setPlayingVoiceName(null);
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(voice.sample);
+    utterance.lang = voice.language === 'Spanish' ? 'es-MX' : 'en-US';
+    utterance.pitch = voice.gender === 'Female' ? 1.08 : 0.94;
+    utterance.rate = 0.95;
+    const languagePrefix = voice.language === 'Spanish' ? 'es' : 'en';
+    const matchingVoice = window.speechSynthesis.getVoices().find((candidate) => candidate.lang.toLowerCase().startsWith(languagePrefix));
+    if (matchingVoice) utterance.voice = matchingVoice;
+    utterance.onend = () => setPlayingVoiceName((current) => (current === voice.name ? null : current));
+    utterance.onerror = () => setPlayingVoiceName((current) => (current === voice.name ? null : current));
+    setSelectedVoiceName(voice.name);
+    setPlayingVoiceName(voice.name);
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const selectClassName = "h-10 w-full appearance-none rounded-[10px] bg-white px-3 pr-9 text-sm font-medium text-slate-600 outline-none ring-1 ring-slate-200 transition hover:ring-slate-300 focus:ring-2 focus:ring-[#35c3cb]";
+
+  return (
+    <div className="mt-4 min-w-0">
+      <div className="grid min-w-0 gap-3 border-b border-slate-200 pb-4 sm:grid-cols-2 xl:grid-cols-[160px_160px_160px_minmax(220px,1fr)]">
+        <label className="relative block">
+          <span className="sr-only">Language</span>
+          <select value={language} onChange={(event) => setLanguage(event.target.value)} className={selectClassName}>
+            <option value="All">Language</option>
+            <option value="English">English</option>
+            <option value="Spanish">Spanish</option>
+          </select>
+          <ChevronRight className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 rotate-90 text-slate-400" />
+        </label>
+
+        <label className="relative block">
+          <span className="sr-only">Accents</span>
+          <select value={accent} onChange={(event) => setAccent(event.target.value)} className={selectClassName}>
+            <option value="All">Accents</option>
+            {accents.map((item) => <option key={item} value={item}>{item}</option>)}
+          </select>
+          <ChevronRight className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 rotate-90 text-slate-400" />
+        </label>
+
+        <label className="relative block">
+          <span className="sr-only">Gender</span>
+          <select value={gender} onChange={(event) => setGender(event.target.value)} className={selectClassName}>
+            <option value="All">Gender</option>
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+          </select>
+          <ChevronRight className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 rotate-90 text-slate-400" />
+        </label>
+
+        <label className="relative block sm:col-span-2 xl:col-span-1 xl:ml-auto xl:w-[320px]">
+          <span className="sr-only">Search voices</span>
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input
+            type="search"
+            value={voiceQuery}
+            onChange={(event) => setVoiceQuery(event.target.value)}
+            placeholder="Search voices..."
+            className="h-10 w-full rounded-[10px] bg-white pl-9 pr-3 text-sm text-slate-800 outline-none ring-1 ring-slate-200 transition placeholder:text-slate-400 hover:ring-slate-300 focus:ring-2 focus:ring-[#35c3cb]"
+          />
+        </label>
+      </div>
+
+      {filteredVoices.length ? (
+        <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3" role="listbox" aria-label="AI voices">
+          {filteredVoices.map((voice) => {
+            const isSelected = selectedVoiceName === voice.name;
+            const isPlaying = playingVoiceName === voice.name;
+            return (
+              <article
+                key={voice.name}
+                role="option"
+                aria-selected={isSelected}
+                tabIndex={0}
+                onClick={() => setSelectedVoiceName(voice.name)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    setSelectedVoiceName(voice.name);
+                  }
+                }}
+                className={`relative h-[130px] cursor-pointer rounded-[14px] p-4 outline-none transition ${
+                  isSelected
+                    ? 'bg-cyan-50 ring-2 ring-[#42c6d0] shadow-[0_8px_22px_rgba(47,191,199,0.08)]'
+                    : 'bg-slate-50 ring-1 ring-slate-200 hover:bg-white hover:shadow-[0_8px_22px_rgba(15,23,42,0.06)] focus-visible:ring-2 focus-visible:ring-[#42c6d0]'
+                }`}
+              >
+                <div className="flex min-w-0 items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 className="truncate text-base font-semibold text-slate-950">{voice.name}</h3>
+                    <div className="mt-2 flex min-w-0 flex-wrap gap-1">
+                      <span className="max-w-full truncate rounded-[4px] bg-slate-200/70 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">{voice.accent}</span>
+                      {voice.hideGenderTag ? null : (
+                        <span className="rounded-[4px] bg-slate-200/70 px-1.5 py-0.5 text-[10px] font-medium lowercase text-slate-500">{voice.gender}</span>
+                      )}
+                    </div>
+                  </div>
+                  {isSelected ? (
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#35c3cb] text-white">
+                      <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
+                    </span>
+                  ) : null}
+                </div>
+
+                <div className="absolute inset-x-4 bottom-4 flex items-center gap-4">
+                  <button
+                    type="button"
+                    aria-label={`${isPlaying ? 'Pause' : 'Play'} ${voice.name} voice sample`}
+                    aria-pressed={isPlaying}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      toggleVoicePlayback(voice);
+                    }}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#45c7d1] text-white transition hover:bg-[#31b7c1] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#35c3cb] focus-visible:ring-offset-2"
+                  >
+                    {isPlaying ? <Pause className="h-4 w-4 fill-current" /> : <Play className="ml-0.5 h-4 w-4 fill-current" />}
+                  </button>
+                  <div className="flex h-7 min-w-0 flex-1 items-center gap-[3px] overflow-hidden" aria-hidden="true">
+                    {Array.from({ length: 24 }, (_, index) => {
+                      const height = 6 + ((index * 7 + voice.name.length * 5) % 19);
+                      return (
+                        <span
+                          key={index}
+                          className={`w-0.5 shrink-0 rounded-full transition ${isPlaying ? 'animate-pulse bg-[#35c3cb]' : 'bg-slate-300'}`}
+                          style={{ height }}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="mt-5 flex min-h-[240px] flex-col items-center justify-center rounded-[14px] bg-slate-50 text-center ring-1 ring-slate-200">
+          <AudioLines className="h-7 w-7 text-slate-300" />
+          <p className="mt-3 text-sm font-semibold text-slate-700">No voices found</p>
+          <button
+            type="button"
+            onClick={() => {
+              setLanguage('All');
+              setAccent('All');
+              setGender('All');
+              setVoiceQuery('');
+            }}
+            className="mt-3 text-sm font-semibold text-[#2fbfc7]"
+          >
+            Clear filters
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -1408,19 +1853,32 @@ const templateMasonryAspects: Record<TemplateLibraryCategoryId, string[]> = {
   'ai-image': ['aspect-square', 'aspect-[4/5]', 'aspect-[3/4]', 'aspect-[5/4]', 'aspect-[2/3]'],
   'ecommerce-video': ['aspect-[4/5]', 'aspect-[3/4]', 'aspect-[2/3]', 'aspect-[5/6]'],
   avatar: ['aspect-[3/4]', 'aspect-[2/3]', 'aspect-[4/5]', 'aspect-[5/6]'],
+  'ai-voice': ['aspect-square'],
   design: ['aspect-[4/5]', 'aspect-[3/4]', 'aspect-[2/3]', 'aspect-[5/4]'],
 };
 
-function TemplateLibraryCard({ item, category, index }: { item: TemplateLibraryItem; category: TemplateLibraryCategory; index: number }) {
+function TemplateLibraryCard({
+  item,
+  category,
+  index,
+  onOpen,
+}: {
+  item: TemplateLibraryItem;
+  category: TemplateLibraryCategory;
+  index: number;
+  onOpen: () => void;
+}) {
   const aspectClass = templateMasonryAspects[category.id][index % templateMasonryAspects[category.id].length];
 
   return (
     <article className="group mb-3 inline-block w-full break-inside-avoid align-top">
-      <a
-        href="#"
-        className={`relative block w-full ${aspectClass} overflow-hidden rounded-[10px] bg-slate-100 ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:shadow-[0_14px_30px_rgba(15,23,42,0.12)]`}
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-label={`View ${item.title} details`}
+        className={`relative block w-full ${aspectClass} overflow-hidden rounded-[10px] bg-slate-100 text-left ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:shadow-[0_14px_30px_rgba(15,23,42,0.12)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2fbfc7]`}
       >
-        <img src={item.image} alt="" className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+        <img src={item.image} alt={item.title} className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105" />
         <span className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-slate-950/10 to-transparent opacity-0 transition group-hover:opacity-100" />
         {item.duration ? (
           <span className="absolute right-2.5 top-2.5 rounded-full bg-slate-950/60 px-2 py-1 text-[10px] font-semibold text-white backdrop-blur-sm">
@@ -1432,11 +1890,399 @@ function TemplateLibraryCard({ item, category, index }: { item: TemplateLibraryI
         </h3>
         <div className="absolute inset-x-3 bottom-3 translate-y-3 opacity-0 transition group-hover:translate-y-0 group-hover:opacity-100">
           <span className="flex h-9 items-center justify-center rounded-[8px] bg-white text-xs font-semibold text-slate-950 shadow-lg">
-            Use template
+            View details
           </span>
         </div>
-      </a>
+      </button>
     </article>
+  );
+}
+
+function TemplateDetailModal({
+  item,
+  category,
+  onClose,
+}: {
+  item: TemplateLibraryItem;
+  category: TemplateLibraryCategory;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [onClose]);
+
+  const relatedItems = category.items.filter((candidate) => candidate.title !== item.title).slice(0, 4);
+
+  if (category.id === 'ecommerce-video') {
+    return <EcommerceVideoTemplateDetailModal item={item} onClose={onClose} />;
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/30 p-3 backdrop-blur-sm sm:p-5"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${item.title} template details`}
+      onClick={onClose}
+    >
+      <div
+        className="max-h-[92vh] w-full max-w-6xl overflow-y-auto rounded-[18px] bg-white p-4 shadow-[0_28px_90px_rgba(15,23,42,0.24)] sm:p-5"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <header className="mb-4 flex min-w-0 items-center gap-3 border-b border-slate-100 pb-4">
+          <h2 className="min-w-0 flex-1 truncate text-lg font-semibold text-slate-950">{item.title}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close template details"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-950"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </header>
+
+        {category.id === 'ai-video' ? (
+          <VideoTemplateDetail item={item} relatedItems={relatedItems} />
+        ) : category.id === 'ai-image' ? (
+          <ImageTemplateDetail item={item} relatedItems={relatedItems} />
+        ) : category.id === 'avatar' ? (
+          <AvatarTemplateDetail item={item} relatedItems={relatedItems} />
+        ) : (
+          <DesignTemplateDetail item={item} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function EcommerceVideoTemplateDetailModal({ item, onClose }: { item: TemplateLibraryItem; onClose: () => void }) {
+  const videoDetails = [
+    ['Video Type', item.filter === 'UGC Review' ? 'UGC Ad' : item.filter],
+    ['Product Name', item.title],
+    ['Spoken Language', 'Auto'],
+    ['Target Audience', 'Auto'],
+    ['Usage Scene', 'Auto'],
+  ];
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/30 p-2 backdrop-blur-sm sm:p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${item.title} e-commerce video details`}
+      onClick={onClose}
+    >
+      <div
+        className="max-h-[96vh] w-full max-w-[1064px] overflow-y-auto rounded-[18px] bg-white p-4 text-slate-950 shadow-[0_28px_90px_rgba(15,23,42,0.24)] ring-1 ring-slate-200 sm:p-5"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <header className="mb-4 flex min-w-0 items-center gap-3">
+          <h2 className="min-w-0 flex-1 truncate text-base font-semibold text-slate-950">{item.title}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close e-commerce video details"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4ac4ce]"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </header>
+
+        <div className="grid min-w-0 gap-4 lg:h-[min(74vh,620px)] lg:grid-cols-[minmax(0,1fr)_280px]">
+          <section className="flex min-h-[430px] items-center justify-center overflow-hidden rounded-[14px] bg-slate-100 ring-1 ring-slate-200">
+            <div className="relative h-full max-h-[620px] w-auto max-w-full aspect-[9/16] overflow-hidden bg-white">
+              <img src={item.image} alt={`${item.title} video preview`} className="h-full w-full object-cover" />
+            </div>
+          </section>
+
+          <aside className="flex min-h-[430px] min-w-0 flex-col gap-4">
+            <div className="overflow-hidden rounded-[12px] bg-slate-50 ring-1 ring-slate-200">
+              <section className="p-3">
+                <h3 className="text-[11px] font-medium text-slate-400">References</h3>
+                <div className="mt-3 h-12 w-12 overflow-hidden rounded-[7px] bg-white ring-1 ring-slate-200">
+                  <img src={item.image} alt={`${item.title} reference`} className="h-full w-full object-cover" />
+                </div>
+              </section>
+
+              <div className="border-t border-slate-200 px-3 py-3">
+                {videoDetails.map(([label, value]) => (
+                  <div key={label} className="grid grid-cols-[100px_minmax(0,1fr)] gap-3 py-1.5 text-[12px] leading-4">
+                    <span className="text-slate-400">{label}</span>
+                    <span className="truncate text-right font-medium text-slate-700" title={value}>{value}</span>
+                  </div>
+                ))}
+              </div>
+
+              <section className="border-t border-slate-200 p-3">
+                <h3 className="text-[12px] font-medium text-slate-400">Product Benefit</h3>
+                <p className="mt-2 text-[12px] leading-[1.45] text-slate-600">
+                  Present {item.title.toLowerCase()} with a clear product hook, relatable everyday context, and concise benefits that help viewers understand why it belongs in their routine.
+                </p>
+              </section>
+            </div>
+
+            <button
+              type="button"
+              className="mt-auto flex h-12 w-full items-center justify-center rounded-[10px] bg-[#49c2cc] text-sm font-semibold text-white transition hover:bg-[#3bb4be] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#35c3cb] focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+            >
+              Recreate
+            </button>
+          </aside>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function VideoTemplateDetail({
+  item,
+  relatedItems,
+}: {
+  item: TemplateLibraryItem;
+  relatedItems: TemplateLibraryItem[];
+}) {
+  const setupDetails = [
+    ['Style', item.filter],
+    ['Duration', item.duration ?? '12s'],
+    ['Motion', 'Dynamic'],
+    ['Aspect ratio', '9:16'],
+  ];
+
+  return (
+    <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_350px]">
+      <section className="flex min-h-[500px] items-center justify-center overflow-hidden rounded-[14px] bg-slate-100 p-4 ring-1 ring-slate-200">
+        <div className="group/preview relative aspect-video w-full overflow-hidden rounded-[12px] bg-white shadow-sm">
+          <img src={item.image} alt={item.title} className="absolute inset-0 h-full w-full object-cover" />
+          <span className="absolute inset-0 bg-slate-950/10" />
+          <button
+            type="button"
+            aria-label={`Play ${item.title} preview`}
+            className="absolute left-1/2 top-1/2 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white/92 text-slate-950 shadow-[0_12px_30px_rgba(15,23,42,0.2)] transition hover:scale-105"
+          >
+            <Play className="ml-0.5 h-6 w-6 fill-current" />
+          </button>
+          <span className="absolute bottom-3 right-3 rounded-full bg-slate-950/60 px-2.5 py-1 text-xs font-semibold text-white backdrop-blur-sm">
+            {item.duration ?? '15s'}
+          </span>
+        </div>
+      </section>
+
+      <aside className="flex min-h-0 min-w-0 flex-col rounded-[14px] bg-slate-50 p-3 ring-1 ring-slate-200">
+        <h3 className="text-sm font-semibold text-slate-950">Prompt</h3>
+        <div className="mt-3 flex gap-2">
+          {[item, ...relatedItems.slice(0, 3)].map((reference) => (
+            <span key={reference.title} className="h-10 w-10 overflow-hidden rounded-[8px] bg-white ring-1 ring-slate-200">
+              <img src={reference.image} alt={reference.title} className="h-full w-full object-cover" />
+            </span>
+          ))}
+        </div>
+
+        <div className="mt-3 min-h-[230px] flex-1 overflow-y-auto rounded-[10px] bg-white p-3 text-sm leading-6 text-slate-700 ring-1 ring-slate-200">
+          <p><span className="block font-semibold text-slate-950">[Duration]</span>{item.duration ?? '15s'}</p>
+          <p className="mt-2"><span className="block font-semibold text-slate-950">[Video Style & Type]</span>{item.filter} creative video</p>
+          <p className="mt-2"><span className="block font-semibold text-slate-950">[Structure]</span>Establish the scene, build the visual transformation, and finish with a strong reveal.</p>
+          <p className="mt-2"><span className="block font-semibold text-slate-950">[Visual Direction]</span>Keep the subject clear, use controlled camera movement, and preserve the pacing shown in the preview.</p>
+        </div>
+
+        <div className="mt-3 rounded-[10px] bg-white p-3 ring-1 ring-slate-200">
+          {setupDetails.map(([label, value]) => (
+            <div key={label} className="grid grid-cols-[88px_minmax(0,1fr)] gap-2 py-1 text-xs">
+              <span className="font-semibold text-slate-400">{label}</span>
+              <span className="truncate font-medium text-slate-700">{value}</span>
+            </div>
+          ))}
+        </div>
+
+        <button type="button" className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-[9px] bg-[#35c3cb] text-sm font-semibold text-white transition hover:bg-[#29b7bf]">
+          <Video className="h-4 w-4" />
+          Use video template
+        </button>
+      </aside>
+    </div>
+  );
+}
+
+function ImageTemplateDetail({ item, relatedItems }: { item: TemplateLibraryItem; relatedItems: TemplateLibraryItem[] }) {
+  return (
+    <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <section className="flex min-h-[560px] items-center justify-center rounded-[14px] bg-slate-100 p-5 ring-1 ring-slate-200">
+        <img src={item.image} alt={item.title} className="max-h-[650px] w-auto max-w-full rounded-[12px] object-contain shadow-[0_16px_38px_rgba(15,23,42,0.14)]" />
+      </section>
+      <aside className="flex min-h-0 min-w-0 flex-col rounded-[14px] bg-slate-50 p-3 ring-1 ring-slate-200">
+        <h3 className="text-sm font-semibold text-slate-950">Prompt</h3>
+        <div className="mt-3 flex gap-2">
+          {[item, ...relatedItems.slice(0, 3)].map((reference) => (
+            <span key={reference.title} className="h-10 w-10 overflow-hidden rounded-[8px] bg-white ring-1 ring-slate-200">
+              <img src={reference.image} alt={reference.title} className="h-full w-full object-cover" />
+            </span>
+          ))}
+        </div>
+
+        <div className="mt-3 min-h-[250px] flex-1 overflow-y-auto rounded-[10px] bg-white p-3 text-sm leading-6 text-slate-700 ring-1 ring-slate-200">
+          <p><span className="block font-semibold text-slate-950">[Style]</span>{item.filter}</p>
+          <p className="mt-2"><span className="block font-semibold text-slate-950">[Composition]</span>Follow the subject placement, framing, negative space, and visual hierarchy shown in the reference.</p>
+          <p className="mt-2"><span className="block font-semibold text-slate-950">[Lighting & Color]</span>Reuse the lighting direction, contrast, palette, and material treatment while preserving the new subject.</p>
+          <p className="mt-2"><span className="block font-semibold text-slate-950">[Output]</span>Produce a clean, high-quality image suitable for further editing.</p>
+        </div>
+
+        <div className="mt-3 rounded-[10px] bg-white p-3 ring-1 ring-slate-200">
+          {[
+            ['Model', 'Auto'],
+            ['Aspect', '1:1'],
+            ['Quality', 'High'],
+            ['Type', 'Image'],
+          ].map(([label, value]) => (
+            <div key={label} className="grid grid-cols-[76px_minmax(0,1fr)] gap-2 py-1 text-xs">
+              <span className="font-semibold text-slate-400">{label}</span>
+              <span className="truncate font-medium text-slate-700">{value}</span>
+            </div>
+          ))}
+        </div>
+
+        <button type="button" className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-[9px] bg-[#35c3cb] text-sm font-semibold text-white transition hover:bg-[#29b7bf]">
+          <Sparkles className="h-4 w-4" />
+          Use this style
+        </button>
+      </aside>
+    </div>
+  );
+}
+
+function AvatarTemplateDetail({ item, relatedItems }: { item: TemplateLibraryItem; relatedItems: TemplateLibraryItem[] }) {
+  const viewImages = [item, ...relatedItems.slice(0, 3)];
+
+  return (
+    <div className="grid min-w-0 gap-5 lg:grid-cols-[380px_minmax(0,1fr)]">
+      <section className="rounded-[14px] bg-slate-50 p-4 ring-1 ring-slate-200">
+        <h3 className="mb-3 text-sm font-semibold text-slate-500">Base Image</h3>
+        <div className="relative h-[520px] overflow-hidden rounded-[12px] bg-white">
+          <img src={item.image} alt={item.title} className="h-full w-full object-cover" />
+        </div>
+      </section>
+
+      <div className="flex min-w-0 flex-col gap-4">
+        <section className="rounded-[14px] bg-slate-50 p-4 ring-1 ring-slate-200">
+          <h3 className="text-sm font-semibold text-slate-500">Body Three Views</h3>
+          <div className="mt-3 overflow-hidden rounded-[12px] bg-white ring-1 ring-slate-200">
+            <div className="grid h-[310px] grid-cols-4">
+              {viewImages.map((view, index) => (
+                <div key={`${view.title}-${index}`} className="relative overflow-hidden border-r border-slate-100 last:border-r-0">
+                  <img src={view.image} alt={`${item.title} ${['portrait', 'front', 'side', 'back'][index]} view`} className="h-full w-full object-cover" />
+                  <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/45 to-transparent px-2 pb-2 pt-8 text-center text-[11px] font-semibold text-white">
+                    {['Portrait', 'Front', 'Side', 'Back'][index]}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="rounded-[14px] bg-slate-50 p-4 ring-1 ring-slate-200">
+          <h3 className="text-sm font-semibold text-slate-500">Voice</h3>
+          <div className="mt-3 flex items-center gap-3 rounded-[12px] bg-white p-3 ring-1 ring-slate-200">
+            <button type="button" aria-label={`Play ${item.title} voice`} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#49ccd4] text-white">
+              <Play className="ml-0.5 h-4 w-4 fill-current" />
+            </button>
+            <div className="flex h-8 min-w-0 flex-1 items-center gap-1 overflow-hidden">
+              {[14, 23, 17, 28, 19, 31, 16, 25, 20, 29, 18, 24, 15, 27, 19, 30, 17, 22, 16, 26].map((height, index) => (
+                <span key={`${height}-${index}`} className="w-1 shrink-0 rounded-full bg-slate-300" style={{ height }} />
+              ))}
+            </div>
+            <span className="text-xs font-semibold text-slate-700">Natural</span>
+          </div>
+        </section>
+
+        <div className="mt-auto grid gap-2 sm:grid-cols-2">
+          <button type="button" className="flex h-11 items-center justify-center gap-2 rounded-[9px] bg-slate-100 text-sm font-semibold text-slate-700 transition hover:bg-slate-200">
+            <UserRound className="h-4 w-4" />
+            Use avatar
+          </button>
+          <button type="button" className="flex h-11 items-center justify-center gap-2 rounded-[9px] bg-[#35c3cb] text-sm font-semibold text-white transition hover:bg-[#29b7bf]">
+            <Video className="h-4 w-4" />
+            Generate video
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DesignTemplateDetail({ item }: { item: TemplateLibraryItem }) {
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const isSocial = item.filter === 'Social' || item.title.toLowerCase().includes('story');
+  const canvasSize = isSocial ? '1080*1920' : item.filter === 'Planner' ? '2480*3508' : '2458*3072';
+  const description = item.title === 'Back to School Poster'
+    ? 'Bright and playful back-to-school poster design featuring bold typography and school supply illustrations. Perfect for creating announcements, classroom decorations, or social media posts.'
+    : `A polished ${item.filter.toLowerCase()} design with an editable layout, clear visual hierarchy, and reusable creative elements for campaigns, social posts, and branded content.`;
+  const categories = ['advertising', 'art', 'artwork', 'creativity', 'decoration', 'design', 'display', 'graphics', 'illustration', 'Ins posts', 'marketing'];
+
+  return (
+    <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <section className="flex min-h-[570px] items-center justify-center rounded-[14px] bg-slate-50 p-6 ring-1 ring-slate-200">
+        <div className={`relative overflow-hidden bg-white shadow-[0_14px_34px_rgba(15,23,42,0.12)] ${isSocial ? 'aspect-[9/16] h-[520px]' : 'aspect-[4/5] h-[520px]'}`}>
+          <img src={item.image} alt={item.title} className="h-full w-full object-cover" />
+        </div>
+      </section>
+
+      <aside className="flex min-w-0 flex-col pb-1">
+        <p className={`text-sm leading-6 text-slate-600 ${isDescriptionExpanded ? '' : 'line-clamp-3'}`}>{description}</p>
+        <button
+          type="button"
+          aria-expanded={isDescriptionExpanded}
+          onClick={() => setIsDescriptionExpanded((value) => !value)}
+          className="mt-2 flex w-fit items-center gap-1 text-sm font-semibold text-[#20b7c0] transition hover:text-[#169da5]"
+        >
+          {isDescriptionExpanded ? 'Less' : 'More'}
+          <ChevronRight className={`h-4 w-4 transition ${isDescriptionExpanded ? '-rotate-90' : 'rotate-90'}`} />
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            window.location.href = `/editor?template=${encodeURIComponent(item.title)}&source=creation-template`;
+          }}
+          className="mt-6 flex h-12 w-full items-center justify-center gap-2 rounded-[9px] bg-[#35bec8] text-sm font-semibold text-white transition hover:bg-[#29afb8] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#35c3cb] focus-visible:ring-offset-2"
+        >
+          <PenTool className="h-4 w-4" />
+          Edit now
+        </button>
+
+        <section className="mt-7">
+          <h3 className="text-lg font-semibold text-slate-950">Template Details</h3>
+          <dl className="mt-4 grid gap-3 text-sm">
+            <div className="grid grid-cols-[72px_minmax(0,1fr)] gap-2">
+              <dt className="font-semibold text-slate-400">Size:</dt>
+              <dd className="font-medium text-slate-700">{canvasSize}</dd>
+            </div>
+            <div className="grid grid-cols-[72px_minmax(0,1fr)] gap-2">
+              <dt className="font-semibold text-slate-400">Images:</dt>
+              <dd className="font-medium text-slate-700">1</dd>
+            </div>
+          </dl>
+        </section>
+
+        <section className="mt-8">
+          <h3 className="text-lg font-semibold text-slate-950">Relevant Categories</h3>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {categories.map((category) => (
+              <span key={category} className="rounded-full bg-slate-100 px-3 py-2 text-xs font-medium text-slate-600">
+                {category}
+              </span>
+            ))}
+          </div>
+        </section>
+      </aside>
+    </div>
   );
 }
 
@@ -1562,7 +2408,11 @@ function ProjectsPanel({ onSectionChange }: { onSectionChange: (section: Section
   const shouldShowProjectToolFilters = activeTaskType !== 'Agent Sessions' && activeTaskType !== 'Avatar';
   const toggleProjectSelection = (project: ProjectGalleryItem) => {
     const key = getGalleryItemKey(project);
-    setSelectedProjectKeys((current) => (current.includes(key) ? current.filter((item) => item !== key) : [...current, key]));
+    setSelectedProjectKeys((current) => {
+      const next = current.includes(key) ? current.filter((item) => item !== key) : [...current, key];
+      setIsProjectSelectionMode(next.length > 0);
+      return next;
+    });
   };
   const clearProjectSelection = () => {
     setIsProjectSelectionMode(false);
@@ -1570,7 +2420,11 @@ function ProjectsPanel({ onSectionChange }: { onSectionChange: (section: Section
   };
   const toggleUploadSelection = (project: ProjectGalleryItem) => {
     const key = getGalleryItemKey(project);
-    setSelectedUploadKeys((current) => (current.includes(key) ? current.filter((item) => item !== key) : [...current, key]));
+    setSelectedUploadKeys((current) => {
+      const next = current.includes(key) ? current.filter((item) => item !== key) : [...current, key];
+      setIsUploadSelectionMode(next.length > 0);
+      return next;
+    });
   };
   const clearUploadSelection = () => {
     setIsUploadSelectionMode(false);
@@ -1588,6 +2442,11 @@ function ProjectsPanel({ onSectionChange }: { onSectionChange: (section: Section
       window.requestAnimationFrame(() => {
         document.getElementById('agent-entry')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       });
+      return;
+    }
+
+    if (project.taskType === 'Design') {
+      window.location.href = `/editor?source=creation-project&project=${encodeURIComponent(project.title)}`;
       return;
     }
 
@@ -1650,10 +2509,6 @@ function ProjectsPanel({ onSectionChange }: { onSectionChange: (section: Section
             <SelectionActions
               isSelecting={isProjectSelectionMode}
               selectedCount={selectedProjectKeys.length}
-              onStart={() => {
-                setIsProjectSelectionMode(true);
-                setOpenProjectMenu(null);
-              }}
               onCancel={clearProjectSelection}
               onAction={clearProjectSelection}
             />
@@ -1661,10 +2516,6 @@ function ProjectsPanel({ onSectionChange }: { onSectionChange: (section: Section
             <SelectionActions
               isSelecting={isUploadSelectionMode}
               selectedCount={selectedUploadKeys.length}
-              onStart={() => {
-                setIsUploadSelectionMode(true);
-                setOpenUploadMenu(null);
-              }}
               onCancel={clearUploadSelection}
               onAction={clearUploadSelection}
             />
@@ -2147,26 +2998,16 @@ function ViewModePopover({
 function SelectionActions({
   isSelecting,
   selectedCount,
-  onStart,
   onCancel,
   onAction,
 }: {
   isSelecting: boolean;
   selectedCount: number;
-  onStart: () => void;
   onCancel: () => void;
   onAction: () => void;
 }) {
   if (!isSelecting) {
-    return (
-      <button
-        type="button"
-        onClick={onStart}
-        className="ml-auto h-8 rounded-full bg-slate-100 px-3 text-xs font-semibold text-slate-600 transition hover:bg-slate-200 hover:text-slate-950"
-      >
-        Select
-      </button>
-    );
+    return null;
   }
 
   return (
@@ -2197,7 +3038,7 @@ function SelectionActions({
   );
 }
 
-function SelectionCheckbox({ isSelected, onToggle }: { isSelected: boolean; onToggle: () => void }) {
+function SelectionCheckbox({ isSelected, isSelecting, onToggle }: { isSelected: boolean; isSelecting: boolean; onToggle: () => void }) {
   return (
     <button
       type="button"
@@ -2208,7 +3049,9 @@ function SelectionCheckbox({ isSelected, onToggle }: { isSelected: boolean; onTo
       }}
       onKeyDown={(event) => event.stopPropagation()}
       className={`absolute left-3 top-3 z-10 flex h-7 w-7 items-center justify-center rounded-[8px] shadow-sm ring-1 transition ${
-        isSelected ? 'bg-[#2fbfc7] text-white ring-[#2fbfc7]' : 'bg-white/90 text-transparent ring-white hover:text-slate-300'
+        isSelected
+          ? 'bg-[#2fbfc7] text-white opacity-100 ring-[#2fbfc7]'
+          : `bg-white/95 text-transparent ring-white hover:text-slate-300 ${isSelecting ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'}`
       }`}
     >
       <Check className="h-4 w-4" />
@@ -2265,8 +3108,8 @@ function AudioProjectCard({
           isSelected ? 'ring-2 ring-[#2fbfc7] ring-offset-2' : 'ring-1 ring-slate-200'
         }`}
       >
-        {isSelecting && onToggleSelect ? <SelectionCheckbox isSelected={isSelected} onToggle={onToggleSelect} /> : null}
-        <span className={`absolute top-3 rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-semibold text-slate-500 ring-1 ring-white ${isSelecting ? 'left-12' : 'left-3'}`}>Audio</span>
+        {onToggleSelect ? <SelectionCheckbox isSelected={isSelected} isSelecting={isSelecting} onToggle={onToggleSelect} /> : null}
+        <span className={`absolute left-3 top-3 rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-semibold text-slate-500 ring-1 ring-white transition ${isSelecting ? 'opacity-0' : 'opacity-100 group-hover:opacity-0 group-focus-within:opacity-0'}`}>Audio</span>
         {!isSelecting ? (
           <>
             <button
@@ -2315,6 +3158,7 @@ const projectTaskIcons: Record<ProjectTaskType, LucideIcon> = {
   Image: ImageIcon,
   Video,
   Audio: Sparkles,
+  Design: LayoutTemplate,
   'Agent Sessions': Sparkles,
   Avatar: UserRound,
 };
@@ -2361,8 +3205,8 @@ function ProjectLibraryCard({
       >
         <img src={imageSrc} alt="" className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105" />
         <span className="absolute inset-0 bg-gradient-to-t from-slate-950/18 to-transparent" />
-        {isSelecting && onToggleSelect ? <SelectionCheckbox isSelected={isSelected} onToggle={onToggleSelect} /> : null}
-        <span className={`absolute top-3 rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-semibold text-slate-500 ring-1 ring-white ${isSelecting ? 'left-12' : 'left-3'}`}>
+        {onToggleSelect ? <SelectionCheckbox isSelected={isSelected} isSelecting={isSelecting} onToggle={onToggleSelect} /> : null}
+        <span className={`absolute left-3 top-3 rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-semibold text-slate-500 ring-1 ring-white transition ${isSelecting ? 'opacity-0' : 'opacity-100 group-hover:opacity-0 group-focus-within:opacity-0'}`}>
           {label}
         </span>
         {!isSelecting ? (
@@ -2853,7 +3697,7 @@ function AgentEntryPrototype() {
   return (
     <section id="agent-entry" className="min-w-0 scroll-mt-4">
       <div className="mx-auto max-w-5xl">
-        <h1 className="text-center text-[28px] font-semibold leading-tight tracking-tight text-slate-950 sm:text-[40px]">
+        <h1 className="mx-auto max-w-[680px] text-center text-[28px] font-semibold leading-tight tracking-tight text-slate-950 sm:text-[40px]">
           Create images, videos, posters, and brand assets with AI
         </h1>
 
@@ -3165,7 +4009,6 @@ function CreationSidebar({
               <SidebarResourceLink key={item.name} item={item} isCollapsed={isCollapsed} />
             ))}
           </div>
-          <SidebarUserProfile isCollapsed={isCollapsed} />
         </div>
       </div>
     </aside>
@@ -3202,61 +4045,6 @@ function SidebarSectionButton({
       </span>
       <ChevronRight className={`h-4 w-4 shrink-0 ${isActive ? 'text-[#2fbfc7]' : 'text-slate-300'} ${isCollapsed ? 'md:hidden' : ''}`} />
     </button>
-  );
-}
-
-function SidebarUserProfile({ isCollapsed }: { isCollapsed: boolean }) {
-  return (
-    <div className="mt-4 border-t border-slate-100 pt-3">
-      <button
-        type="button"
-        aria-label="Upgrade plan, 50% off"
-        title="Upgrade plan - 50% off"
-        className={`group/upgrade relative flex h-10 items-center rounded-full bg-[linear-gradient(90deg,#d946ef_0%,#ff2d89_58%,#ff7958_100%)] font-semibold text-white shadow-[0_8px_20px_rgba(236,72,153,0.2)] transition hover:brightness-105 ${
-          isCollapsed ? 'md:mx-auto md:w-10 md:justify-center md:px-0' : 'w-full gap-2 px-3'
-        }`}
-      >
-        <Crown className="h-[17px] w-[17px] shrink-0" />
-        <span className={`truncate text-[13px] ${isCollapsed ? 'md:hidden' : ''}`}>Upgrade 50% off</span>
-        <span
-          className={`absolute -right-1 -top-1 rounded-full bg-white px-1 py-0.5 text-[8px] font-bold leading-none text-[#e83e8c] shadow-sm ring-1 ring-pink-100 ${
-            isCollapsed ? 'md:block' : 'hidden'
-          }`}
-        >
-          50%
-        </span>
-      </button>
-
-      <button
-        type="button"
-        aria-label="6,234 credits. Add credits"
-        title="6,234 credits"
-        className={`group/credits relative mt-2 flex h-10 items-center bg-slate-50 text-slate-800 ring-1 ring-slate-200 transition hover:bg-white hover:ring-[#8ddfe3] hover:shadow-[0_8px_20px_rgba(15,23,42,0.08)] ${
-          isCollapsed
-            ? 'md:mx-auto md:h-[52px] md:w-12 md:flex-col md:justify-center md:gap-0.5 md:rounded-[12px] md:px-0'
-            : 'w-full gap-2 rounded-full px-3'
-        }`}
-      >
-        <Sparkles className={`shrink-0 text-[#ff9d2e] ${isCollapsed ? 'md:h-4 md:w-4' : 'h-[17px] w-[17px]'}`} />
-        <span className={`font-semibold tabular-nums ${isCollapsed ? 'md:text-[10px] md:leading-none' : 'text-sm'}`}>{isCollapsed ? '6.2k' : '6,234'}</span>
-        <span
-          className={`flex shrink-0 items-center justify-center rounded-full bg-[#35c3cb] text-white transition group-hover/credits:bg-[#28b5bd] ${
-            isCollapsed ? 'md:absolute md:-right-1 md:-top-1 md:h-[18px] md:w-[18px] md:shadow-sm md:ring-2 md:ring-white' : 'ml-auto h-7 w-7'
-          }`}
-        >
-          <Plus className={isCollapsed ? 'h-3 w-3' : 'h-4 w-4'} />
-        </span>
-      </button>
-
-      <div title="Feng Lin" className={`mt-3 flex items-center ${isCollapsed ? 'md:justify-center' : 'gap-3'}`}>
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-200 text-sm font-semibold text-slate-700 ring-1 ring-slate-200">
-          F
-        </span>
-        <span className={`min-w-0 ${isCollapsed ? 'md:hidden' : ''}`}>
-          <span className="block truncate text-sm font-semibold text-slate-800">Feng Lin</span>
-        </span>
-      </div>
-    </div>
   );
 }
 
