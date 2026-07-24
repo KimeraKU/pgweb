@@ -1,8 +1,8 @@
 # 3. 页面设计与具体功能
 
 > 文档名称：PhotoGrid Web Creation 页面设计与具体功能说明  
-> 文档版本：V1.1
-> 更新日期：2026-07-21
+> 文档版本：V1.2
+> 更新日期：2026-07-24
 > 页面路由：`/creation`  
 > 产品阶段：Agent-first 过渡版本  
 > 说明：本文档仅描述页面结构、控件、文案、状态和交互；商业化策略、接口、埋点和数据结构在 Creation 主 PRD 中维护。
@@ -386,6 +386,8 @@ Agent 必须位于首屏并拥有最高视觉优先级。运营内容和工具�
 - Choose from My Upload。
 - Choose from Projects，可选。
 
+当前 Creation 原型中，`Add media` 统一承载所有二级任务的图片选择，不在任务快捷参数中重复提供上传控件。选择本地图片后，缩略图回填到输入区最上方并独占一行，快捷参数位于其下方；任务胶囊位于输入框底部左侧工具栏。缩略图支持逐张删除，切换二级任务或关闭任务胶囊时保留已选图片。后端上传、进度和失败重试仍按正式上传服务接入时实现。
+
 上传限制建议：
 
 | 类型 | 格式 | 单文件大小 | 数量 |
@@ -405,70 +407,104 @@ Agent 必须位于首屏并拥有最高视觉优先级。运营内容和工具�
 
 ### 3.3.4 Agent 一级快速任务
 
-默认展示三个一级分类：
+默认展示四个一级分类：
 
-| 分类 | 副标题 | 子任务 |
-|---|---|---|
-| E-commerce Video | Product ad videos | Short Drama Ad、UGC Ad、TVC Ad、Product Showcase |
-| AI Editor | Retouch and enhance | Auto Removal、Image Enhance、Background Removal |
-| AI Filter | Styles and presets | Product Filter、Portrait Filter、Style Filter、Color Filter |
+| 分类 | 子任务 |
+|---|---|
+| E-commerce Poster | Product Poster、Social Media Ad、E-commerce Banner、Brand Campaign |
+| Amazon Detail Images | Conversion A+ Set、Brand Story A+ Set、Features & Specs A+ Set、Comparison & Trust A+ Set |
+| E-commerce Video | UGC Product Ad、Product Showcase、Before & After、VSL Conversion Ad |
+| Trending AI Videos | Kiss Cam、The Final Hug、Match Day、AI Dance |
 
-卡片规则：
+一级卡片规则：
 
 - 图标位于左侧。
-- 标题单行。
-- 副标题单行。
+- 仅展示图标和标题，不展示副标题、描述或图片。
 - 标题最长 24 个英文字符或 12 个中文字符。
-- 副标题最长 40 个英文字符或 20 个中文字符。
-- 超出单行截断并提供 tooltip。
+- 桌面端单行四列；窄屏使用两列，标题允许自然换行且不得与图标重叠。
+
+二级卡片规则：
+
+- 采用模板预览样式，卡片内不展示任务标题或图标，可见内容仅包含一条简短任务描述和预览图片。
+- 简短描述位于卡片顶部，使用具体动作直接说明对应标题的模板用途，不使用可套用于其他任务的泛化文案；最多展示两行。预览图片位于下方并作为卡片主体。
+- 卡片与图片容器使用固定高度，图片以 `object-cover` 裁切，动态内容不得引起卡片尺寸跳动。
+- 四个二级任务始终保持单行横向排列；可用宽度不足时横向滚动，不压缩为多行。
+- 任务名称保留在选中后的底部任务胶囊和卡片无障碍标签中，不因视觉简化而丢失任务识别。
 
 点击：
 
 - 原一级分类卡片切换为子任务卡片。
-- 不自动选择第一个子任务。
-- 显示当前一级分类名称和 Back。
+- 自动选中该分类的第一个子任务，并立即在输入框顶部展示对应快捷参数、在底部左侧工具栏展示任务胶囊。
+- 二级任务列表上方不展示分类标题和 Back。
+- 退出二级任务列表的唯一入口为输入框底部左侧任务胶囊的关闭按钮。
 
 > **[截图占位 S07：Agent 一级分类与子任务切换]**  
 > 截图范围：左侧为一级分类状态，右侧为任一分类展开后的子任务状态。  
-> 建议标注：分类点击、Back 和子任务列表变化。
+> 建议标注：一级卡片仅包含图标与标题、二级卡片仅包含顶部简短描述与下方大图，以及分类点击后的首项自动选中状态。
 
 ### 3.3.5 Agent 子任务选中
 
 点击子任务后：
 
-- 输入框顶部出现任务胶囊。
-- 胶囊包含图标、任务名称和关闭按钮。
-- 同行展示该任务对应的参数。
-- 输入框占位切换为任务专属文案。
+- 输入框底部左侧工具栏在 Prompt/knowledge 按钮后出现任务胶囊。
+- 胶囊包含当前二级任务的图标、任务名称和关闭按钮。
+- 输入框顶部独立展示该任务对应的参数及模板默认值，不与任务胶囊同行。
+- Prompt 区直接回填该任务可编辑的完整模板文案，不再只切换任务专属占位文案。
+- 该任务的本地示例图通过通用上传区回填到输入区最上方，作为可删除的模板素材；不增加模板专属上传框。
+- 切换到其他二级任务时，Prompt、参数和模板示例图同步覆盖为新模板数据；再次点击当前任务时恢复该模板默认数据。
+- 切换同一分类下的二级任务时，任务胶囊的图标、颜色和名称同步更新为当前二级任务。
+- 用户通过 `Add media` 上传的图片在任务切换时继续保留，并与模板示例图区分来源。
 
 关闭胶囊：
 
 - 清空当前子任务。
 - 清空子任务参数。
+- 移除当前模板示例图。
 - 返回一级分类列表。
-- 保留用户已输入的通用 Prompt 和已上传素材。
+- 保留用户已输入的通用 Prompt 和用户上传素材。
 
-切换一级分类：
+重新选择一级分类：
 
-- 清空原子任务参数。
-- 关闭原分类状态。
+- 先通过任务胶囊关闭按钮清空当前子任务及参数并返回一级分类列表。
+- 再选择新的一级分类，并自动选中该分类的第一个子任务。
 - 不清空通用 Prompt 和已上传素材。
 
 > **[截图占位 S08：Agent 子任务选中状态]**  
-> 截图范围：任务胶囊、参数行、专属占位和子任务卡片。  
-> 建议标注：关闭胶囊后的返回逻辑。
+> 截图范围：底部左侧任务胶囊、顶部参数行、已回填的可编辑模板 Prompt 和子任务卡片。
+> 建议标注：胶囊在 Prompt/knowledge 按钮后的固定位置、模板 Prompt 与参数默认值的真实回填，以及关闭后的返回逻辑。
 
-### 3.3.6 UGC Ad 参数
+### 3.3.6 二级任务快捷参数
 
-UGC Ad 参数在输入框顶部单行展示：
+二级任务被选中后，对应参数在输入框顶部展示。各分类参数结构如下：
+
+| 分类 | 快捷参数 |
+|---|---|
+| E-commerce Poster | Headline / Campaign Title、Aspect Ratio、Quantity |
+| Amazon Detail Images | Product Name、Language、A+ Format |
+| E-commerce Video | Product Name、Target Audience、Usage Scene；部分任务增加 Spoken Language 或 Emotional Tone；Aspect Ratio 默认 9:16 |
+| Trending AI Videos | Aspect Ratio，默认 9:16 |
+
+快捷参数展示规则：
+
+- 文本参数直接显示模板默认值；清空后展示完整输入提示，例如 `Please enter the product name`。
+- 下拉框关闭时只显示当前值，例如 `9:16`、`Gen Z`，不拼接或叠加参数名称。
+- 参数名称作为不可选择的分组标题显示在展开菜单弹层顶部，纯值选项位于标题下方；关闭状态控件内部及控件外均不显示参数名称标签。
+- 文本参数与下拉框保持相同高度；多个参数换行时按控件底部对齐，控件不得遮挡相邻参数、Prompt 或输入区边界。
+- 每个二级任务必须同时配置非空 Prompt 和与业务场景匹配的参数默认值；下拉默认值必须存在于对应选项集合中。
+- 图片不属于快捷参数控件；模板示例图和用户图片统一在通用上传区展示，当前 16 个二级任务被选中时均自动回填至少一张本地模板示例图。
+- 需要多种输入素材的任务按语义回填两张图：`Comparison & Trust A+ Set` 为主商品图和对比商品图，`Before & After` 为 Before 和 After，`Kiss Cam` 与 `The Final Hug` 均为人物一和人物二；其余任务保持单图。
+- 每张模板图必须使用可区分用途的名称和无障碍文案；相关 Prompt 必须说明多张图的使用顺序，避免生成时混淆输入角色。
+- 切换任务时整组替换模板示例图；用户图片继续保留并单独遵守最多 10 张、格式和大小限制。
+
+UGC Product Ad 参数：
 
 | 参数 | 控件 | 默认值 | 限制 |
 |---|---|---|---|
-| Product Name | 文本输入 | 空 | 最多 50 个 Unicode 字符 |
+| Product Name | 文本输入 | HydraSip Bottle | 最多 50 个 Unicode 字符 |
+| Target Audience | 下拉 | Gen Z | 单选 |
+| Usage Scene | 下拉 | Product demo | 单选 |
 | Spoken Language | 下拉 | English | 单选 |
-| Aspect Ratio / Platform | 下拉 | TikTok/Reels - 9:16 | 单选 |
-| Target Audience | 下拉 | Auto | 单选 |
-| Usage Scene | 下拉 | Auto | 单选 |
+| Aspect Ratio | 下拉 | 9:16 | 单选 |
 
 Product Name 规则：
 
@@ -484,8 +520,8 @@ Product Name 规则：
 - 中文 14 个字符。
 - 超出时截断，选项菜单展示完整文案。
 
-> **[截图占位 S09：UGC Ad 参数状态]**  
-> 截图范围：输入框顶部完整单行参数和下方 UGC Ad 子任务选中状态。  
+> **[截图占位 S09：UGC Product Ad 参数状态]**
+> 截图范围：输入框顶部完整参数和下方 UGC Product Ad 子任务选中状态。
 > 建议标注：Product Name、Language、Aspect、Audience、Scene。
 
 ### 3.3.7 Send

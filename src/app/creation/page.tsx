@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from 'react';
 import Image from 'next/image';
 import {
   AudioLines,
@@ -118,24 +118,33 @@ type VoiceTemplate = {
 type AgentModeCard = {
   id: string;
   name: string;
-  description: string;
   icon: LucideIcon;
   tone: string;
-  fields?: AgentTemplateField[];
 };
 
 type AgentTemplateField =
   | {
       type: 'input';
+      label: string;
+      value: string;
       placeholder: string;
+      maxLength?: number;
     }
   | {
       type: 'select';
+      label: string;
       value: string;
       options: string[];
     };
 
 type AgentTemplateCard = AgentModeCard & {
+  description: string;
+  image: string;
+  templateImages?: Array<{
+    name: string;
+    url: string;
+  }>;
+  prompt: string;
   fields: AgentTemplateField[];
 };
 
@@ -3503,178 +3512,273 @@ function SectionPanel({ activeSection }: { activeSection: SectionId }) {
 function AgentEntryPrototype() {
   const [activeAgentGroupId, setActiveAgentGroupId] = useState<string | null>(null);
   const [selectedAgentTemplateId, setSelectedAgentTemplateId] = useState<string | null>(null);
+  const [agentPrompt, setAgentPrompt] = useState('');
+  const [templateSelectionRevision, setTemplateSelectionRevision] = useState(0);
+  const [uploadedAgentImages, setUploadedAgentImages] = useState<UploadedAgentImage[]>([]);
+  const [mediaUploadError, setMediaUploadError] = useState<string | null>(null);
+  const mediaInputRef = useRef<HTMLInputElement>(null);
+  const mediaObjectUrlsRef = useRef(new Set<string>());
   const agentGroups: AgentGroupCard[] = [
     {
-      id: 'ecommerce-video',
-      name: 'E-commerce Video',
-      description: 'Product ad videos',
-      icon: Video,
+      id: 'ecommerce-poster',
+      name: 'E-commerce Poster',
+      icon: LayoutTemplate,
       tone: 'from-[#ff7a45] via-[#ff4fd8] to-[#8b5cf6]',
       children: [
         {
-          id: 'short-drama-ad',
-          name: 'Short Drama Ad',
-          description: 'Story-driven ads',
-          icon: Video,
+          id: 'product-poster',
+          name: 'Product Poster',
+          description: 'Showcase one product in a polished poster.',
+          image: '/assets/creation/tool-9.jpg',
+          prompt: 'Create a polished 3:4 product poster for a matte-black wireless speaker. Use a clean studio background, soft directional light, and the headline "Summer Essentials".',
+          icon: LayoutTemplate,
           tone: 'from-[#ff7a45] via-[#ff4fd8] to-[#8b5cf6]',
           fields: [
-            { type: 'input', placeholder: 'Product name' },
-            { type: 'select', value: 'TikTok', options: ['TikTok', 'Amazon', 'Instagram'] },
-            { type: 'select', value: '15s', options: ['15s', '30s', '45s'] },
-            { type: 'select', value: 'English', options: ['English', 'Chinese', 'Spanish'] },
-            { type: 'select', value: 'US', options: ['US', 'UK', 'EU'] },
+            { type: 'input', label: 'Headline', value: 'Summer Essentials', placeholder: 'Please enter a short headline' },
+            { type: 'select', label: 'Aspect Ratio', value: '3:4', options: ['3:4', '1:1', '4:5'] },
+            { type: 'select', label: 'Quantity', value: '1', options: ['1', '2', '4'] },
           ],
         },
         {
-          id: 'ugc-ad',
-          name: 'UGC Ad',
-          description: 'Creator style ads',
+          id: 'social-media-ad',
+          name: 'Social Media Ad',
+          description: 'Create a scroll-stopping social media ad.',
+          image: '/assets/creation/template-18.jpg',
+          prompt: 'Design a square social ad for Daily Glow vitamin C serum. Use warm morning light, fresh citrus accents, and a clear shop-now composition.',
+          icon: ImageIcon,
+          tone: 'from-[#f97316] via-[#ec4899] to-[#8b5cf6]',
+          fields: [
+            { type: 'input', label: 'Headline', value: 'Made for Your Routine', placeholder: 'Please enter a short headline' },
+            { type: 'select', label: 'Aspect Ratio', value: '1:1', options: ['1:1', '4:5', '9:16'] },
+            { type: 'select', label: 'Quantity', value: '1', options: ['1', '2', '4'] },
+          ],
+        },
+        {
+          id: 'ecommerce-banner',
+          name: 'E-commerce Banner',
+          description: 'Promote a store campaign in a wide banner.',
+          image: '/assets/creation/template-17.jpg',
+          prompt: 'Create a wide e-commerce banner for a mid-year home decor sale. Feature a modern living room, bold discount messaging, and clear space for a call to action.',
+          icon: LayoutTemplate,
+          tone: 'from-[#f59e0b] via-[#f97316] to-[#ef4444]',
+          fields: [
+            { type: 'input', label: 'Headline', value: 'Mid-Year Sale', placeholder: 'Please enter a campaign headline' },
+            { type: 'select', label: 'Aspect Ratio', value: '16:9', options: ['16:9', '3:1', '1:1'] },
+            { type: 'select', label: 'Quantity', value: '1', options: ['1', '2', '4'] },
+          ],
+        },
+        {
+          id: 'brand-campaign',
+          name: 'Brand Campaign',
+          description: 'Build a cohesive hero visual for a brand campaign.',
+          image: '/assets/creation/promo-3.jpg',
+          prompt: 'Build a premium brand campaign visual for a minimalist leather goods label. Use refined editorial lighting and the campaign line "Everyday, Elevated".',
+          icon: ShoppingBag,
+          tone: 'from-[#6366f1] via-[#8b5cf6] to-[#d946ef]',
+          fields: [
+            { type: 'input', label: 'Campaign Title', value: 'Everyday, Elevated', placeholder: 'Please enter a campaign title' },
+            { type: 'select', label: 'Aspect Ratio', value: '3:4', options: ['3:4', '1:1', '16:9'] },
+            { type: 'select', label: 'Quantity', value: '1', options: ['1', '2', '4'] },
+          ],
+        },
+      ],
+    },
+    {
+      id: 'amazon-detail-images',
+      name: 'Amazon Detail Images',
+      icon: ShoppingBag,
+      tone: 'from-[#16c6d9] to-[#2f80ed]',
+      children: [
+        {
+          id: 'conversion-a-plus-set',
+          name: 'Conversion A+ Set',
+          description: 'Turn product benefits into a conversion-focused A+ set.',
+          image: '/assets/creation/template-14.jpg',
+          prompt: 'Create a benefit-led Amazon A+ image set for AeroFit wireless earbuds. Highlight all-day comfort, clear calls, 30-hour battery life, and compact charging.',
+          icon: ShoppingBag,
+          tone: 'from-[#16c6d9] to-[#2f80ed]',
+          fields: [
+            { type: 'input', label: 'Product Name', value: 'AeroFit Earbuds', placeholder: 'Please enter the product name' },
+            { type: 'select', label: 'Language', value: 'English', options: ['English', 'Spanish', 'German', 'Japanese'] },
+            { type: 'select', label: 'A+ Format', value: 'Basic A+', options: ['Basic A+', 'Premium A+'] },
+          ],
+        },
+        {
+          id: 'brand-story-a-plus-set',
+          name: 'Brand Story A+ Set',
+          description: 'Tell the brand story through an Amazon A+ set.',
+          image: '/assets/creation/tool-9.jpg',
+          prompt: 'Create an Amazon A+ brand story for Northline Travel Mug. Show the design process, everyday commute moments, and the brand promise of durable simplicity.',
+          icon: BookOpen,
+          tone: 'from-[#0ea5e9] to-[#6366f1]',
+          fields: [
+            { type: 'input', label: 'Product Name', value: 'Northline Travel Mug', placeholder: 'Please enter the product name' },
+            { type: 'select', label: 'Language', value: 'English', options: ['English', 'Spanish', 'German', 'Japanese'] },
+            { type: 'select', label: 'A+ Format', value: 'Basic A+', options: ['Basic A+', 'Premium A+'] },
+          ],
+        },
+        {
+          id: 'features-specs-a-plus-set',
+          name: 'Features & Specs A+ Set',
+          description: 'Present key features and specs in an A+ set.',
+          image: '/assets/creation/template-8.jpg',
+          prompt: 'Create a feature and specification A+ layout for the LumaGlow Desk Lamp. Show adjustable color temperature, touch controls, USB-C charging, and dimensions.',
+          icon: SlidersHorizontal,
+          tone: 'from-[#14b8a6] to-[#22c55e]',
+          fields: [
+            { type: 'input', label: 'Product Name', value: 'LumaGlow Desk Lamp', placeholder: 'Please enter the product name' },
+            { type: 'select', label: 'Language', value: 'English', options: ['English', 'Spanish', 'German', 'Japanese'] },
+            { type: 'select', label: 'A+ Format', value: 'Basic A+', options: ['Basic A+', 'Premium A+'] },
+          ],
+        },
+        {
+          id: 'comparison-trust-a-plus-set',
+          name: 'Comparison & Trust A+ Set',
+          description: 'Compare products and add trust proof in an A+ set.',
+          image: '/assets/creation/template-11.jpg',
+          templateImages: [
+            { name: 'Primary product image', url: '/assets/creation/template-11.jpg' },
+            { name: 'Comparison product image', url: '/assets/creation/template-14.jpg' },
+          ],
+          prompt: 'Create an Amazon comparison and trust A+ set for CloudRest Pillow. Use the first image as the primary product and the second as the comparison product. Compare firmness options, show material certifications, and include a simple care guide.',
+          icon: Check,
+          tone: 'from-[#10b981] to-[#0ea5e9]',
+          fields: [
+            { type: 'input', label: 'Product Name', value: 'CloudRest Pillow', placeholder: 'Please enter the product name' },
+            { type: 'select', label: 'Language', value: 'English', options: ['English', 'Spanish', 'German', 'Japanese'] },
+            { type: 'select', label: 'A+ Format', value: 'Basic A+', options: ['Basic A+', 'Premium A+'] },
+          ],
+        },
+      ],
+    },
+    {
+      id: 'ecommerce-video',
+      name: 'E-commerce Video',
+      icon: Video,
+      tone: 'from-[#f59e0b] via-[#f97316] to-[#ef4444]',
+      children: [
+        {
+          id: 'ugc-product-ad',
+          name: 'UGC Product Ad',
+          description: 'Create a creator-led UGC ad for a product.',
+          image: '/assets/creation/template-18.jpg',
+          prompt: 'Create a natural UGC product ad for the HydraSip Bottle aimed at Gen Z. Open with a hydration problem, demonstrate the leakproof lid, and end with a casual recommendation.',
           icon: UserRound,
           tone: 'from-[#f59e0b] via-[#f97316] to-[#ef4444]',
           fields: [
-            { type: 'input', placeholder: 'Enter product name' },
-            { type: 'select', value: 'English', options: ['English', 'Chinese', 'Spanish'] },
-            { type: 'select', value: 'TikTok/Reels - 9:16', options: ['TikTok/Reels - 9:16', 'YouTube Shorts - 9:16', 'Instagram Feed - 1:1'] },
-            { type: 'select', value: 'Auto', options: ['Auto', 'Gen Z', 'Parents', 'Beauty shoppers', 'Tech buyers'] },
-            { type: 'select', value: 'Auto', options: ['Auto', 'Product demo', 'Unboxing', 'Review', 'Problem solution'] },
-          ],
-        },
-        {
-          id: 'tvc-ad',
-          name: 'TVC Ad',
-          description: 'Polished campaign films',
-          icon: Video,
-          tone: 'from-[#6366f1] via-[#8b5cf6] to-[#d946ef]',
-          fields: [
-            { type: 'input', placeholder: 'Brand or product' },
-            { type: 'select', value: 'Premium', options: ['Premium', 'Minimal', 'Bold'] },
-            { type: 'select', value: '30s', options: ['15s', '30s', '60s'] },
-            { type: 'select', value: 'English', options: ['English', 'Chinese', 'French'] },
-            { type: 'select', value: 'Global', options: ['Global', 'US', 'EU'] },
+            { type: 'input', label: 'Product Name', value: 'HydraSip Bottle', placeholder: 'Please enter the product name', maxLength: 50 },
+            { type: 'select', label: 'Target Audience', value: 'Gen Z', options: ['Auto', 'Gen Z', 'Parents', 'Beauty shoppers', 'Tech buyers'] },
+            { type: 'select', label: 'Usage Scene', value: 'Product demo', options: ['Auto', 'Product demo', 'Unboxing', 'Review', 'Problem solution'] },
+            { type: 'select', label: 'Spoken Language', value: 'English', options: ['English', 'Chinese', 'Spanish'] },
+            { type: 'select', label: 'Aspect Ratio', value: '9:16', options: ['9:16', '1:1', '16:9'] },
           ],
         },
         {
           id: 'product-showcase',
           name: 'Product Showcase',
-          description: 'Feature-led videos',
+          description: 'Showcase product details with premium motion.',
+          image: '/assets/creation/template-14.jpg',
+          prompt: 'Create a premium product showcase video for AeroFit Earbuds. Use macro close-ups, smooth rotations, and clean motion graphics to highlight fit, sound, and battery life.',
           icon: ShoppingBag,
           tone: 'from-[#10c957] to-[#2f80ed]',
           fields: [
-            { type: 'input', placeholder: 'Product name' },
-            { type: 'select', value: 'Amazon', options: ['Amazon', 'Shopify', 'TikTok'] },
-            { type: 'select', value: '1:1', options: ['1:1', '9:16', '16:9'] },
-            { type: 'select', value: 'English', options: ['English', 'Chinese', 'Japanese'] },
-            { type: 'select', value: 'US', options: ['US', 'UK', 'JP'] },
+            { type: 'input', label: 'Product Name', value: 'AeroFit Earbuds', placeholder: 'Please enter the product name' },
+            { type: 'select', label: 'Target Audience', value: 'Tech buyers', options: ['Auto', 'Gen Z', 'Parents', 'Beauty shoppers', 'Tech buyers'] },
+            { type: 'select', label: 'Usage Scene', value: 'Feature close-up', options: ['Auto', 'Product demo', 'Lifestyle', 'Feature close-up'] },
+            { type: 'select', label: 'Emotional Tone', value: 'Premium', options: ['Auto', 'Excited', 'Premium', 'Calm'] },
+            { type: 'select', label: 'Aspect Ratio', value: '9:16', options: ['9:16', '1:1', '16:9'] },
+          ],
+        },
+        {
+          id: 'before-after',
+          name: 'Before & After',
+          description: 'Animate a clear before-and-after transformation.',
+          image: '/assets/creation/tool-9.jpg',
+          templateImages: [
+            { name: 'Before image', url: '/assets/creation/tool-9.jpg' },
+            { name: 'After image', url: '/assets/creation/promo-2.jpg' },
+          ],
+          prompt: 'Create a believable before-and-after video for GlowLab Serum. Use the first image as the before state and the second as the after state. Show a consistent daily routine, realistic skin texture, and a gradual brighter-looking result.',
+          icon: RefreshCw,
+          tone: 'from-[#14b8a6] to-[#0ea5e9]',
+          fields: [
+            { type: 'input', label: 'Product Name', value: 'GlowLab Serum', placeholder: 'Please enter the product name' },
+            { type: 'select', label: 'Target Audience', value: 'Beauty shoppers', options: ['Auto', 'Gen Z', 'Parents', 'Beauty shoppers', 'Tech buyers'] },
+            { type: 'select', label: 'Usage Scene', value: 'Daily routine', options: ['Auto', 'Product demo', 'Problem solution', 'Daily routine'] },
+            { type: 'select', label: 'Aspect Ratio', value: '9:16', options: ['9:16', '1:1', '16:9'] },
+          ],
+        },
+        {
+          id: 'vsl-conversion-ad',
+          name: 'VSL Conversion Ad',
+          description: 'Build a persuasive video sales letter that converts.',
+          image: '/assets/creation/template-8.jpg',
+          prompt: 'Create a conversion-focused VSL for PosturePro Back Support. Lead with everyday back discomfort, explain the support system, add proof points, and finish with a clear offer.',
+          icon: Video,
+          tone: 'from-[#6366f1] via-[#8b5cf6] to-[#d946ef]',
+          fields: [
+            { type: 'input', label: 'Product Name', value: 'PosturePro Support', placeholder: 'Please enter the product name' },
+            { type: 'select', label: 'Target Audience', value: 'Parents', options: ['Auto', 'Gen Z', 'Parents', 'Beauty shoppers', 'Tech buyers'] },
+            { type: 'select', label: 'Usage Scene', value: 'Problem solution', options: ['Auto', 'Problem solution', 'Testimonial', 'Founder story'] },
+            { type: 'select', label: 'Spoken Language', value: 'English', options: ['English', 'Chinese', 'Spanish'] },
+            { type: 'select', label: 'Aspect Ratio', value: '9:16', options: ['9:16', '1:1', '16:9'] },
           ],
         },
       ],
     },
     {
-      id: 'ai-editor',
-      name: 'AI Editor',
-      description: 'Retouch and enhance',
-      icon: PenTool,
-      tone: 'from-[#16c6d9] to-[#2f80ed]',
-      children: [
-        {
-          id: 'auto-removal',
-          name: 'Auto Removal',
-          description: 'Remove unwanted areas',
-          icon: Eraser,
-          tone: 'from-[#f5f3ff] via-[#fdf2f8] to-[#ddd6fe]',
-          fields: [
-            { type: 'input', placeholder: 'Object or area to remove' },
-            { type: 'select', value: 'Auto detect', options: ['Auto detect', 'Brush area', 'Text area'] },
-            { type: 'select', value: 'Medium', options: ['Low', 'Medium', 'High'] },
-            { type: 'select', value: 'Keep layout', options: ['Keep layout', 'Fill background', 'Clean edge'] },
-          ],
-        },
-        {
-          id: 'image-enhance',
-          name: 'Image Enhance',
-          description: 'Improve clarity',
-          icon: Maximize,
-          tone: 'from-[#e0f2fe] via-[#f8fafc] to-[#bfdbfe]',
-          fields: [
-            { type: 'input', placeholder: 'Enhancement goal' },
-            { type: 'select', value: 'HD', options: ['HD', '4K', 'Print'] },
-            { type: 'select', value: 'Natural', options: ['Natural', 'Sharp', 'Soft'] },
-            { type: 'select', value: '1:1', options: ['Original', '1:1', '4:5'] },
-          ],
-        },
-        {
-          id: 'background-removal',
-          name: 'Background Removal',
-          description: 'Cut out subjects',
-          icon: Scissors,
-          tone: 'from-[#ecfeff] via-white to-[#67e8f9]',
-          fields: [
-            { type: 'input', placeholder: 'Subject name' },
-            { type: 'select', value: 'Transparent', options: ['Transparent', 'White', 'Custom'] },
-            { type: 'select', value: 'Product', options: ['Product', 'Portrait', 'Object'] },
-            { type: 'select', value: 'Clean edge', options: ['Clean edge', 'Soft edge', 'Keep shadow'] },
-          ],
-        },
-      ],
-    },
-    {
-      id: 'ai-filter',
-      name: 'AI Filter',
-      description: 'Styles and presets',
+      id: 'trending-ai-videos',
+      name: 'Trending AI Videos',
       icon: Sparkles,
       tone: 'from-[#14b8a6] to-[#22c55e]',
       children: [
         {
-          id: 'product-filter',
-          name: 'Product Filter',
-          description: 'Commercial looks',
-          icon: ShoppingBag,
-          tone: 'from-[#f0fdf4] via-white to-[#bbf7d0]',
-          fields: [
-            { type: 'input', placeholder: 'Product or style keywords' },
-            { type: 'select', value: 'Studio', options: ['Studio', 'Lifestyle', 'Luxury'] },
-            { type: 'select', value: 'Natural', options: ['Natural', 'Warm', 'Cool'] },
-            { type: 'select', value: '1:1', options: ['Original', '1:1', '4:5'] },
+          id: 'kiss-cam',
+          name: 'Kiss Cam',
+          description: 'Bring two people into a stadium kiss-cam scene.',
+          image: '/assets/creation/template-18.jpg',
+          templateImages: [
+            { name: 'Person one photo', url: '/assets/creation/template-18.jpg' },
+            { name: 'Person two photo', url: '/assets/creation/project-16.jpg' },
           ],
+          prompt: 'Combine the two portrait photos into a playful stadium kiss-cam moment. Keep both people recognizable, then add crowd reactions, arena lights, and natural camera movement.',
+          icon: Video,
+          tone: 'from-[#ec4899] to-[#f97316]',
+          fields: [{ type: 'select', label: 'Aspect Ratio', value: '9:16', options: ['9:16', '1:1', '16:9'] }],
         },
         {
-          id: 'portrait-filter',
-          name: 'Portrait Filter',
-          description: 'People-first styles',
+          id: 'the-final-hug',
+          name: 'The Final Hug',
+          description: 'Bring two people together for a final cinematic hug.',
+          image: '/assets/creation/promo-1.jpg',
+          templateImages: [
+            { name: 'Person one photo', url: '/assets/creation/template-18.jpg' },
+            { name: 'Person two photo', url: '/assets/creation/promo-1.jpg' },
+          ],
+          prompt: 'Bring the people from the two source photos together in a heartfelt cinematic hug. Keep both people recognizable, with gentle movement, warm sunset light, and a calm emotional finish.',
           icon: UserRound,
-          tone: 'from-[#fce7f3] via-white to-[#f9a8d4]',
-          fields: [
-            { type: 'input', placeholder: 'Portrait style' },
-            { type: 'select', value: 'Clean', options: ['Clean', 'Cinematic', 'Editorial'] },
-            { type: 'select', value: 'Soft', options: ['Soft', 'Detailed', 'High contrast'] },
-            { type: 'select', value: 'Original', options: ['Original', '1:1', '3:4'] },
-          ],
+          tone: 'from-[#8b5cf6] to-[#ec4899]',
+          fields: [{ type: 'select', label: 'Aspect Ratio', value: '9:16', options: ['9:16', '1:1', '16:9'] }],
         },
         {
-          id: 'style-filter',
-          name: 'Style Filter',
-          description: 'Reusable looks',
-          icon: Wand2,
-          tone: 'from-[#ede9fe] via-white to-[#a78bfa]',
-          fields: [
-            { type: 'input', placeholder: 'Style direction' },
-            { type: 'select', value: 'Modern', options: ['Modern', 'Retro', 'Minimal'] },
-            { type: 'select', value: 'Medium', options: ['Low', 'Medium', 'High'] },
-            { type: 'select', value: 'Image', options: ['Image', 'Poster', 'Social'] },
-          ],
+          id: 'match-day',
+          name: 'Match Day',
+          description: 'Create a high-energy match-day celebration.',
+          image: '/assets/creation/template-7.jpg',
+          prompt: 'Transform a portrait into an energetic match-day celebration with stadium lights, team colors, crowd motion, and a triumphant finish.',
+          icon: Video,
+          tone: 'from-[#0ea5e9] to-[#22c55e]',
+          fields: [{ type: 'select', label: 'Aspect Ratio', value: '9:16', options: ['9:16', '1:1', '16:9'] }],
         },
         {
-          id: 'color-filter',
-          name: 'Color Filter',
-          description: 'Tone matching',
-          icon: ImageIcon,
-          tone: 'from-[#fff7ed] via-white to-[#fdba74]',
-          fields: [
-            { type: 'input', placeholder: 'Color mood' },
-            { type: 'select', value: 'Warm', options: ['Warm', 'Cool', 'Neutral'] },
-            { type: 'select', value: 'Balanced', options: ['Balanced', 'Bright', 'Muted'] },
-            { type: 'select', value: 'Original', options: ['Original', '1:1', '16:9'] },
-          ],
+          id: 'ai-dance',
+          name: 'AI Dance',
+          description: 'Animate a full-body photo into an AI dance video.',
+          image: '/assets/creation/template-6.jpg',
+          prompt: 'Turn a full-body photo into a social-ready AI dance video with smooth choreography, stable facial details, and an upbeat studio setting.',
+          icon: Sparkles,
+          tone: 'from-[#f59e0b] to-[#ec4899]',
+          fields: [{ type: 'select', label: 'Aspect Ratio', value: '9:16', options: ['9:16', '1:1', '16:9'] }],
         },
       ],
     },
@@ -3682,16 +3786,85 @@ function AgentEntryPrototype() {
   const activeAgentGroup = agentGroups.find((group) => group.id === activeAgentGroupId) ?? null;
   const allAgentTemplates = agentGroups.flatMap((group) => group.children);
   const selectedAgentTemplate = allAgentTemplates.find((template) => template.id === selectedAgentTemplateId) ?? null;
-  const visibleAgentModes: Array<AgentModeCard | AgentGroupCard> = activeAgentGroup ? activeAgentGroup.children : agentGroups;
-  const agentGridColumns = visibleAgentModes.length === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2 lg:grid-cols-4';
-  const agentGridWidth = visibleAgentModes.length === 3 ? 'max-w-2xl' : 'max-w-3xl';
+  const visibleAgentModes: Array<AgentTemplateCard | AgentGroupCard> = activeAgentGroup ? activeAgentGroup.children : agentGroups;
+  const selectAgentTemplate = (template: AgentTemplateCard) => {
+    const templateImages = template.templateImages ?? [
+      { name: 'Reference image', url: template.image },
+    ];
+
+    setSelectedAgentTemplateId(template.id);
+    setAgentPrompt(template.prompt);
+    setTemplateSelectionRevision((currentRevision) => currentRevision + 1);
+    setUploadedAgentImages((currentImages) => [
+      ...templateImages.map((image, index) => ({
+        id: `template-${template.id}-${index}`,
+        name: `${template.name}: ${image.name}`,
+        url: image.url,
+        source: 'template' as const,
+      })),
+      ...currentImages.filter((image) => image.source === 'user'),
+    ]);
+  };
   const selectAgentGroup = (group: AgentGroupCard) => {
+    const firstTemplate = group.children[0];
+    if (!firstTemplate) return;
+
     setActiveAgentGroupId(group.id);
-    setSelectedAgentTemplateId(null);
+    selectAgentTemplate(firstTemplate);
   };
   const clearSelectedAgentTemplate = () => {
     setSelectedAgentTemplateId(null);
     setActiveAgentGroupId(null);
+    setUploadedAgentImages((currentImages) => currentImages.filter((image) => image.source === 'user'));
+  };
+  useEffect(() => {
+    const objectUrls = mediaObjectUrlsRef.current;
+    return () => {
+      objectUrls.forEach((url) => URL.revokeObjectURL(url));
+      objectUrls.clear();
+    };
+  }, []);
+
+  const handleMediaSelection = (event: ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(event.target.files ?? []);
+    const userImageCount = uploadedAgentImages.filter((image) => image.source === 'user').length;
+    const remainingSlots = Math.max(10 - userImageCount, 0);
+    const supportedTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
+    const validFiles = selectedFiles.filter((file) => supportedTypes.has(file.type) && file.size <= 20 * 1024 * 1024);
+    const filesToAdd = validFiles.slice(0, remainingSlots);
+
+    if (validFiles.length !== selectedFiles.length) {
+      setMediaUploadError('Use JPG, PNG, or WebP images under 20 MB.');
+    } else if (validFiles.length > remainingSlots) {
+      setMediaUploadError('Add up to 10 images.');
+    } else {
+      setMediaUploadError(null);
+    }
+
+    const uploadedImages = filesToAdd.map((file) => {
+      const url = URL.createObjectURL(file);
+      mediaObjectUrlsRef.current.add(url);
+      return {
+        id: `${file.name}-${file.lastModified}-${file.size}-${crypto.randomUUID()}`,
+        name: file.name,
+        url,
+        source: 'user' as const,
+      };
+    });
+
+    if (uploadedImages.length > 0) {
+      setUploadedAgentImages((currentImages) => [...currentImages, ...uploadedImages]);
+    }
+    event.target.value = '';
+  };
+
+  const removeUploadedAgentImage = (image: UploadedAgentImage) => {
+    if (image.source === 'user') {
+      URL.revokeObjectURL(image.url);
+      mediaObjectUrlsRef.current.delete(image.url);
+    }
+    setUploadedAgentImages((currentImages) => currentImages.filter((currentImage) => currentImage.id !== image.id));
+    setMediaUploadError(null);
   };
 
   return (
@@ -3703,28 +3876,52 @@ function AgentEntryPrototype() {
 
         <div className="mt-6 rounded-[20px] bg-white p-4 shadow-[0_18px_60px_rgba(15,23,42,0.12)] ring-1 ring-slate-200">
           <div className="min-h-[150px]">
-            {selectedAgentTemplate ? (
-              <AgentTemplateFields fields={selectedAgentTemplate.fields} template={selectedAgentTemplate} onClear={clearSelectedAgentTemplate} />
+            {uploadedAgentImages.length > 0 ? (
+              <div className={`flex flex-wrap items-center gap-2 ${selectedAgentTemplate ? 'mb-2' : 'mb-4'}`}>
+                <AgentUploadedImageList images={uploadedAgentImages} onRemove={removeUploadedAgentImage} />
+              </div>
             ) : null}
-            <div className="flex items-start gap-1 text-[20px] font-medium leading-8 text-slate-400">
-              <span className="mt-1 h-8 w-px bg-slate-500" />
-              <span className="min-w-0 break-words">
-                {selectedAgentTemplate
+            {selectedAgentTemplate ? (
+              <div className="mb-4 flex flex-wrap items-end gap-2">
+                <AgentTemplateFields
+                  key={`${selectedAgentTemplate.id}-${templateSelectionRevision}`}
+                  fields={selectedAgentTemplate.fields}
+                />
+              </div>
+            ) : null}
+            <textarea
+              aria-label="Prompt"
+              value={agentPrompt}
+              onChange={(event) => setAgentPrompt(event.target.value)}
+              placeholder={
+                selectedAgentTemplate
                   ? `Describe your ${selectedAgentTemplate.name.toLowerCase()} request...`
-                  : 'Describe what you want to create -- images, videos, posters, brand visuals, and more...'}
-              </span>
-            </div>
+                  : 'Describe what you want to create -- images, videos, posters, brand visuals, and more...'
+              }
+              rows={3}
+              className="min-h-[72px] w-full resize-none bg-transparent text-[18px] font-medium leading-7 text-slate-800 outline-none placeholder:text-slate-400"
+            />
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 aria-label="Add media"
+                onClick={() => mediaInputRef.current?.click()}
                 className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-slate-700 ring-1 ring-slate-200 transition hover:bg-slate-50"
               >
                 <Plus className="h-5 w-5" />
               </button>
+              <input
+                ref={mediaInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                multiple
+                aria-label="Upload images"
+                onChange={handleMediaSelection}
+                className="sr-only"
+              />
               <button
                 type="button"
                 className="flex h-10 items-center gap-2 rounded-full bg-white px-4 text-sm font-semibold text-slate-700 ring-1 ring-slate-200 transition hover:bg-slate-50"
@@ -3746,6 +3943,9 @@ function AgentEntryPrototype() {
               >
                 <BookOpen className="h-5 w-5" />
               </button>
+              {selectedAgentTemplate ? (
+                <AgentSelectedTemplatePill template={selectedAgentTemplate} onClear={clearSelectedAgentTemplate} />
+              ) : null}
             </div>
 
             <button
@@ -3756,42 +3956,60 @@ function AgentEntryPrototype() {
               Send
             </button>
           </div>
+          {mediaUploadError ? (
+            <p className="mt-2 text-xs font-medium text-red-600" role="status">
+              {mediaUploadError}
+            </p>
+          ) : null}
         </div>
 
-        {activeAgentGroup ? (
-          <div className="mx-auto mt-5 flex max-w-3xl items-center justify-between px-1">
-            <span className="text-sm font-semibold text-slate-500">{activeAgentGroup.name}</span>
-            <button
-              type="button"
-              onClick={() => {
-                setActiveAgentGroupId(null);
-                setSelectedAgentTemplateId(null);
-              }}
-              className="text-sm font-semibold text-[#2fbfc7] transition hover:text-[#249aa1]"
-            >
-              Back
-            </button>
-          </div>
-        ) : null}
-
-        <div className={`mx-auto ${activeAgentGroup ? 'mt-2' : 'mt-5'} grid ${agentGridWidth} gap-3 ${agentGridColumns}`}>
+        <div
+          className={`mx-auto mt-4 grid max-w-4xl gap-2.5 ${
+            activeAgentGroup
+              ? 'grid-flow-col auto-cols-[minmax(200px,1fr)] overflow-x-auto pb-2 scrollbar-hide'
+              : 'grid-cols-2 lg:grid-cols-4'
+          }`}
+        >
           {visibleAgentModes.map((mode) => {
             const Icon = mode.icon;
+
+            if ('children' in mode) {
+              return (
+                <button
+                  key={mode.id}
+                  type="button"
+                  onClick={() => selectAgentGroup(mode)}
+                  className="group flex min-h-[56px] items-center gap-2.5 rounded-[12px] bg-white px-3 text-left shadow-[0_8px_20px_rgba(15,23,42,0.05)] ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:ring-[#2fbfc7] hover:shadow-[0_12px_26px_rgba(15,23,42,0.08)]"
+                >
+                  <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] bg-gradient-to-br ${mode.tone} text-white shadow-sm`}>
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <span className="min-w-0 text-sm font-semibold leading-4 text-slate-950">{mode.name}</span>
+                </button>
+              );
+            }
+
             return (
               <button
-                key={mode.name}
+                key={mode.id}
                 type="button"
-                onClick={'children' in mode ? () => selectAgentGroup(mode) : () => setSelectedAgentTemplateId(mode.id)}
-                className={`group flex min-h-[72px] items-center gap-3 rounded-[18px] bg-white px-4 text-left shadow-[0_10px_26px_rgba(15,23,42,0.06)] ring-1 transition hover:-translate-y-0.5 hover:shadow-[0_16px_34px_rgba(15,23,42,0.1)] ${
-                  selectedAgentTemplate?.id === mode.id || activeAgentGroupId === mode.id ? 'ring-[#2fbfc7]' : 'ring-slate-200'
+                aria-label={`Select ${mode.name}`}
+                onClick={() => selectAgentTemplate(mode)}
+                className={`group flex h-[180px] min-w-0 flex-col overflow-hidden rounded-[14px] bg-[#f7f7f8] p-2.5 text-left shadow-[0_8px_20px_rgba(15,23,42,0.05)] ring-1 transition hover:-translate-y-0.5 hover:shadow-[0_12px_26px_rgba(15,23,42,0.08)] ${
+                  selectedAgentTemplate?.id === mode.id ? 'ring-[#2fbfc7]' : 'ring-slate-200'
                 }`}
               >
-                <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-gradient-to-br ${mode.tone} text-white shadow-sm`}>
-                  <Icon className="h-5 w-5" />
+                <span className="line-clamp-2 min-h-10 text-sm font-medium leading-5 text-slate-800">
+                  {mode.description}
                 </span>
-                <span className="min-w-0">
-                  <span className="block truncate text-base font-semibold text-slate-950">{mode.name}</span>
-                  <span className="mt-0.5 block truncate text-sm text-slate-400">{mode.description}</span>
+                <span className="relative mt-2 min-h-0 w-full flex-1 overflow-hidden rounded-[10px] bg-slate-100">
+                  <Image
+                    src={mode.image}
+                    alt=""
+                    fill
+                    sizes="(max-width: 768px) 200px, 220px"
+                    className="object-cover transition duration-300 group-hover:scale-105"
+                  />
                 </span>
               </button>
             );
@@ -3804,109 +4022,72 @@ function AgentEntryPrototype() {
 
 function AgentTemplateFields({
   fields,
-  template,
-  onClear,
 }: {
   fields: AgentTemplateField[];
-  template: AgentTemplateCard;
-  onClear: () => void;
 }) {
-  if (template.id === 'ugc-ad') {
-    return <UgcAdTemplateFields template={template} onClear={onClear} />;
-  }
-
   return (
-    <div className="mb-5 flex flex-wrap gap-2">
-      <AgentSelectedTemplatePill template={template} onClear={onClear} />
+    <>
       {fields.map((field, index) => {
         if (field.type === 'input') {
           return (
             <input
-              key={`${field.placeholder}-${index}`}
+              key={`${field.label}-${index}`}
               type="text"
+              aria-label={field.label}
               placeholder={field.placeholder}
-              className="h-10 min-w-[160px] rounded-[8px] bg-slate-100 px-3 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-[#78b7ff]"
+              title={field.placeholder}
+              defaultValue={field.value}
+              maxLength={field.maxLength ?? 80}
+              className="h-12 min-w-[148px] rounded-[8px] bg-slate-100 px-3 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-[#78b7ff]"
             />
           );
         }
 
         return (
           <select
-            key={`${field.value}-${index}`}
+            key={`${field.label}-${index}`}
+            aria-label={field.label}
             defaultValue={field.value}
-            className="h-10 rounded-[8px] bg-slate-100 px-3 text-sm font-semibold text-slate-800 outline-none transition focus:bg-white focus:ring-2 focus:ring-[#78b7ff]"
+            className="h-12 min-w-[132px] max-w-[220px] rounded-[8px] bg-slate-100 px-3 text-sm font-semibold text-slate-800 outline-none transition focus:bg-white focus:ring-2 focus:ring-[#78b7ff]"
           >
-            {field.options.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
+            <optgroup label={field.label}>
+              {field.options.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </optgroup>
           </select>
         );
       })}
-    </div>
+    </>
   );
 }
 
-function UgcAdTemplateFields({ template, onClear }: { template: AgentTemplateCard; onClear: () => void }) {
+type UploadedAgentImage = {
+  id: string;
+  name: string;
+  url: string;
+  source: 'template' | 'user';
+};
+
+function AgentUploadedImageList({ images, onRemove }: { images: UploadedAgentImage[]; onRemove: (image: UploadedAgentImage) => void }) {
   return (
-    <div className="mb-5 flex flex-wrap gap-2">
-      <div className="flex flex-wrap gap-2">
-        <AgentSelectedTemplatePill template={template} onClear={onClear} />
-      </div>
-
-      <input
-        type="text"
-        placeholder="Product name"
-        maxLength={50}
-        className="h-10 min-w-[150px] rounded-[8px] bg-slate-100 px-3 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-[#78b7ff]"
-      />
-
-      <select
-        defaultValue="English"
-        className="h-10 rounded-[8px] bg-slate-100 px-3 text-sm font-semibold text-slate-800 outline-none transition focus:bg-white focus:ring-2 focus:ring-[#78b7ff]"
-      >
-        {['English', 'Chinese', 'Spanish'].map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
-
-      <select
-        defaultValue="TikTok/Reels - 9:16"
-        className="h-10 rounded-[8px] bg-slate-100 px-3 text-sm font-semibold text-slate-800 outline-none transition focus:bg-white focus:ring-2 focus:ring-[#78b7ff]"
-      >
-        {['TikTok/Reels - 9:16', 'YouTube Shorts - 9:16', 'Instagram Feed - 1:1'].map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
-
-      <select
-        defaultValue="Auto"
-        className="h-10 rounded-[8px] bg-slate-100 px-3 text-sm font-semibold text-slate-800 outline-none transition focus:bg-white focus:ring-2 focus:ring-[#78b7ff]"
-      >
-        {['Auto', 'Gen Z', 'Parents', 'Beauty shoppers', 'Tech buyers'].map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
-
-      <select
-        defaultValue="Auto"
-        className="h-10 rounded-[8px] bg-slate-100 px-3 text-sm font-semibold text-slate-800 outline-none transition focus:bg-white focus:ring-2 focus:ring-[#78b7ff]"
-      >
-        {['Auto', 'Product demo', 'Unboxing', 'Review', 'Problem solution'].map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
-
-    </div>
+    <>
+      {images.map((image) => (
+        <span key={image.id} className="group/upload relative h-10 w-10 shrink-0 overflow-hidden rounded-[8px] bg-slate-100 ring-1 ring-slate-200">
+          <Image src={image.url} alt={image.name} fill sizes="40px" unoptimized className="object-cover" />
+          <button
+            type="button"
+            aria-label={`Remove ${image.name}`}
+            onClick={() => onRemove(image)}
+            className="absolute inset-0 flex items-center justify-center bg-slate-950/55 text-white opacity-0 transition group-hover/upload:opacity-100 focus:opacity-100"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </span>
+      ))}
+    </>
   );
 }
 
