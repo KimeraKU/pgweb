@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
+  AudioLines,
   ArrowLeft,
   Check,
   ChevronRight,
@@ -27,6 +28,7 @@ import {
   clearRecommendationHandoff,
   loadRecommendationHandoff,
 } from '@/lib/recommendation-handoff';
+import { parseVoiceHandoff, type VoiceHandoffPreset } from '@/lib/voice-handoff';
 
 type AssetMode = 'none' | 'preset' | 'custom';
 type TaskStatus = 'draft' | 'image_generating' | 'image_ready' | 'image_confirmed' | 'video_prompting' | 'video_reviewing' | 'video_generating' | 'submitted' | 'completed' | 'failed';
@@ -235,6 +237,7 @@ function UGCVideoGeneratorPageContent() {
   const [historyHydrated, setHistoryHydrated] = useState(false);
   const [videoSubmitInFlight, setVideoSubmitInFlight] = useState(false);
   const [isImageCreateCoolingDown, setIsImageCreateCoolingDown] = useState(false);
+  const [selectedVoice, setSelectedVoice] = useState<VoiceHandoffPreset | null>(null);
   const setActiveImageRun = (runId: string | null) => {
     activeImageRunIdRef.current = runId;
     setActiveImageRunId(runId);
@@ -405,6 +408,11 @@ function UGCVideoGeneratorPageContent() {
       return handoff.intentType === 'product_ecommerce' ? '商品展示视频' : '图片视频创作';
     });
     clearRecommendationHandoff();
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    setSelectedVoice(parseVoiceHandoff(new URLSearchParams(window.location.search)));
   }, []);
 
   useEffect(() => {
@@ -684,6 +692,10 @@ function UGCVideoGeneratorPageContent() {
           sceneName: sceneMode === 'preset' ? selectedScenePreset.name : sceneMode === 'custom' ? t.ugcVideoCustomScene : '',
           aspectRatio: 'adaptive',
           duration: 15,
+          voiceName: selectedVoice?.name,
+          voiceLanguage: selectedVoice?.language,
+          voiceAccent: selectedVoice?.accent,
+          voiceGender: selectedVoice?.gender,
         }),
       });
       const json = (await res.json()) as { prompt?: string; error?: string };
@@ -1654,6 +1666,26 @@ function UGCVideoGeneratorPageContent() {
                   </button>
                   {renderAssetPicker('scene')}
                 </div>
+
+                {selectedVoice ? (
+                  <section
+                    data-testid="voice-handoff-card"
+                    aria-label={`Selected voice: ${selectedVoice.name}`}
+                    className="flex min-w-0 items-center gap-3 rounded-[18px] border border-[#55cbd2]/45 bg-[#55cbd2]/10 px-4 py-3.5"
+                  >
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#55cbd2] text-[#111114]">
+                      <AudioLines className="h-5 w-5" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs uppercase tracking-[0.18em] text-[#8fe2e6]">Voice from Templates</p>
+                      <p className="mt-1 truncate text-base font-medium text-white">{selectedVoice.name}</p>
+                    </div>
+                    <div className="hidden min-w-0 text-right sm:block">
+                      <p className="truncate text-xs text-white/70">{selectedVoice.accent}</p>
+                      <p className="mt-1 text-[11px] text-white/40">{selectedVoice.language} · {selectedVoice.gender}</p>
+                    </div>
+                  </section>
+                ) : null}
 
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="rounded-[18px] bg-white/[0.05] px-4 py-3">

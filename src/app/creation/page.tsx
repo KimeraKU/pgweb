@@ -3,6 +3,11 @@
 import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from 'react';
 import Image from 'next/image';
 import {
+  buildVoiceHandoffUrl,
+  VOICE_HANDOFF_PRESETS,
+  type VoiceHandoffPreset,
+} from '@/lib/voice-handoff';
+import {
   AudioLines,
   BookOpen,
   Box,
@@ -21,7 +26,6 @@ import {
   Infinity as InfinityIcon,
   LayoutGrid,
   LayoutTemplate,
-  LockKeyhole,
   LogOut,
   Maximize,
   MoreHorizontal,
@@ -104,15 +108,6 @@ type TemplateLibraryCategory = {
   filters: string[];
   aspectClass: string;
   items: TemplateLibraryItem[];
-};
-
-type VoiceTemplate = {
-  name: string;
-  language: 'English' | 'Spanish';
-  accent: string;
-  gender: 'Male' | 'Female';
-  sample: string;
-  hideGenderTag?: boolean;
 };
 
 type AgentModeCard = {
@@ -369,59 +364,6 @@ const templateCards: HubCard[] = [
     href: '#',
     tone: 'bg-white',
     iconTone: 'text-slate-600',
-  },
-];
-
-const voiceTemplates: VoiceTemplate[] = [
-  {
-    name: 'Ethan',
-    language: 'English',
-    accent: 'American English accent',
-    gender: 'Male',
-    hideGenderTag: true,
-    sample: 'Hi, I am Ethan. Let us turn your next idea into a clear and engaging story.',
-  },
-  {
-    name: 'Diego',
-    language: 'Spanish',
-    accent: 'Chilean Spanish accent',
-    gender: 'Male',
-    sample: 'Hola, soy Diego. Estoy listo para darle una voz natural y cercana a tu proyecto.',
-  },
-  {
-    name: 'Mariana',
-    language: 'Spanish',
-    accent: 'Mexican Spanish accent',
-    gender: 'Female',
-    sample: 'Hola, soy Mariana. Hagamos que tu mensaje suene claro, cálido y memorable.',
-  },
-  {
-    name: 'Lucia',
-    language: 'Spanish',
-    accent: 'Latin American Spanish accent',
-    gender: 'Female',
-    sample: 'Hola, soy Lucia. Puedo ayudarte a crear una narración natural para cualquier audiencia.',
-  },
-  {
-    name: 'Valeria',
-    language: 'Spanish',
-    accent: 'Latin American Spanish accent',
-    gender: 'Female',
-    sample: 'Hola, soy Valeria. Demos vida a tu contenido con una voz expresiva y profesional.',
-  },
-  {
-    name: 'Camila',
-    language: 'Spanish',
-    accent: 'Mexican Spanish accent',
-    gender: 'Female',
-    sample: 'Hola, soy Camila. Tu próxima historia puede sonar fresca, auténtica y fácil de recordar.',
-  },
-  {
-    name: 'Sophie',
-    language: 'English',
-    accent: 'American English accent',
-    gender: 'Female',
-    sample: 'Hi, I am Sophie. I can give your content a warm, confident, and polished voice.',
   },
 ];
 
@@ -791,11 +733,11 @@ const resourceCards: HubCard[] = [
   },
   {
     name: 'Price',
-    description: 'Review plans, credits, and upgrade options.',
-    icon: LockKeyhole,
+    description: 'VIP Pro Ultra saves 50%.',
+    icon: Crown,
     href: '#',
-    tone: 'bg-white',
-    iconTone: 'text-slate-600',
+    tone: 'from-[#4f46e5] to-[#7c3aed]',
+    iconTone: 'text-white',
   },
   {
     name: 'Language',
@@ -1675,11 +1617,10 @@ function VoiceTemplateLibrary() {
   const [accent, setAccent] = useState('All');
   const [gender, setGender] = useState('All');
   const [voiceQuery, setVoiceQuery] = useState('');
-  const [selectedVoiceName, setSelectedVoiceName] = useState('Ethan');
   const [playingVoiceName, setPlayingVoiceName] = useState<string | null>(null);
-  const accents = Array.from(new Set(voiceTemplates.map((voice) => voice.accent)));
+  const accents = Array.from(new Set(VOICE_HANDOFF_PRESETS.map((voice) => voice.accent)));
   const normalizedVoiceQuery = voiceQuery.trim().toLowerCase();
-  const filteredVoices = voiceTemplates.filter((voice) => {
+  const filteredVoices = VOICE_HANDOFF_PRESETS.filter((voice) => {
     const matchesLanguage = language === 'All' || voice.language === language;
     const matchesAccent = accent === 'All' || voice.accent === accent;
     const matchesGender = gender === 'All' || voice.gender === gender;
@@ -1693,7 +1634,7 @@ function VoiceTemplateLibrary() {
     };
   }, []);
 
-  const toggleVoicePlayback = (voice: VoiceTemplate) => {
+  const toggleVoicePlayback = (voice: VoiceHandoffPreset) => {
     if (!('speechSynthesis' in window)) return;
 
     if (playingVoiceName === voice.name) {
@@ -1712,7 +1653,6 @@ function VoiceTemplateLibrary() {
     if (matchingVoice) utterance.voice = matchingVoice;
     utterance.onend = () => setPlayingVoiceName((current) => (current === voice.name ? null : current));
     utterance.onerror = () => setPlayingVoiceName((current) => (current === voice.name ? null : current));
-    setSelectedVoiceName(voice.name);
     setPlayingVoiceName(voice.name);
     window.speechSynthesis.speak(utterance);
   };
@@ -1765,28 +1705,15 @@ function VoiceTemplateLibrary() {
       </div>
 
       {filteredVoices.length ? (
-        <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3" role="listbox" aria-label="AI voices">
+        <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3" role="list" aria-label="AI voices">
           {filteredVoices.map((voice) => {
-            const isSelected = selectedVoiceName === voice.name;
             const isPlaying = playingVoiceName === voice.name;
             return (
               <article
                 key={voice.name}
-                role="option"
-                aria-selected={isSelected}
-                tabIndex={0}
-                onClick={() => setSelectedVoiceName(voice.name)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    setSelectedVoiceName(voice.name);
-                  }
-                }}
-                className={`relative h-[130px] cursor-pointer rounded-[14px] p-4 outline-none transition ${
-                  isSelected
-                    ? 'bg-cyan-50 ring-2 ring-[#42c6d0] shadow-[0_8px_22px_rgba(47,191,199,0.08)]'
-                    : 'bg-slate-50 ring-1 ring-slate-200 hover:bg-white hover:shadow-[0_8px_22px_rgba(15,23,42,0.06)] focus-visible:ring-2 focus-visible:ring-[#42c6d0]'
-                }`}
+                role="listitem"
+                data-voice-name={voice.name}
+                className="relative h-[146px] rounded-[14px] bg-slate-50 p-4 ring-1 ring-slate-200 transition hover:bg-white hover:shadow-[0_8px_22px_rgba(15,23,42,0.06)]"
               >
                 <div className="flex min-w-0 items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -1798,14 +1725,9 @@ function VoiceTemplateLibrary() {
                       )}
                     </div>
                   </div>
-                  {isSelected ? (
-                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#35c3cb] text-white">
-                      <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
-                    </span>
-                  ) : null}
                 </div>
 
-                <div className="absolute inset-x-4 bottom-4 flex items-center gap-4">
+                <div className="absolute inset-x-4 bottom-4 flex min-w-0 items-center gap-3">
                   <button
                     type="button"
                     aria-label={`${isPlaying ? 'Pause' : 'Play'} ${voice.name} voice sample`}
@@ -1819,7 +1741,7 @@ function VoiceTemplateLibrary() {
                     {isPlaying ? <Pause className="h-4 w-4 fill-current" /> : <Play className="ml-0.5 h-4 w-4 fill-current" />}
                   </button>
                   <div className="flex h-7 min-w-0 flex-1 items-center gap-[3px] overflow-hidden" aria-hidden="true">
-                    {Array.from({ length: 24 }, (_, index) => {
+                    {Array.from({ length: 16 }, (_, index) => {
                       const height = 6 + ((index * 7 + voice.name.length * 5) % 19);
                       return (
                         <span
@@ -1830,6 +1752,14 @@ function VoiceTemplateLibrary() {
                       );
                     })}
                   </div>
+                  <a
+                    href={buildVoiceHandoffUrl(voice)}
+                    aria-label={`Create an e-commerce video with ${voice.name}`}
+                    className="flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-[8px] bg-slate-950 px-3 text-[11px] font-semibold text-white transition hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#35c3cb] focus-visible:ring-offset-2"
+                  >
+                    <Video className="h-3.5 w-3.5" />
+                    Generate Video
+                  </a>
                 </div>
               </article>
             );
@@ -4187,7 +4117,11 @@ function CreationSidebar({
         <div className="mt-auto pt-3">
           <div className="grid gap-1.5">
             {resourceCards.map((item) => (
-              <SidebarResourceLink key={item.name} item={item} isCollapsed={isCollapsed} />
+              item.name === 'Price' ? (
+                <SidebarPricePromotionCard key={item.name} item={item} isCollapsed={isCollapsed} />
+              ) : (
+                <SidebarResourceLink key={item.name} item={item} isCollapsed={isCollapsed} />
+              )
             ))}
           </div>
         </div>
@@ -4245,6 +4179,35 @@ function SidebarResourceLink({ item, isCollapsed }: { item: HubCard; isCollapsed
       </span>
       <span className={`min-w-0 flex-1 truncate ${isCollapsed ? 'md:hidden' : ''}`}>{item.name}</span>
       {item.name === 'Language' ? <ChevronRight className={`h-4 w-4 text-slate-300 group-hover:text-[#2fbfc7] ${isCollapsed ? 'md:hidden' : ''}`} /> : null}
+    </a>
+  );
+}
+
+function SidebarPricePromotionCard({ item, isCollapsed }: { item: HubCard; isCollapsed: boolean }) {
+  const Icon = item.icon;
+
+  return (
+    <a
+      href={item.href}
+      title="VIP Pro Ultra — Save 50%"
+      aria-label="VIP Pro Ultra offer: Save 50%. View plans"
+      className={`group/promotion flex bg-gradient-to-br ${item.tone} text-white shadow-[0_10px_24px_rgba(79,70,229,0.22)] ring-1 ring-indigo-300/30 transition hover:-translate-y-0.5 hover:shadow-[0_14px_28px_rgba(79,70,229,0.3)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#78b7ff] ${
+        isCollapsed
+          ? 'h-[104px] flex-col items-start rounded-[14px] p-3 md:mx-auto md:h-12 md:w-12 md:items-center md:justify-center md:p-0'
+          : 'h-[104px] flex-col items-start rounded-[14px] p-3'
+      }`}
+    >
+      <span className={`flex items-center gap-1.5 ${isCollapsed ? 'md:justify-center' : ''}`}>
+        <Icon className="h-4 w-4" />
+        <span className={`text-[10px] font-bold uppercase tracking-[0.12em] text-white/70 ${isCollapsed ? 'md:hidden' : ''}`}>VIP Pro Ultra</span>
+      </span>
+
+      <span className={`mt-2 block text-[17px] font-bold leading-5 ${isCollapsed ? 'md:hidden' : ''}`}>Save 50%</span>
+
+      <span className={`mt-1.5 inline-flex items-center gap-0.5 text-xs font-semibold text-white/80 transition group-hover/promotion:gap-1 group-hover/promotion:text-white ${isCollapsed ? 'md:hidden' : ''}`}>
+        View plans
+        <ChevronRight className="h-3 w-3" />
+      </span>
     </a>
   );
 }

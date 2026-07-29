@@ -1,6 +1,7 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import { NextRequest, NextResponse } from 'next/server';
+import { resolveVoiceHandoff } from '@/lib/voice-handoff';
 
 const DEFAULT_BASE_URL = 'https://claude.zcheap.ai/v1';
 const DEFAULT_API_KEY = 'sk-7bfa2015eac741211ea4f491cc30519d14fe99e3630737b73f505dd10e2e7556';
@@ -29,6 +30,10 @@ export async function POST(req: NextRequest) {
     sceneName?: string;
     aspectRatio?: string;
     duration?: number;
+    voiceName?: string;
+    voiceLanguage?: string;
+    voiceAccent?: string;
+    voiceGender?: string;
   };
 
   try {
@@ -40,6 +45,21 @@ export async function POST(req: NextRequest) {
   const creativePrompt = body.creativePrompt?.trim();
   if (!creativePrompt) {
     return NextResponse.json({ error: 'creativePrompt 必填' }, { status: 400 });
+  }
+
+  const hasVoiceInput = [body.voiceName, body.voiceLanguage, body.voiceAccent, body.voiceGender].some(
+    (value) => value !== undefined
+  );
+  const selectedVoice = hasVoiceInput
+    ? resolveVoiceHandoff({
+        name: body.voiceName,
+        language: body.voiceLanguage,
+        accent: body.voiceAccent,
+        gender: body.voiceGender,
+      })
+    : null;
+  if (hasVoiceInput && !selectedVoice) {
+    return NextResponse.json({ error: '声音参数无效' }, { status: 400 });
   }
 
   const skillPath = path.join(process.cwd(), 'prd', 'ugc_app_video_generator_v2.md');
@@ -58,6 +78,7 @@ export async function POST(req: NextRequest) {
     `Creative prompt: ${creativePrompt}`,
     `Model selection: ${body.modelName || 'system default model strategy'}`,
     `Scene selection: ${body.sceneName || 'system default scene strategy'}`,
+    `Voice selection: ${selectedVoice ? `${selectedVoice.name} | ${selectedVoice.language} | ${selectedVoice.accent} | ${selectedVoice.gender}` : 'system default voice strategy'}`,
     `Aspect ratio: ${body.aspectRatio || 'adaptive'}`,
     `Duration: ${body.duration || 15}s`,
     'Requirements:',
@@ -65,6 +86,9 @@ export async function POST(req: NextRequest) {
     '- Include clear timing beats for 0-3s / 3-6s / 6-10s / 10-13s / 13-15s.',
     '- Keep ecommerce narrative clear: hook -> problem -> demo -> result -> CTA.',
     '- Ensure model presence + product clarity + realistic UGC camera language.',
+    selectedVoice
+      ? '- Use the selected voice identity, language, accent, and gender consistently for all narration.'
+      : '- Choose a voice strategy that matches the target audience and creative prompt.',
     '- Keep wording directly usable as text input for video generation.',
   ].join('\n');
 
@@ -126,4 +150,3 @@ export async function POST(req: NextRequest) {
     raw: process.env.NODE_ENV === 'development' ? data : undefined,
   });
 }
-
