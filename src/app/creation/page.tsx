@@ -722,7 +722,16 @@ const uploadItems: ProjectGalleryItem[] = [
   },
 ];
 
+// 资源入口按产品优先级固定排序，Price 促销卡片必须位于 Blog 上方。
 const resourceCards: HubCard[] = [
+  {
+    name: 'Price',
+    description: 'Price plans are 50% off.',
+    icon: Crown,
+    href: '#',
+    tone: 'from-[#4f46e5] to-[#7c3aed]',
+    iconTone: 'text-white',
+  },
   {
     name: 'Blog',
     description: 'Read product updates and creation workflow notes.',
@@ -730,14 +739,6 @@ const resourceCards: HubCard[] = [
     href: '#',
     tone: 'bg-white',
     iconTone: 'text-slate-600',
-  },
-  {
-    name: 'Price',
-    description: 'VIP Pro Ultra saves 50%.',
-    icon: Crown,
-    href: '#',
-    tone: 'from-[#4f46e5] to-[#7c3aed]',
-    iconTone: 'text-white',
   },
   {
     name: 'Language',
@@ -4189,25 +4190,22 @@ function SidebarPricePromotionCard({ item, isCollapsed }: { item: HubCard; isCol
   return (
     <a
       href={item.href}
-      title="VIP Pro Ultra — Save 50%"
-      aria-label="VIP Pro Ultra offer: Save 50%. View plans"
+      title="Price — 50% OFF"
+      aria-label="Price: 50% OFF. View plans"
       className={`group/promotion flex bg-gradient-to-br ${item.tone} text-white shadow-[0_10px_24px_rgba(79,70,229,0.22)] ring-1 ring-indigo-300/30 transition hover:-translate-y-0.5 hover:shadow-[0_14px_28px_rgba(79,70,229,0.3)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#78b7ff] ${
         isCollapsed
-          ? 'h-[104px] flex-col items-start rounded-[14px] p-3 md:mx-auto md:h-12 md:w-12 md:items-center md:justify-center md:p-0'
-          : 'h-[104px] flex-col items-start rounded-[14px] p-3'
+          ? 'h-14 items-center rounded-[14px] px-3 md:mx-auto md:h-12 md:w-12 md:justify-center md:px-0'
+          : 'h-14 items-center rounded-[14px] px-3'
       }`}
     >
-      <span className={`flex items-center gap-1.5 ${isCollapsed ? 'md:justify-center' : ''}`}>
+      {/* 收起状态只在桌面端隐藏文案，窄屏仍保留完整单行促销信息。 */}
+      <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] bg-white/15 ${isCollapsed ? 'md:bg-transparent' : ''}`}>
         <Icon className="h-4 w-4" />
-        <span className={`text-[10px] font-bold uppercase tracking-[0.12em] text-white/70 ${isCollapsed ? 'md:hidden' : ''}`}>VIP Pro Ultra</span>
       </span>
 
-      <span className={`mt-2 block text-[17px] font-bold leading-5 ${isCollapsed ? 'md:hidden' : ''}`}>Save 50%</span>
+      <span className={`ml-2.5 min-w-0 flex-1 truncate text-sm font-bold ${isCollapsed ? 'md:hidden' : ''}`}>Price 50% OFF</span>
 
-      <span className={`mt-1.5 inline-flex items-center gap-0.5 text-xs font-semibold text-white/80 transition group-hover/promotion:gap-1 group-hover/promotion:text-white ${isCollapsed ? 'md:hidden' : ''}`}>
-        View plans
-        <ChevronRight className="h-3 w-3" />
-      </span>
+      <ChevronRight className={`ml-2 h-4 w-4 shrink-0 text-white/80 transition group-hover/promotion:translate-x-0.5 group-hover/promotion:text-white ${isCollapsed ? 'md:hidden' : ''}`} />
     </a>
   );
 }
