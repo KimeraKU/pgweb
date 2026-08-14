@@ -1,12 +1,26 @@
 'use client';
 
 import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import Image from 'next/image';
 import {
   buildVoiceHandoffUrl,
   VOICE_HANDOFF_PRESETS,
   type VoiceHandoffPreset,
 } from '@/lib/voice-handoff';
+import {
+  featuredToolCards,
+  recentToolCards,
+  recommendedFeatureTools,
+  recommendedGridTools,
+  toolCards,
+  toolCategoryTabs,
+  toolLibrarySections,
+} from '@/lib/creation-tools';
+import {
+  creationHomeShowcaseCategories,
+  type CreationHomeShowcaseSection,
+} from '@/data/creation-home-showcase';
 import {
   AudioLines,
   BookOpen,
@@ -18,7 +32,6 @@ import {
   Download,
   RefreshCw,
   X,
-  Eraser,
   FolderKanban,
   Globe2,
   Home,
@@ -28,6 +41,7 @@ import {
   LayoutTemplate,
   LogOut,
   Maximize,
+  Menu,
   MoreHorizontal,
   Newspaper,
   PenTool,
@@ -38,7 +52,6 @@ import {
   Send,
   Settings,
   Share2,
-  Scissors,
   ShoppingBag,
   SlidersHorizontal,
   Sparkles,
@@ -74,13 +87,6 @@ type PromoCard = {
   kicker: string;
   tone: string;
   icon: LucideIcon;
-};
-
-type TemplateShowcaseSection = {
-  title: string;
-  description: string;
-  tabs: string[];
-  cards: TemplatePreviewCard[];
 };
 
 type TemplatePreviewCard = {
@@ -196,139 +202,6 @@ const sectionNavItems: SectionNavItem[] = [
     label: 'Projects',
     description: 'Saved work and drafts',
     icon: FolderKanban,
-  },
-];
-
-const featuredToolCards: HubCard[] = [
-  {
-    name: 'AI Image',
-    description: 'Generate and enhance images for daily creative work.',
-    icon: ImageIcon,
-    href: '/image-enhancer',
-    tone: 'bg-[#10c957]',
-    iconTone: 'text-white',
-  },
-  {
-    name: 'AI Video',
-    description: 'Create app, product, and social videos from assets.',
-    icon: Video,
-    href: '/ai-video',
-    tone: 'bg-[#ffd51d]',
-    iconTone: 'text-slate-950',
-  },
-  {
-    name: 'Grid',
-    description: 'Compose collage layouts and structured canvases.',
-    icon: LayoutGrid,
-    href: '/editor',
-    tone: 'bg-[#2f80ed]',
-    iconTone: 'text-white',
-  },
-];
-
-const agentToolCard: HubCard = {
-  name: 'AI Agent',
-  description: 'Understand requests, analyze assets, and guide image, video, or editing tasks.',
-  icon: Sparkles,
-  href: '#',
-  tone: 'bg-white',
-  iconTone: 'text-slate-600',
-};
-
-const toolCards: HubCard[] = [
-  {
-    name: 'AI Photo Editor',
-    description: 'Edit images with AI-powered adjustments.',
-    icon: PenTool,
-    href: '/editor',
-    tone: 'bg-white',
-    iconTone: 'text-slate-600',
-  },
-  {
-    name: 'AI Filter',
-    description: 'Apply reusable styles and visual presets.',
-    icon: Sparkles,
-    href: '#',
-    tone: 'bg-white',
-    iconTone: 'text-slate-600',
-  },
-  {
-    name: 'Image Upscaler',
-    description: 'Improve resolution and visual clarity.',
-    icon: Maximize,
-    href: '/image-enhancer',
-    tone: 'bg-white',
-    iconTone: 'text-slate-600',
-  },
-  {
-    name: 'Watermark Remover',
-    description: 'Clean unwanted marks from visual assets.',
-    icon: Eraser,
-    href: '#',
-    tone: 'bg-white',
-    iconTone: 'text-slate-600',
-  },
-  {
-    name: 'Photo Restoration',
-    description: 'Repair old, blurry, or damaged photos.',
-    icon: Sparkles,
-    href: '#',
-    tone: 'bg-white',
-    iconTone: 'text-slate-600',
-  },
-  {
-    name: 'Object Remover',
-    description: 'Remove distractions from photos and product shots.',
-    icon: Wand2,
-    href: '#',
-    tone: 'bg-white',
-    iconTone: 'text-slate-600',
-  },
-  {
-    name: 'E-commerce Video',
-    description: 'Turn product materials into conversion-ready videos.',
-    icon: ShoppingBag,
-    href: '/ugc-video-generator',
-    tone: 'bg-white',
-    iconTone: 'text-slate-600',
-  },
-  {
-    name: 'AI Avatar',
-    description: 'Create avatar-led content and visual presenters.',
-    icon: UserRound,
-    href: '#',
-    tone: 'bg-white',
-    iconTone: 'text-slate-600',
-  },
-  {
-    name: 'Background Remover',
-    description: 'Cut out subjects and prepare transparent assets.',
-    icon: Scissors,
-    href: '/background-remover',
-    tone: 'bg-white',
-    iconTone: 'text-slate-600',
-  },
-];
-
-const recommendedFeatureTools = featuredToolCards.slice(0, 2);
-const recommendedGridTools = toolCards.slice(0, 7);
-
-const recentToolCards = [agentToolCard, featuredToolCards[2], toolCards[0]];
-
-const toolCategoryTabs = ['Image', 'Video', 'Utility'];
-
-const toolLibrarySections: Array<{ title: string; cards: HubCard[] }> = [
-  {
-    title: 'Image Tools',
-    cards: [featuredToolCards[0], featuredToolCards[2], toolCards[0], toolCards[1], toolCards[2], toolCards[8], toolCards[5], toolCards[4], toolCards[3]],
-  },
-  {
-    title: 'Video Tools',
-    cards: [featuredToolCards[1], toolCards[6], toolCards[7]],
-  },
-  {
-    title: 'Creative Utilities',
-    cards: [agentToolCard],
   },
 ];
 
@@ -798,12 +671,8 @@ function getStableImage(paths: string[], key: string) {
   return paths[hash % paths.length];
 }
 
-const templateShowcaseSections: TemplateShowcaseSection[] = [
-  {
-    title: 'Popular Ad Formats',
-    description: 'Start with proven video ad styles for your product.',
-    tabs: ['UGC Review', 'Lifestyle', 'Business', 'Fashion', 'Sports', 'Arts'],
-    cards: [
+const templatePreviewCardSets: Record<CreationHomeShowcaseSection['previewSet'], TemplatePreviewCard[]> = {
+  ads: [
       {
         name: 'UGC Seeding',
         duration: '15s',
@@ -876,13 +745,8 @@ const templateShowcaseSections: TemplateShowcaseSection[] = [
         tone: 'from-[#fee2e2] via-[#fff7ed] to-[#fca5a5]',
         icon: Sparkles,
       },
-    ],
-  },
-  {
-    title: 'Product Image Sets',
-    description: 'Build complete product visuals from reusable layouts.',
-    tabs: ['Listing', 'Hero', 'Detail', 'Bundle', 'Seasonal', 'Before/After'],
-    cards: [
+  ],
+  product: [
       {
         name: 'Amazon Listing',
         tone: 'from-[#ecfeff] via-white to-[#bae6fd]',
@@ -943,13 +807,8 @@ const templateShowcaseSections: TemplateShowcaseSection[] = [
         tone: 'from-[#fff1f2] via-white to-[#fda4af]',
         icon: ShoppingBag,
       },
-    ],
-  },
-  {
-    title: 'Creator Video Starters',
-    description: 'Use short-form structures for reviews, demos, and social ads.',
-    tabs: ['Review', 'Demo', 'Hook', 'Tutorial', 'App Promo', 'Testimonial'],
-    cards: [
+  ],
+  creator: [
       {
         name: 'Problem Hook',
         duration: '12s',
@@ -1022,9 +881,8 @@ const templateShowcaseSections: TemplateShowcaseSection[] = [
         tone: 'from-[#f8fafc] via-white to-[#94a3b8]',
         icon: Maximize,
       },
-    ],
-  },
-];
+  ],
+};
 
 const sectionMeta: Record<SectionId, { eyebrow: string; title: string; description: string }> = {
   home: {
@@ -1052,33 +910,119 @@ const sectionMeta: Record<SectionId, { eyebrow: string; title: string; descripti
 export default function CreationPage() {
   const [activeSection, setActiveSection] = useState<SectionId>('home');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  const mobileNavTriggerRef = useRef<HTMLButtonElement>(null);
+  const mobileNavRef = useRef<HTMLElement>(null!);
   const activeMeta = sectionMeta[activeSection];
 
+  const closeMobileNav = () => {
+    setIsMobileNavOpen(false);
+    window.requestAnimationFrame(() => mobileNavTriggerRef.current?.focus());
+  };
+
+  const handleSectionChange = (section: SectionId) => {
+    setActiveSection(section);
+    if (isMobileNavOpen) closeMobileNav();
+  };
+
+  useEffect(() => {
+    if (!isMobileNavOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    const focusFrame = window.requestAnimationFrame(() => {
+      document.querySelector<HTMLButtonElement>('[data-mobile-nav-close]')?.focus();
+    });
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        closeMobileNav();
+        return;
+      }
+      if (event.key !== 'Tab' || !mobileNavRef.current) return;
+
+      const focusableElements = Array.from(
+        mobileNavRef.current.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'),
+      ).filter((element) => element.offsetParent !== null);
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements.at(-1);
+
+      if (event.shiftKey && document.activeElement === firstElement) {
+        event.preventDefault();
+        lastElement?.focus();
+      } else if (!event.shiftKey && document.activeElement === lastElement) {
+        event.preventDefault();
+        firstElement?.focus();
+      }
+    };
+
+    // H5 导航打开时锁定背景，避免抽屉内容与页面同时滚动。
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isMobileNavOpen]);
+
   return (
-    <main className="min-h-screen bg-[#f6f8fb] text-slate-950">
+    <main className="min-h-screen overflow-x-hidden bg-[#f6f8fb] text-slate-950">
       <div className="flex min-h-screen flex-col md:flex-row">
+        {isMobileNavOpen ? (
+          <button
+            type="button"
+            aria-label="关闭 Creation 导航"
+            onClick={closeMobileNav}
+            className="fixed inset-0 z-40 bg-slate-950/35 backdrop-blur-[1px] md:hidden"
+          />
+        ) : null}
         <CreationSidebar
+          sidebarRef={mobileNavRef}
           activeSection={activeSection}
           isCollapsed={isSidebarCollapsed}
-          onSectionChange={setActiveSection}
+          isMobileOpen={isMobileNavOpen}
+          onSectionChange={handleSectionChange}
+          onCloseMobile={closeMobileNav}
           onToggleCollapse={() => setIsSidebarCollapsed((value) => !value)}
         />
 
         <section
-          className={`min-w-0 flex-1 bg-white px-4 py-3 transition-[margin] duration-300 sm:px-5 lg:px-6 ${
+          className={`min-w-0 flex-1 bg-white px-4 pb-3 transition-[margin] duration-300 sm:px-5 md:py-3 lg:px-6 ${
             isSidebarCollapsed ? 'md:ml-[84px]' : 'md:ml-[248px]'
           }`}
         >
+          <header className="sticky top-0 z-30 -mx-4 mb-4 flex h-14 items-center border-b border-slate-200 bg-white/95 px-4 backdrop-blur sm:-mx-5 sm:px-5 md:hidden">
+            <button
+              ref={mobileNavTriggerRef}
+              type="button"
+              aria-label="打开 Creation 导航"
+              aria-expanded={isMobileNavOpen}
+              aria-controls="creation-navigation"
+              onClick={() => setIsMobileNavOpen(true)}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-700 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2fbfc7]"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+            <span className="ml-1 flex min-w-0 items-center gap-2">
+              <Image src="/logo.svg" alt="" width={26} height={26} priority />
+              <span className="truncate text-base font-semibold tracking-tight text-slate-950">PhotoGrid</span>
+            </span>
+            <div className="ml-auto">
+              <CreationAccountMenu />
+            </div>
+          </header>
+
           {activeSection === 'home' ? null : (
             <div className="mx-auto mb-3 flex w-full max-w-7xl items-center justify-between gap-3">
               {activeSection === 'projects' ? <span /> : <PageTitle title={activeMeta.eyebrow} />}
-              <CreationAccountMenu />
+              <div className="hidden md:block">
+                <CreationAccountMenu />
+              </div>
             </div>
           )}
 
-          <div className="mx-auto flex w-full min-w-0 max-w-7xl flex-col gap-4">
+          <div className="mx-auto flex w-full min-w-0 max-w-7xl flex-col gap-3 sm:gap-4">
             {activeSection === 'home' ? (
-              <HomePanel onSectionChange={setActiveSection} accountSlot={<CreationAccountMenu />} />
+              <HomePanel onSectionChange={handleSectionChange} accountSlot={<CreationAccountMenu />} />
             ) : activeSection === 'tools' ? (
               <ToolsLibraryPanel />
             ) : activeSection === 'templates' ? (
@@ -1101,16 +1045,30 @@ export default function CreationPage() {
 function CreationAccountMenu() {
   const [isCreditsOpen, setIsCreditsOpen] = useState(false);
   const [isAccountOpen, setIsAccountOpen] = useState(false);
+  const [isMobileProfileOpen, setIsMobileProfileOpen] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement>(null);
+  const mobileProfileCloseRef = useRef<HTMLButtonElement>(null);
+  const mobileProfileTriggerRef = useRef<HTMLButtonElement>(null);
+
+  const isMobileViewport = () => window.matchMedia('(max-width: 767px)').matches;
+  const closeMobileProfile = () => {
+    setIsMobileProfileOpen(false);
+    window.requestAnimationFrame(() => mobileProfileTriggerRef.current?.focus());
+  };
 
   useEffect(() => {
     const handlePointerDown = (event: PointerEvent) => {
+      if (event.target instanceof Element && event.target.closest('[data-testid="creation-mobile-profile-sheet"]')) return;
       if (accountMenuRef.current && !accountMenuRef.current.contains(event.target as Node)) {
         setIsAccountOpen(false);
+        closeMobileProfile();
       }
     };
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setIsAccountOpen(false);
+      if (event.key === 'Escape') {
+        setIsAccountOpen(false);
+        closeMobileProfile();
+      }
     };
 
     document.addEventListener('pointerdown', handlePointerDown);
@@ -1120,6 +1078,18 @@ function CreationAccountMenu() {
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, []);
+
+  useEffect(() => {
+    if (!isMobileProfileOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    const focusFrame = window.requestAnimationFrame(() => mobileProfileCloseRef.current?.focus());
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isMobileProfileOpen]);
 
   return (
     <div ref={accountMenuRef} className="relative z-40 flex w-fit items-center justify-end gap-2.5">
@@ -1139,15 +1109,12 @@ function CreationAccountMenu() {
       >
         <button
           type="button"
-          aria-label="6,234 credits. Add credits"
+          aria-label="6,234 credits"
           aria-expanded={isCreditsOpen}
-          className="group flex h-10 items-center gap-2 rounded-full bg-white py-1 pl-3 pr-1.5 text-slate-900 shadow-[0_6px_16px_rgba(15,23,42,0.04)] ring-1 ring-[#eceeef] transition hover:shadow-[0_9px_22px_rgba(15,23,42,0.09)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2fbfc7]"
+          className="group flex h-10 items-center gap-2 rounded-full bg-white px-3 py-1 text-slate-900 shadow-[0_6px_16px_rgba(15,23,42,0.04)] ring-1 ring-[#eceeef] transition hover:shadow-[0_9px_22px_rgba(15,23,42,0.09)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2fbfc7]"
         >
           <Sparkles className="h-5 w-5 shrink-0 fill-current text-[#ff9f17]" strokeWidth={2.4} />
           <span className="text-lg font-bold leading-none tracking-normal text-[#383d40] tabular-nums">6,234</span>
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#35bdc7] text-white transition group-hover:bg-[#2aafb8]">
-            <Plus className="h-[18px] w-[18px]" strokeWidth={2} />
-          </span>
         </button>
 
         <div
@@ -1187,12 +1154,19 @@ function CreationAccountMenu() {
 
       <button
         type="button"
+        ref={mobileProfileTriggerRef}
         aria-label="Open Feng Lin account"
         aria-haspopup="menu"
-        aria-expanded={isAccountOpen}
+        aria-expanded={isMobileProfileOpen || isAccountOpen}
         onClick={() => {
           setIsCreditsOpen(false);
-          setIsAccountOpen((value) => !value);
+          if (isMobileViewport()) {
+            setIsMobileProfileOpen((value) => !value);
+            setIsAccountOpen(false);
+          } else {
+            setIsAccountOpen((value) => !value);
+            setIsMobileProfileOpen(false);
+          }
         }}
         className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-[#fff0bd] ring-1 ring-[#f4e8bf] transition hover:shadow-[0_8px_18px_rgba(15,23,42,0.12)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2fbfc7]"
       >
@@ -1228,7 +1202,89 @@ function CreationAccountMenu() {
           </button>
         </div>
       </div>
+
+      {isMobileProfileOpen && typeof document !== 'undefined' ? createPortal(
+        <div className="fixed inset-0 z-[70] md:hidden" role="presentation">
+          <button
+            type="button"
+            aria-label="关闭账户面板"
+            onClick={closeMobileProfile}
+            className="absolute inset-0 bg-slate-950/25 backdrop-blur-[1px]"
+          />
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="mobile-profile-title"
+            data-testid="creation-mobile-profile-sheet"
+            className="absolute inset-x-0 bottom-0 flex h-[100dvh] max-h-[100dvh] flex-col overflow-y-auto rounded-t-[24px] bg-white px-8 pb-[max(32px,env(safe-area-inset-bottom))] pt-24 shadow-[0_-18px_60px_rgba(15,23,42,0.2)] animate-[creation-sheet-in_220ms_ease-out]"
+          >
+            <button
+              ref={mobileProfileCloseRef}
+              type="button"
+              aria-label="关闭账户面板"
+              onClick={closeMobileProfile}
+              className="absolute right-7 top-6 flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-50 hover:text-slate-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2fbfc7]"
+            >
+              <X className="h-7 w-7" strokeWidth={1.8} />
+            </button>
+
+            <div className="flex items-center gap-4 pr-12">
+              <span className="h-[72px] w-[72px] shrink-0 overflow-hidden rounded-full bg-[#fff0bd] ring-1 ring-[#f4e8bf]">
+                <img src="/login-hero-woman.png" alt="Feng Lin" className="h-full w-full scale-[1.85] object-cover object-[58%_42%]" />
+              </span>
+              <div className="min-w-0">
+                <h2 id="mobile-profile-title" className="text-[23px] font-semibold leading-7 text-slate-800">Demo</h2>
+                <p className="mt-1 flex min-w-0 items-center gap-1.5 truncate text-[17px] leading-6 text-slate-400">
+                  <span aria-hidden="true">✉</span>
+                  <span className="truncate">demo@photogrid.com</span>
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-12 grid gap-2">
+              <MobileProfileRow icon={<Sparkles className="h-6 w-6 fill-current text-[#ff9f17]" strokeWidth={2.2} />} label="Credits" value="999" />
+              <MobileProfileRow icon={<Crown className="h-6 w-6 text-slate-700" strokeWidth={2.2} />} label="Plan" value="Free" valueTone="text-[#f3a91d] bg-[#fff0c9]" />
+              <MobileProfileRow icon={<Settings className="h-6 w-6 text-slate-700" strokeWidth={2.2} />} label="Setting" />
+              <MobileProfileRow icon={<Globe2 className="h-6 w-6 text-slate-700" strokeWidth={2.2} />} label="Language" value="English" />
+            </div>
+
+            <button
+              type="button"
+              role="menuitem"
+              className="mt-auto flex h-[60px] w-full shrink-0 items-center justify-center gap-3 rounded-[16px] border border-slate-200 bg-white text-[23px] font-medium text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.03)] transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2fbfc7]"
+            >
+              <LogOut className="h-7 w-7" strokeWidth={2} />
+              Log out
+            </button>
+          </section>
+        </div>
+      , document.body) : null}
     </div>
+  );
+}
+
+function MobileProfileRow({
+  icon,
+  label,
+  value,
+  valueTone = 'text-slate-700',
+}: {
+  icon: ReactNode;
+  label: string;
+  value?: string;
+  valueTone?: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      className="flex h-[68px] w-full items-center gap-4 rounded-[12px] px-1 text-left text-[18px] font-medium text-slate-600 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2fbfc7]"
+    >
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center">{icon}</span>
+      <span>{label}</span>
+      {value ? <span className={`ml-auto rounded-full px-2 py-0.5 font-semibold ${valueTone}`}>{value}</span> : null}
+      <ChevronRight className="h-6 w-6 shrink-0 text-slate-600" strokeWidth={2} />
+    </button>
   );
 }
 
@@ -1254,7 +1310,7 @@ function HomePanel({ onSectionChange, accountSlot }: { onSectionChange: (section
   return (
     <div className="grid min-w-0 gap-5">
       <div className="relative min-w-0">
-        {accountSlot ? <div className="mb-4 flex justify-end 2xl:absolute 2xl:right-0 2xl:top-0 2xl:mb-0">{accountSlot}</div> : null}
+        {accountSlot ? <div className="mb-4 hidden justify-end md:flex 2xl:absolute 2xl:right-0 2xl:top-0 2xl:mb-0">{accountSlot}</div> : null}
         <AgentEntryPrototype />
       </div>
       <OperationsBlock />
@@ -1268,7 +1324,7 @@ function OperationsBlock() {
   return (
     <section aria-labelledby="operations-updates" className="min-w-0">
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 id="operations-updates" className="text-xl font-semibold tracking-tight text-slate-950">
+      <h2 id="operations-updates" className="text-lg font-semibold tracking-tight text-slate-950 sm:text-xl">
           What&apos;s new
         </h2>
       </div>
@@ -1279,7 +1335,7 @@ function OperationsBlock() {
             <a
               key={item.title}
               href="#"
-              className="group relative h-[150px] w-[360px] shrink-0 overflow-hidden rounded-[14px] bg-slate-100 ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:shadow-[0_14px_34px_rgba(15,23,42,0.08)]"
+              className="group relative h-[120px] w-[280px] shrink-0 overflow-hidden rounded-[12px] bg-slate-100 ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:shadow-[0_14px_34px_rgba(15,23,42,0.08)] sm:h-[150px] sm:w-[360px] sm:rounded-[14px]"
             >
               <img
                 src={promoImagePaths[index % promoImagePaths.length]}
@@ -1287,11 +1343,11 @@ function OperationsBlock() {
                 className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105"
               />
               <span className="absolute inset-0 bg-gradient-to-t from-slate-950/72 via-slate-950/16 to-transparent" />
-              <span className="absolute right-3 top-3 rounded-full bg-white/28 px-2.5 py-1 text-[11px] font-semibold text-white shadow-sm backdrop-blur-md ring-1 ring-white/25">
+                <span className="absolute right-2.5 top-2.5 rounded-full bg-white/28 px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm backdrop-blur-md ring-1 ring-white/25 sm:right-3 sm:top-3 sm:px-2.5 sm:py-1 sm:text-[11px]">
                 {item.kicker}
               </span>
               <span className="absolute inset-x-3 bottom-3">
-                <span className="line-clamp-2 text-[17px] font-semibold leading-5 text-white">{item.title}</span>
+                <span className="line-clamp-2 text-sm font-semibold leading-4 text-white sm:text-[17px] sm:leading-5">{item.title}</span>
               </span>
             </a>
           );
@@ -1305,18 +1361,21 @@ function HomeToolsBlock({ onSectionChange }: { onSectionChange: (section: Sectio
   return (
     <section aria-labelledby="home-tools" className="min-w-0">
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 id="home-tools" className="text-xl font-semibold tracking-tight text-slate-950">
+        <h2 id="home-tools" className="text-lg font-semibold tracking-tight text-slate-950 sm:text-xl">
           Recommended tools
         </h2>
       </div>
 
-      <div className="grid min-w-0 gap-2.5 xl:grid-cols-[240px_240px_minmax(0,1fr)]">
+      <div
+        data-testid="home-recommended-tools-grid"
+        className="grid min-w-0 grid-cols-4 gap-x-2 gap-y-4 md:grid-cols-2 md:gap-2.5 xl:grid-cols-[240px_240px_minmax(0,1fr)]"
+      >
         {recommendedFeatureTools.map((tool, index) => (
           <RecommendedFeatureCard key={tool.name} tool={tool} index={index} />
         ))}
-        <div className="grid min-w-0 overflow-hidden rounded-[18px] bg-slate-50 ring-1 ring-slate-200 sm:grid-cols-2 lg:grid-cols-4">
-          {recommendedGridTools.map((tool) => (
-            <RecommendedGridCell key={tool.name} tool={tool} />
+        <div className="contents md:col-span-2 md:grid md:min-w-0 md:grid-cols-2 md:overflow-hidden md:rounded-[18px] md:bg-slate-50 md:ring-1 md:ring-slate-200 lg:col-span-1 lg:grid-cols-4">
+          {recommendedGridTools.map((tool, index) => (
+            <RecommendedGridCell key={tool.name} tool={tool} className={index >= 5 ? 'hidden md:flex' : ''} />
           ))}
           <RecommendedMoreCell onClick={() => onSectionChange('tools')} />
         </div>
@@ -1327,38 +1386,42 @@ function HomeToolsBlock({ onSectionChange }: { onSectionChange: (section: Sectio
 
 function RecommendedFeatureCard({ tool, index }: { tool: HubCard; index: number }) {
   const Icon = tool.icon;
-  const tones = ['bg-[linear-gradient(135deg,#ecfeff_0%,#ffffff_72%)]', 'bg-[linear-gradient(135deg,#f7fee7_0%,#ffffff_72%)]'];
+  const tones = ['md:bg-[linear-gradient(135deg,#ecfeff_0%,#ffffff_72%)]', 'md:bg-[linear-gradient(135deg,#f7fee7_0%,#ffffff_72%)]'];
 
   return (
     <a
       href={tool.href}
-      className={`group flex min-h-[148px] min-w-0 flex-col justify-between rounded-[18px] ${tones[index] ?? 'bg-white'} p-5 ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:shadow-[0_16px_34px_rgba(15,23,42,0.08)]`}
+      className={`group flex min-h-[72px] min-w-0 flex-col items-center justify-start gap-2 bg-transparent px-1 py-1 text-center transition focus:outline-none focus-visible:rounded-[10px] focus-visible:ring-2 focus-visible:ring-[#2fbfc7] ${tones[index] ?? 'md:bg-white'} md:min-h-[148px] md:items-start md:justify-between md:rounded-[18px] md:p-5 md:text-left md:ring-1 md:ring-slate-200 md:hover:-translate-y-0.5 md:hover:shadow-[0_16px_34px_rgba(15,23,42,0.08)]`}
     >
-      <span>
-        <span className="flex items-center gap-2">
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] bg-white/70 text-slate-800 ring-1 ring-slate-200 transition group-hover:text-[#2fbfc7]">
-            <Icon className="h-4 w-4" />
+      <span className="min-w-0">
+        <span className="flex min-w-0 flex-col items-center gap-2 md:flex-row">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center text-slate-800 transition group-hover:text-[#2fbfc7] md:h-7 md:w-7 md:rounded-[8px] md:bg-white/70 md:ring-1 md:ring-slate-200">
+            <Icon className="h-5 w-5 md:h-4 md:w-4" />
           </span>
-          <span className="block truncate text-lg font-semibold tracking-tight text-slate-950">{tool.name}</span>
+          <span className="line-clamp-2 text-center text-[11px] font-medium leading-4 text-slate-800 md:block md:truncate md:text-left md:text-lg md:font-semibold md:tracking-tight md:text-slate-950">
+            {tool.name}
+          </span>
         </span>
-        <span className="mt-1 line-clamp-2 block text-xs leading-5 text-slate-500">{tool.description}</span>
+        <span className="sr-only md:not-sr-only md:mt-1 md:line-clamp-2 md:text-xs md:leading-5 md:text-slate-500">{tool.description}</span>
       </span>
     </a>
   );
 }
 
-function RecommendedGridCell({ tool }: { tool: HubCard }) {
+function RecommendedGridCell({ tool, className = '' }: { tool: HubCard; className?: string }) {
   const Icon = tool.icon;
 
   return (
     <a
       href={tool.href}
-      className="group relative flex min-h-[68px] min-w-0 items-center gap-2.5 border-slate-200 bg-slate-50 px-4 text-left ring-0 transition hover:bg-white sm:border-r sm:border-b lg:[&:nth-child(4n)]:border-r-0 lg:[&:nth-child(n+5)]:border-b-0"
+      className={`group relative flex min-h-[72px] min-w-0 flex-col items-center justify-start gap-2 bg-transparent px-1 py-1 text-center transition focus:outline-none focus-visible:rounded-[10px] focus-visible:ring-2 focus-visible:ring-[#2fbfc7] md:min-h-[68px] md:flex-row md:justify-start md:gap-2.5 md:border-b md:border-r md:border-slate-200 md:bg-slate-50 md:px-4 md:text-left md:hover:bg-white lg:[&:nth-child(4n)]:border-r-0 lg:[&:nth-child(n+5)]:border-b-0 ${className}`}
     >
       <Icon className="h-5 w-5 shrink-0 text-slate-800 transition group-hover:text-[#2fbfc7]" />
-      <span className="truncate text-sm font-semibold text-slate-950">{tool.name}</span>
+      <span className="line-clamp-2 min-h-8 text-[11px] font-medium leading-4 text-slate-800 md:min-h-0 md:truncate md:text-sm md:font-semibold md:text-slate-950">
+        {tool.name}
+      </span>
       {tool.status ? (
-        <span className="absolute right-3 top-2.5 rounded-full bg-white px-1.5 py-0.5 text-[9px] font-semibold text-slate-400 ring-1 ring-slate-200">
+        <span className="absolute right-3 top-2.5 hidden rounded-full bg-white px-1.5 py-0.5 text-[9px] font-semibold text-slate-400 ring-1 ring-slate-200 md:inline">
           {tool.status}
         </span>
       ) : null}
@@ -1371,19 +1434,19 @@ function RecommendedMoreCell({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="group relative flex min-h-[68px] min-w-0 items-center gap-2.5 border-slate-200 bg-slate-50 px-4 text-left ring-0 transition hover:bg-white sm:border-r sm:border-b lg:[&:nth-child(4n)]:border-r-0 lg:[&:nth-child(n+5)]:border-b-0"
+      className="group relative flex min-h-[72px] min-w-0 flex-col items-center justify-start gap-2 bg-transparent px-1 py-1 text-center transition focus:outline-none focus-visible:rounded-[10px] focus-visible:ring-2 focus-visible:ring-[#2fbfc7] md:min-h-[68px] md:flex-row md:justify-start md:gap-2.5 md:border-b md:border-r md:border-slate-200 md:bg-slate-50 md:px-4 md:text-left md:hover:bg-white lg:[&:nth-child(4n)]:border-r-0 lg:[&:nth-child(n+5)]:border-b-0"
     >
       <MoreHorizontal className="h-5 w-5 shrink-0 text-slate-800 transition group-hover:text-[#2fbfc7]" />
-      <span className="truncate text-sm font-semibold text-slate-950">More</span>
+      <span className="line-clamp-2 min-h-8 text-[11px] font-medium leading-4 text-slate-800 md:min-h-0 md:truncate md:text-sm md:font-semibold md:text-slate-950">More</span>
     </button>
   );
 }
 
 function TemplateShowcaseBlocks() {
   const [activeTemplateIndex, setActiveTemplateIndex] = useState(0);
-  const scrollToTemplateSection = (index: number) => {
+  const scrollToTemplateCategory = (index: number, categoryId: string) => {
     setActiveTemplateIndex(index);
-    document.getElementById(`template-flow-${index}`)?.scrollIntoView({
+    document.getElementById(`template-flow-${categoryId}`)?.scrollIntoView({
       behavior: 'smooth',
       block: 'start',
     });
@@ -1391,44 +1454,64 @@ function TemplateShowcaseBlocks() {
 
   return (
     <section className="min-w-0" aria-labelledby="template-showcase">
+      <h2 id="template-showcase" className="sr-only">
+        Template recommendations
+      </h2>
       <div className="mb-3 flex gap-2 overflow-x-auto pb-1 scrollbar-hide" role="tablist" aria-label="Template categories">
-        {templateShowcaseSections.map((section, index) => (
+        {creationHomeShowcaseCategories.map((category, index) => (
           <button
-            key={section.title}
+            key={category.id}
             type="button"
             role="tab"
             aria-selected={activeTemplateIndex === index}
-            onClick={() => scrollToTemplateSection(index)}
+            aria-controls={`template-flow-${category.id}`}
+            onClick={() => scrollToTemplateCategory(index, category.id)}
             className={`h-9 shrink-0 rounded-full px-4 text-sm font-semibold transition ${
               activeTemplateIndex === index ? 'bg-[#2fbfc7] text-white shadow-[0_10px_22px_rgba(47,191,199,0.2)]' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
           >
-            {section.title}
+            {category.title}
           </button>
         ))}
       </div>
 
       <div className="grid min-w-0 gap-5">
-        {templateShowcaseSections.map((section, index) => (
-          <TemplateFlowBlock key={section.title} section={section} sectionIndex={index} />
+        {creationHomeShowcaseCategories.map((category, categoryIndex) => (
+          <div key={category.id} id={`template-flow-${category.id}`} className="grid scroll-mt-4 gap-5">
+            {category.sections.map((section, sectionIndex) => (
+              <TemplateFlowBlock
+                key={`${category.id}-${section.title}`}
+                section={section}
+                cards={templatePreviewCardSets[section.previewSet]}
+                imageOffset={categoryIndex * 6 + sectionIndex}
+              />
+            ))}
+          </div>
         ))}
       </div>
     </section>
   );
 }
 
-function TemplateFlowBlock({ section, sectionIndex }: { section: TemplateShowcaseSection; sectionIndex: number }) {
+function TemplateFlowBlock({
+  section,
+  cards,
+  imageOffset,
+}: {
+  section: CreationHomeShowcaseSection;
+  cards: TemplatePreviewCard[];
+  imageOffset: number;
+}) {
   return (
-    <div
-      id={`template-flow-${sectionIndex}`}
-      className="grid min-w-0 scroll-mt-4 gap-4 rounded-[22px] bg-slate-50 p-4 ring-1 ring-slate-100 lg:grid-cols-[220px_minmax(0,1fr)]"
-    >
-      <div className="flex min-h-[250px] flex-col justify-center px-3">
-        <h2 id="template-showcase" className="text-2xl font-semibold tracking-tight text-slate-950">
+    <div className="grid min-w-0 gap-3 rounded-[16px] bg-slate-50 p-3 ring-1 ring-slate-100 sm:gap-4 sm:rounded-[22px] sm:p-4 lg:grid-cols-[220px_minmax(0,1fr)]">
+      <div className="flex flex-col justify-center px-1 py-0.5 lg:min-h-[250px] lg:px-3 lg:py-0">
+        <h3 className="text-lg font-semibold tracking-tight text-slate-950 lg:text-2xl">
           {section.title}
-        </h2>
-        <p className="mt-3 max-w-[180px] text-base font-semibold leading-6 text-slate-400">{section.description}</p>
-        <div className="mt-9 flex gap-3">
+        </h3>
+        {section.description ? (
+          <p className="mt-1 max-w-none text-xs font-semibold leading-4 text-slate-400 lg:mt-3 lg:max-w-[180px] lg:text-base lg:leading-6">{section.description}</p>
+        ) : null}
+        <div className="mt-4 hidden gap-3 lg:flex">
           <button
             type="button"
             aria-label="Previous template set"
@@ -1447,8 +1530,8 @@ function TemplateFlowBlock({ section, sectionIndex }: { section: TemplateShowcas
       </div>
 
       <div className="flex min-w-0 gap-2 overflow-x-auto pb-1 scrollbar-hide">
-        {section.cards.map((card, index) => (
-          <TemplateFlowCard key={`${section.title}-${card.name}`} card={card} sectionIndex={sectionIndex} index={index} />
+        {cards.map((card, index) => (
+          <TemplateFlowCard key={`${section.title}-${card.name}`} card={card} imageOffset={imageOffset} index={index} />
         ))}
       </div>
     </div>
@@ -1457,33 +1540,33 @@ function TemplateFlowBlock({ section, sectionIndex }: { section: TemplateShowcas
 
 function TemplateFlowCard({
   card,
-  sectionIndex,
+  imageOffset,
   index,
 }: {
   card: TemplatePreviewCard;
-  sectionIndex: number;
+  imageOffset: number;
   index: number;
 }) {
   const widthClass = index % 5 === 0 ? 'w-[260px]' : index % 5 === 1 ? 'w-[255px]' : index % 5 === 2 ? 'w-[260px]' : index % 5 === 3 ? 'w-[260px]' : 'w-[250px]';
-  const imageSrc = templateImagePaths[(sectionIndex * 6 + index) % templateImagePaths.length];
+  const imageSrc = templateImagePaths[(imageOffset * 6 + index) % templateImagePaths.length];
 
   return (
     <a
       href="#"
-      className={`group relative h-[250px] ${widthClass} shrink-0 overflow-hidden rounded-[12px] bg-slate-100 ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:shadow-[0_16px_36px_rgba(15,23,42,0.12)]`}
+      className={`group relative h-[180px] ${widthClass} shrink-0 overflow-hidden rounded-[10px] bg-slate-100 ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:shadow-[0_16px_36px_rgba(15,23,42,0.12)] sm:h-[250px] sm:rounded-[12px]`}
     >
-      <img src={imageSrc} alt="" className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+      <img
+        src={imageSrc}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105"
+      />
       <span className="absolute inset-0 bg-gradient-to-t from-slate-950/64 via-slate-950/12 to-transparent" />
       <div className="absolute inset-0">
-        <button
-          type="button"
-          className="absolute inset-x-6 bottom-12 h-11 rounded-[10px] bg-slate-950/48 text-sm font-semibold text-white opacity-0 backdrop-blur-sm transition group-hover:bg-[#2fbfc7] group-hover:opacity-100"
-        >
-          Use same style
-        </button>
       </div>
       <div className="absolute inset-x-0 bottom-0 px-5 py-4">
-        <p className="truncate text-base font-semibold text-white">{card.name}</p>
+        <p className="truncate text-sm font-semibold text-white sm:text-base">{card.name}</p>
       </div>
     </a>
   );
@@ -3449,6 +3532,7 @@ function AgentEntryPrototype() {
   const [mediaUploadError, setMediaUploadError] = useState<string | null>(null);
   const mediaInputRef = useRef<HTMLInputElement>(null);
   const mediaObjectUrlsRef = useRef(new Set<string>());
+  const hasInitializedMobileTemplateRef = useRef(false);
   const agentGroups: AgentGroupCard[] = [
     {
       id: 'ecommerce-poster',
@@ -3749,6 +3833,26 @@ function AgentEntryPrototype() {
     setUploadedAgentImages((currentImages) => currentImages.filter((image) => image.source === 'user'));
   };
   useEffect(() => {
+    const firstGroup = agentGroups[0];
+    const firstTemplate = firstGroup?.children[0];
+
+    if (
+      hasInitializedMobileTemplateRef.current
+      || !window.matchMedia('(max-width: 767px)').matches
+      || !firstGroup
+      || !firstTemplate
+    ) {
+      return;
+    }
+
+    // H5 不再经过一级分类，首屏直接载入首个二级模板，保证参考图和真实 Prompt 立即可见。
+    hasInitializedMobileTemplateRef.current = true;
+    setActiveAgentGroupId(firstGroup.id);
+    selectAgentTemplate(firstTemplate);
+    // 仅在首次挂载时判断 H5 视口，桌面端继续保持未选择状态。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
     const objectUrls = mediaObjectUrlsRef.current;
     return () => {
       objectUrls.forEach((url) => URL.revokeObjectURL(url));
@@ -3801,19 +3905,19 @@ function AgentEntryPrototype() {
   return (
     <section id="agent-entry" className="min-w-0 scroll-mt-4">
       <div className="mx-auto max-w-5xl">
-        <h1 className="mx-auto max-w-[680px] text-center text-[28px] font-semibold leading-tight tracking-tight text-slate-950 sm:text-[40px]">
+        <h1 className="mx-auto max-w-[680px] text-center text-[23px] font-semibold leading-[1.22] tracking-tight text-slate-950 sm:text-[40px] sm:leading-tight">
           Create images, videos, posters, and brand assets with AI
         </h1>
 
-        <div className="mt-6 rounded-[20px] bg-white p-4 shadow-[0_18px_60px_rgba(15,23,42,0.12)] ring-1 ring-slate-200">
-          <div className="min-h-[150px]">
+        <div className="mt-3 rounded-[16px] bg-white p-3 shadow-[0_14px_42px_rgba(15,23,42,0.1)] ring-1 ring-slate-200 sm:mt-6 sm:rounded-[20px] sm:p-4 sm:shadow-[0_18px_60px_rgba(15,23,42,0.12)]">
+          <div className="min-h-[104px] sm:min-h-[150px]">
             {uploadedAgentImages.length > 0 ? (
               <div className={`flex flex-wrap items-center gap-2 ${selectedAgentTemplate ? 'mb-2' : 'mb-4'}`}>
                 <AgentUploadedImageList images={uploadedAgentImages} onRemove={removeUploadedAgentImage} />
               </div>
             ) : null}
             {selectedAgentTemplate ? (
-              <div className="mb-4 flex flex-wrap items-end gap-2">
+              <div data-testid="agent-template-fields" className="mb-4 hidden flex-wrap items-end gap-2 md:flex">
                 <AgentTemplateFields
                   key={`${selectedAgentTemplate.id}-${templateSelectionRevision}`}
                   fields={selectedAgentTemplate.fields}
@@ -3830,17 +3934,17 @@ function AgentEntryPrototype() {
                   : 'Describe what you want to create -- images, videos, posters, brand visuals, and more...'
               }
               rows={3}
-              className="min-h-[72px] w-full resize-none bg-transparent text-[18px] font-medium leading-7 text-slate-800 outline-none placeholder:text-slate-400"
+              className="min-h-[52px] w-full resize-none bg-transparent text-[15px] font-medium leading-5 text-slate-800 outline-none placeholder:text-slate-400 sm:min-h-[72px] sm:text-[18px] sm:leading-7"
             />
           </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-wrap items-center gap-2">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+            <div className="flex min-w-0 flex-1 flex-nowrap items-center gap-1.5 overflow-x-auto scrollbar-hide sm:gap-2">
               <button
                 type="button"
                 aria-label="Add media"
                 onClick={() => mediaInputRef.current?.click()}
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-slate-700 ring-1 ring-slate-200 transition hover:bg-slate-50"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-slate-700 ring-1 ring-slate-200 transition hover:bg-slate-50 sm:h-10 sm:w-10"
               >
                 <Plus className="h-5 w-5" />
               </button>
@@ -3855,7 +3959,7 @@ function AgentEntryPrototype() {
               />
               <button
                 type="button"
-                className="flex h-10 items-center gap-2 rounded-full bg-white px-4 text-sm font-semibold text-slate-700 ring-1 ring-slate-200 transition hover:bg-slate-50"
+                className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-white px-3 text-[13px] font-semibold text-slate-700 ring-1 ring-slate-200 transition hover:bg-slate-50 sm:h-10 sm:gap-2 sm:px-4 sm:text-sm"
               >
                 <InfinityIcon className="h-5 w-5" />
                 Auto
@@ -3863,28 +3967,31 @@ function AgentEntryPrototype() {
               <button
                 type="button"
                 aria-label="Open assets"
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-slate-700 ring-1 ring-slate-200 transition hover:bg-slate-50"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-slate-700 ring-1 ring-slate-200 transition hover:bg-slate-50 sm:h-10 sm:w-10"
               >
                 <Box className="h-5 w-5" />
               </button>
               <button
                 type="button"
                 aria-label="Open prompt library"
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-slate-700 ring-1 ring-slate-200 transition hover:bg-slate-50"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-slate-700 ring-1 ring-slate-200 transition hover:bg-slate-50 sm:h-10 sm:w-10"
               >
                 <BookOpen className="h-5 w-5" />
               </button>
               {selectedAgentTemplate ? (
-                <AgentSelectedTemplatePill template={selectedAgentTemplate} onClear={clearSelectedAgentTemplate} />
+                <span className="hidden shrink-0 md:block">
+                  <AgentSelectedTemplatePill template={selectedAgentTemplate} onClear={clearSelectedAgentTemplate} />
+                </span>
               ) : null}
             </div>
 
             <button
               type="button"
-              className="flex h-11 items-center gap-2 rounded-full bg-slate-950 px-5 text-base font-semibold text-white shadow-[0_14px_30px_rgba(15,23,42,0.2)] transition hover:bg-slate-800"
+              aria-label="Send"
+              title="Send"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-950 text-white shadow-[0_8px_18px_rgba(15,23,42,0.18)] transition hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2 sm:h-10 sm:w-10"
             >
               <Send className="h-5 w-5 fill-white" />
-              Send
             </button>
           </div>
           {mediaUploadError ? (
@@ -3895,7 +4002,39 @@ function AgentEntryPrototype() {
         </div>
 
         <div
-          className={`mx-auto mt-4 grid max-w-4xl gap-2.5 ${
+          data-testid="agent-h5-template-titles"
+          className="mx-auto mt-3 flex max-w-4xl gap-2 overflow-x-auto pb-1 scrollbar-hide md:hidden"
+        >
+          {allAgentTemplates.map((template) => {
+            const isSelected = selectedAgentTemplate?.id === template.id;
+
+            return (
+              <button
+                key={template.id}
+                type="button"
+                aria-pressed={isSelected}
+                onClick={() => {
+                  const parentGroup = agentGroups.find((group) =>
+                    group.children.some((child) => child.id === template.id),
+                  );
+                  setActiveAgentGroupId(parentGroup?.id ?? null);
+                  selectAgentTemplate(template);
+                }}
+                className={`flex h-9 shrink-0 items-center rounded-full px-4 text-[13px] font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2fbfc7] focus-visible:ring-offset-2 ${
+                  isSelected
+                    ? 'bg-[#e9fbfc] text-[#177b82] ring-1 ring-[#7bdbe0]'
+                    : 'bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50'
+                }`}
+              >
+                {template.name}
+              </button>
+            );
+          })}
+        </div>
+
+        <div
+          data-testid="agent-desktop-mode-cards"
+          className={`mx-auto mt-3 hidden max-w-4xl gap-2 md:grid ${
             activeAgentGroup
               ? 'grid-flow-col auto-cols-[minmax(200px,1fr)] overflow-x-auto pb-2 scrollbar-hide'
               : 'grid-cols-2 lg:grid-cols-4'
@@ -4043,36 +4182,207 @@ function AgentSelectedTemplatePill({ template, onClear }: { template: AgentTempl
   );
 }
 
-function CreationSidebar({
-  activeSection,
+function CreateNewToolMenu({
   isCollapsed,
   onSectionChange,
-  onToggleCollapse,
 }: {
-  activeSection: SectionId;
   isCollapsed: boolean;
   onSectionChange: (section: SectionId) => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const menuRootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const focusFrame = window.requestAnimationFrame(() => {
+      menuRootRef.current?.querySelector<HTMLElement>('[data-create-new-tool-link]')?.focus();
+    });
+    const handlePointerDown = (event: PointerEvent) => {
+      if (menuRootRef.current && !menuRootRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsOpen(false);
+        triggerRef.current?.focus();
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      document.removeEventListener('pointerdown', handlePointerDown);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen]);
+
+  const openToolsSection = () => {
+    setIsOpen(false);
+    onSectionChange('tools');
+  };
+
+  return (
+    <div ref={menuRootRef} className={`relative z-50 mb-4 px-4 ${isCollapsed ? 'md:px-2' : ''}`}>
+      <button
+        ref={triggerRef}
+        type="button"
+        aria-haspopup="dialog"
+        aria-expanded={isOpen}
+        aria-controls="create-new-tool-dialog"
+        onClick={() => setIsOpen((value) => !value)}
+        title="Create New"
+        className={`flex h-11 w-full items-center justify-center rounded-full bg-[#39c7cf] text-[15px] font-semibold text-white shadow-[0_12px_26px_rgba(57,199,207,0.2)] transition hover:bg-[#30b9c1] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2fbfc7] focus-visible:ring-offset-2 ${
+          isCollapsed ? 'md:mx-auto md:w-11' : ''
+        }`}
+      >
+        <Plus className={`h-5 w-5 transition-transform ${isCollapsed ? '' : 'mr-2'} ${isOpen ? 'rotate-45' : ''}`} />
+        <span className={isCollapsed ? 'md:hidden' : ''}>Create New</span>
+      </button>
+
+      {isOpen ? (
+        <div
+          className={`absolute left-4 right-4 top-full pt-2 md:left-full md:right-auto md:top-0 md:ml-3 md:pt-0 ${
+            isCollapsed ? 'md:w-[min(720px,calc(100vw-116px))]' : 'md:w-[min(720px,calc(100vw-280px))]'
+          }`}
+        >
+          <section
+            id="create-new-tool-dialog"
+            role="dialog"
+            aria-modal="false"
+            aria-labelledby="create-new-tool-title"
+            className="max-h-[min(72vh,620px)] overflow-y-auto rounded-[18px] border border-slate-200 bg-white p-3 text-left shadow-[0_24px_64px_rgba(15,23,42,0.16)] sm:p-4"
+          >
+            <header className="sticky top-0 z-10 mb-3 flex items-center justify-between gap-4 border-b border-slate-200 bg-white pb-3">
+              <h2 id="create-new-tool-title" className="text-base font-semibold tracking-tight text-slate-950">
+                All Tools
+              </h2>
+              <button
+                type="button"
+                onClick={openToolsSection}
+                className="shrink-0 text-xs font-semibold text-slate-500 transition hover:text-[#2fbfc7] focus:outline-none focus-visible:rounded focus-visible:ring-2 focus-visible:ring-[#2fbfc7]"
+              >
+                View all
+              </button>
+            </header>
+
+            <div className="grid items-start gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {toolLibrarySections.map((section) => {
+                const SectionIcon = section.icon;
+
+                return (
+                  <section key={section.id} aria-labelledby={`create-new-${section.id}`} className="rounded-[14px] border border-slate-200 bg-slate-50/70 p-3">
+                    <div className="flex items-center gap-2 border-b border-slate-200 pb-2.5">
+                      <SectionIcon className="h-4 w-4 shrink-0 text-slate-700" />
+                      <h3 id={`create-new-${section.id}`} className="text-[11px] font-bold uppercase tracking-[0.08em] text-slate-800">
+                        {section.title}
+                      </h3>
+                    </div>
+
+                    <ul className="mt-1.5 grid gap-0.5">
+                      {section.cards.map((tool) => {
+                        const ToolIcon = tool.icon;
+                        const itemClassName =
+                          'group flex min-h-9 w-full items-center gap-2.5 rounded-[8px] px-1.5 py-2 text-left text-[13px] font-semibold text-slate-600 transition hover:bg-white hover:text-[#2fbfc7] focus:outline-none focus-visible:bg-white focus-visible:ring-2 focus-visible:ring-[#2fbfc7]';
+
+                        return (
+                          <li key={`${section.id}-${tool.name}`}>
+                            {tool.href === '#' ? (
+                              <button
+                                type="button"
+                                data-create-new-tool-link
+                                title={tool.description}
+                                onClick={openToolsSection}
+                                className={itemClassName}
+                              >
+                                <ToolIcon className="h-4 w-4 shrink-0 text-slate-400 transition group-hover:text-[#2fbfc7]" />
+                                <span className="min-w-0 truncate">{tool.name}</span>
+                              </button>
+                            ) : (
+                              <a
+                                href={tool.href}
+                                data-create-new-tool-link
+                                title={tool.description}
+                                onClick={() => setIsOpen(false)}
+                                className={itemClassName}
+                              >
+                                <ToolIcon className="h-4 w-4 shrink-0 text-slate-400 transition group-hover:text-[#2fbfc7]" />
+                                <span className="min-w-0 truncate">{tool.name}</span>
+                              </a>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </section>
+                );
+              })}
+            </div>
+          </section>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function CreationSidebar({
+  sidebarRef,
+  activeSection,
+  isCollapsed,
+  isMobileOpen,
+  onSectionChange,
+  onCloseMobile,
+  onToggleCollapse,
+}: {
+  sidebarRef: React.RefObject<HTMLElement>;
+  activeSection: SectionId;
+  isCollapsed: boolean;
+  isMobileOpen: boolean;
+  onSectionChange: (section: SectionId) => void;
+  onCloseMobile: () => void;
   onToggleCollapse: () => void;
 }) {
   return (
     <aside
-      className={`flex w-full shrink-0 flex-col border-b border-slate-200 bg-white transition-[width] duration-300 md:fixed md:inset-y-0 md:left-0 md:z-20 md:border-b-0 md:border-r ${
+      ref={sidebarRef}
+      id="creation-navigation"
+      aria-label="Creation 导航"
+      aria-modal={isMobileOpen ? true : undefined}
+      role={isMobileOpen ? 'dialog' : undefined}
+      className={`fixed inset-y-0 left-0 z-50 flex w-[min(84vw,320px)] shrink-0 flex-col border-r border-slate-200 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.2)] transition-[transform,width] duration-200 md:z-20 md:w-auto md:translate-x-0 md:shadow-none ${
+        isMobileOpen ? 'visible translate-x-0' : 'invisible -translate-x-full md:visible'
+      } ${
         isCollapsed ? 'md:w-[84px]' : 'md:w-[248px]'
       }`}
     >
-      <div className={`group/logo flex items-center px-4 py-3 ${isCollapsed ? 'md:justify-center' : 'gap-2'}`}>
+      <div className={`group/logo flex h-14 items-center border-b border-slate-100 px-4 md:h-auto md:border-b-0 md:py-3 ${isCollapsed ? 'md:justify-center' : 'gap-2'}`}>
         {isCollapsed ? (
-          <button
-            type="button"
-            aria-label="Expand sidebar"
-            onClick={onToggleCollapse}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition md:hover:bg-slate-50"
-          >
-            <span className="block group-hover/logo:hidden">
-              <Image src="/logo.svg" alt="PhotoGrid" width={28} height={28} priority />
-            </span>
-            <ChevronRight className="hidden h-4 w-4 text-slate-500 transition group-hover/logo:block" />
-          </button>
+          <>
+            <button
+              type="button"
+              aria-label="Expand sidebar"
+              onClick={onToggleCollapse}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition md:hover:bg-slate-50"
+            >
+              <span className="block md:group-hover/logo:hidden">
+                <Image src="/logo.svg" alt="PhotoGrid" width={28} height={28} priority />
+              </span>
+              <ChevronRight className="hidden h-4 w-4 text-slate-500 transition md:group-hover/logo:block" />
+            </button>
+            <span className="ml-2 text-[19px] font-semibold tracking-tight text-slate-950 md:hidden">PhotoGrid</span>
+            <button
+              type="button"
+              data-mobile-nav-close
+              aria-label="关闭 Creation 导航"
+              onClick={onCloseMobile}
+              className="ml-auto flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-50 hover:text-slate-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2fbfc7] md:hidden"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </>
         ) : (
           <>
             <span className="flex w-9 shrink-0 justify-center">
@@ -4087,22 +4397,22 @@ function CreationSidebar({
             >
               <ChevronRight className="h-4 w-4 rotate-180" />
             </button>
+            <button
+              type="button"
+              data-mobile-nav-close
+              aria-label="关闭 Creation 导航"
+              onClick={onCloseMobile}
+              className="ml-auto flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-50 hover:text-slate-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2fbfc7] md:hidden"
+            >
+              <X className="h-5 w-5" />
+            </button>
           </>
         )}
       </div>
 
-      <div className={`flex min-h-0 flex-1 flex-col overflow-y-auto pb-4 sidebar-scrollbar ${isCollapsed ? 'px-3 md:px-2' : 'px-4'}`}>
-        <button
-          type="button"
-          onClick={() => onSectionChange('home')}
-          className={`mb-4 flex h-11 w-full items-center justify-center rounded-full bg-[#39c7cf] text-[15px] font-semibold text-white shadow-[0_12px_26px_rgba(57,199,207,0.2)] transition hover:bg-[#30b9c1] ${
-            isCollapsed ? 'md:mx-auto md:w-11' : ''
-          }`}
-        >
-          <Plus className={`h-5 w-5 ${isCollapsed ? '' : 'mr-2'}`} />
-          <span className={isCollapsed ? 'md:hidden' : ''}>Create New</span>
-        </button>
+      <CreateNewToolMenu isCollapsed={isCollapsed} onSectionChange={onSectionChange} />
 
+      <div className={`flex min-h-0 flex-1 flex-col overflow-y-auto pb-4 sidebar-scrollbar ${isCollapsed ? 'px-3 md:px-2' : 'px-4'}`}>
         <nav className="flex flex-col gap-2" aria-label="Creation navigation">
           {sectionNavItems.map((item) => (
             <SidebarSectionButton

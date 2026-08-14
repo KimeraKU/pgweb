@@ -143,11 +143,17 @@ Creation 包含四个一级页面：
 | Active | 可使用轻微按压反馈 |
 | Disabled | 本期不应出现无反馈禁用状态 |
 
-点击目标仍需确认。正式上线前应在以下方案中确定一个：
+点击后打开 `All Tools` 非模态工具菜单：
 
-1. 新建 Agent 会话。
-2. 打开创建类型菜单。
-3. 进入默认编辑器。
+- 视觉沿用页面浅色体系：白色面板、浅灰描边与分组底色、青色 hover 和键盘焦点态。
+- 桌面端在 Create New 按钮右侧展开，最大宽度 720px；窄屏在按钮下方展开并适配可用宽度。
+- 面板设置可视区域最大高度并允许内部纵向滚动，避免超出视口。
+- 标题区左侧展示 `All Tools`，右侧 `View all` 关闭菜单并进入 Tools 页面。
+- 内容按 Tools 页相同的 `Image Tools`、`Video Tools`、`Creative Utilities` 三组排列；每组展示分类图标、分类标题和工具列表。
+- 工具项展示图标和名称；已配置真实路由的工具直接跳转，尚无独立路由的工具关闭菜单并进入 Tools 页面。
+- 打开菜单后焦点进入第一个工具；点击外部关闭；按 `Esc` 关闭并将焦点返回 Create New 按钮。
+- 触发按钮必须通过 `aria-expanded` 暴露展开状态，弹层使用带标题关联的非模态 `dialog` 语义。
+- 菜单与 Tools 页面共用同一份工具目录数据，禁止出现名称、分组、图标或路由不一致。
 
 ### 3.2.3 一级导航
 
@@ -218,7 +224,7 @@ Creation 包含四个一级页面：
 - 高度 40px。
 - 左侧使用橙色积分图标。
 - 中间显示完整千分位余额，例如 `6,234`。
-- 右侧使用 28×28px 青色圆形加号。
+- 不展示右侧青色圆形加号，积分胶囊仅保留积分图标和余额。
 - 白色背景、浅灰描边和轻量阴影。
 
 头像：
@@ -371,12 +377,12 @@ Agent 必须位于首屏并拥有最高视觉优先级。运营内容和工具�
 - Assets。
 - Prompt/knowledge。
 
-底部右侧按钮：
+底部工具栏按钮：
 
-- Send。
+- Send 改为仅图标圆形按钮，与 Add media、Auto、Assets、Prompt/knowledge 和任务胶囊保持同一排；必须提供 `aria-label="Send"` 和 title，不再展示 `Send` 文字。
 
 > **[截图占位 S06：Agent 默认状态]**  
-> 截图范围：标题、完整输入框、左下角按钮、Send 和一级快速任务。  
+> 截图范围：标题、完整输入框、左下角按钮、Send，以及桌面端一级快速任务或 H5 二级任务标题入口。
 > 建议标注：输入区域、附件入口、Auto 模式和提交按钮。
 
 ### 3.3.3 Add media
@@ -388,7 +394,7 @@ Agent 必须位于首屏并拥有最高视觉优先级。运营内容和工具�
 - Choose from My Upload。
 - Choose from Projects，可选。
 
-当前 Creation 原型中，`Add media` 统一承载所有二级任务的图片选择，不在任务快捷参数中重复提供上传控件。选择本地图片后，缩略图回填到输入区最上方并独占一行，快捷参数位于其下方；任务胶囊位于输入框底部左侧工具栏。缩略图支持逐张删除，切换二级任务或关闭任务胶囊时保留已选图片。后端上传、进度和失败重试仍按正式上传服务接入时实现。
+当前 Creation 原型中，`Add media` 统一承载所有二级任务的图片选择，不在任务快捷参数中重复提供上传控件。选择本地图片后，缩略图回填到输入区最上方并独占一行；桌面端快捷参数位于其下方，任务胶囊位于输入框底部左侧工具栏；H5 隐藏快捷参数和任务胶囊，只保留参考图、可编辑 Prompt 与通用工具栏。缩略图支持逐张删除，切换二级任务或关闭桌面端任务胶囊时保留已选图片。后端上传、进度和失败重试仍按正式上传服务接入时实现。
 
 上传限制建议：
 
@@ -408,6 +414,12 @@ Agent 必须位于首屏并拥有最高视觉优先级。运营内容和工具�
 - 点击 Send 前必须等待所有素材上传完成。
 
 ### 3.3.4 Agent 一级快速任务
+
+响应式规则：
+
+- 桌面端继续使用“一级分类 → 二级模板卡片”的两级选择流程。
+- `<768px` 的 H5 不展示一级分类卡片，将四组共 16 个二级任务的名称平铺为单行横向滚动的紧凑标题按钮；按钮不展示描述、图标或预览图片。
+- H5 首次进入自动选中第一项二级任务，使输入框立即展示该任务的模板参考图和真实 Prompt；点击其他标题时同步切换选中态、参考图和 Prompt，并保留用户上传图片。
 
 默认展示四个一级分类：
 
@@ -448,9 +460,9 @@ Agent 必须位于首屏并拥有最高视觉优先级。运营内容和工具�
 
 点击子任务后：
 
-- 输入框底部左侧工具栏在 Prompt/knowledge 按钮后出现任务胶囊。
+- 桌面端输入框底部左侧工具栏在 Prompt/knowledge 按钮后出现任务胶囊；H5 不展示任务胶囊，由下方标题按钮的选中态表达当前任务。
 - 胶囊包含当前二级任务的图标、任务名称和关闭按钮。
-- 输入框顶部独立展示该任务对应的参数及模板默认值，不与任务胶囊同行。
+- 桌面端输入框顶部独立展示该任务对应的参数及模板默认值，不与任务胶囊同行；H5 隐藏该快捷参数填选区。
 - Prompt 区直接回填该任务可编辑的完整模板文案，不再只切换任务专属占位文案。
 - 该任务的本地示例图通过通用上传区回填到输入区最上方，作为可删除的模板素材；不增加模板专属上传框。
 - 切换到其他二级任务时，Prompt、参数和模板示例图同步覆盖为新模板数据；再次点击当前任务时恢复该模板默认数据。
@@ -477,7 +489,7 @@ Agent 必须位于首屏并拥有最高视觉优先级。运营内容和工具�
 
 ### 3.3.6 二级任务快捷参数
 
-二级任务被选中后，对应参数在输入框顶部展示。各分类参数结构如下：
+二级任务被选中后，桌面端对应参数在输入框顶部展示；H5 不展示快捷参数填选区。各分类参数结构如下：
 
 | 分类 | 快捷参数 |
 |---|---|
@@ -595,9 +607,9 @@ Product Name 规则：
 
 排布：
 
-- 左侧两张重点大卡。
-- 右侧紧凑工具网格。
-- 右下角为 More 卡片。
+- 桌面端左侧两张重点大卡，右侧使用紧凑工具网格，右下角为 More 卡片。
+- `<768px` 的 H5 按现有顺序仅保留前 7 个高频工具，并与 More 合并为两行四列轻量网格；图标位于标题上方，标题最多两行。其余工具不在 H5 首页展示，但继续保留在 Tools 页面。
+- H5 不展示卡片底色、边框和描述，不改动保留工具的顺序、图标与跳转；More 与普通工具使用相同排版。
 
 大卡：
 
@@ -634,7 +646,47 @@ More：
 - 模板单行横向流式排列。
 - 支持左右滚动。
 - 默认只展示图片和标题。
-- hover 每张卡片均展示 `Use same style`。
+- H5 与桌面端均不展示 `Use same style` 覆盖按钮，整张卡片作为模板入口。
+
+内容分类与左侧文案：
+
+| 顶部一级分类 | 左侧对应分类 | 左侧说明文案 |
+|---|---|---|
+| Popular | Trending Photo Template | 不展示说明 |
+| Popular | Trending AI Video Templates | 不展示说明 |
+| Creative Effects | AI Dance | Make anyone move with AI dance effects. |
+| Creative Effects | Anime | Turn photos into stunning anime art. |
+| Creative Effects | Filters | Transform photos with AI-powered filters. |
+| Creative Effects | Face Morph | Create fun and surprising face transformations. |
+| Creative Effects | Art Styles | Turn photos into paintings and classic art. |
+| Creative Effects | Photo to Video | Bring your photos to life with AI video. |
+| Beauty | Portrait Effects | Transform portraits with AI effects. |
+| Beauty | Idol Styles | 不展示说明 |
+| Beauty | Fashion & Makeup | Highlight stylish outfits and makeup. |
+| Beauty | Accessories | Try stylish outfits and accessories. |
+| E-Commerce | Product Reviews | Create authentic product review content. |
+| E-Commerce | Product Showcase | Highlight your product's key features. |
+| E-Commerce | Before & After | Show clear product results and contrast. |
+| E-Commerce | Product Photography | Create polished product photos with AI. |
+| E-Commerce | E-Commerce Assets | Create visuals for stores and product listings. |
+| E-Commerce | Platform Kits | Create ready-to-use visuals for online platforms. |
+| Lifestyle | Kids | Create warm and playful edits for kids. |
+| Lifestyle | Pets | 不展示说明 |
+| Lifestyle | Duo Interaction | Create fun AI moments made for two. |
+| Lifestyle | Travel & Wallpapers | Capture travel memories and HD wallpapers. |
+| Lifestyle | Family Moments | Celebrate meaningful moments with family. |
+| Seasonal | Back to School | Get ready for the new school season. |
+| Seasonal | Birthday | 不展示说明 |
+| Seasonal | Anniversary | 不展示说明 |
+| Seasonal | Halloween | 不展示说明 |
+| Seasonal | Christmas | 不展示说明 |
+| Seasonal | Mother's Day | 不展示说明 |
+
+固定规则：
+
+- 顶部一级分类顺序固定为 `Popular → Creative Effects → Beauty → E-Commerce → Lifestyle → Seasonal`。
+- 每个一级分类定位到该分类第一组内容块；同一一级分类下的对应分类保持连续排列。
+- 需求表中未提供说明文案的分类不得自行补充占位文案。
 
 文案限制：
 
@@ -1345,7 +1397,8 @@ Generate Video：
 | 场景 | 标题 | 建议操作 |
 |---|---|---|
 | Tools 搜索无结果 | No tools found | Clear search |
-| Templates 无结果 | No templates found | Clear filters |
+| Templates 无结果 | No templates Agent Sessions
+Avatarfound | Clear filters |
 | AI Voice 无结果 | No voices found | Clear filters |
 | Projects 为空 | No projects yet | Start creating |
 | Projects 筛选无结果 | No projects found | Clear filters |
@@ -1418,6 +1471,17 @@ Generate Video：
 | ≥1280px | 默认展开 | 4-5 列 | 尽量单行 |
 | 768-1279px | 可收起 | 3-4 列 | 允许分组折行 |
 | <768px | 抽屉或移动导航 | 2 列 | 分两行或菜单化 |
+
+Creation H5 采用以下明确方案：
+
+- 顶部使用 56px 吸顶栏，左侧为导航触发按钮与品牌标识，右侧保留积分与账户入口。
+- 完整侧边栏改为左侧抽屉，不占用页面正常文档流；支持遮罩、关闭按钮和 Esc 关闭，切换一级页面后自动关闭。
+- 抽屉打开时锁定背景滚动并限制键盘焦点在抽屉内；关闭后焦点返回顶栏导航触发按钮。
+- Home 不重复渲染账户区；Agent 输入区压缩垂直留白，Send 使用底部工具栏图标按钮；H5 隐藏快捷参数和一级快速任务，直接展示全部二级任务标题横向入口。
+- Home 模板内容块在窄屏取消 250px 左栏占高，标题和说明紧邻模板横滑区；模板预览仅展示图片和标题，不叠加 `Use same style` 按钮。
+- H5 Home 采用紧凑视觉密度：Agent 标题约 23px，Prompt 使用较小留白；`What's new` 卡片、推荐工具入口和模板预览卡片分别控制在约 120px、72px、180px 高，避免桌面大卡片直接缩放到移动端造成首屏过度占高。
+- H5 Recommended tools 按现有顺序仅展示前 7 个高频工具和 `More`，使用两行四列轻量网格；图标在上、标题在下，不展示卡片背景、边框和描述，描述可保留在无障碍文本中。其余工具仅在 Tools 页面展示，桌面端维持完整推荐大卡片和工具网格。
+- H5 点击头像打开全屏底部账户面板：面板从底部上滑进入，右上角提供关闭按钮；顶部展示头像、`Demo` 和 `demo@photogrid.com`，中部按顺序展示 Credits、Plan、Setting、Language，底部提供 `Log out`。遮罩、Esc 和关闭按钮均可关闭面板，关闭后焦点返回头像。
 
 检查要求：
 

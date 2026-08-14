@@ -184,7 +184,7 @@ const uiInput = `w-full rounded-lg border border-slate-200 bg-white px-3 py-2 te
 
 const uiInputSearch = `h-9 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-700 placeholder:text-slate-400 transition-colors ${FV}`;
 
-const uiSelect = `h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 transition-colors ${FV}`;
+const uiSelect = `h-9 shrink-0 rounded-lg border border-slate-200 bg-white px-3 text-[13px] font-medium text-slate-700 shadow-sm transition-colors hover:border-slate-300 hover:bg-slate-50 ${FV}`;
 
 const uiIconBtn =
   `inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-transparent text-slate-600 transition-colors hover:bg-slate-100 hover:text-teal-700 active:bg-slate-200/80 ${FV} disabled:opacity-50 disabled:pointer-events-none`;
@@ -196,7 +196,7 @@ const uiIconOutlineBtn =
   `inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-800 ${FV}`;
 
 const uiToolTileBase =
-  `flex h-11 w-11 shrink-0 flex-col items-center justify-center gap-0.5 rounded-xl border text-[11px] transition-colors sm:h-12 sm:w-12 ${FV}`;
+  `flex h-12 w-12 shrink-0 flex-col items-center justify-center gap-0.5 rounded-lg border text-[11px] font-medium transition-colors ${FV}`;
 
 const uiHeaderGhost =
   `inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 ${FV}`;
@@ -226,7 +226,7 @@ const uiTextLink =
   `inline-flex items-center justify-center rounded-lg border border-teal-200 bg-white px-4 py-2 text-sm font-medium text-teal-700 transition-colors hover:bg-teal-50 ${FV}`;
 
 const uiPromptTextarea =
-  'w-full bg-transparent px-0 py-1 text-[15px] leading-relaxed text-slate-800 placeholder:text-slate-400 resize-none focus:outline-none focus:ring-0 focus-visible:outline-none';
+  'w-full resize-none bg-transparent px-0 py-0 text-[15px] leading-6 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-0 focus-visible:outline-none';
 
 const uiTextMuted = 'text-xs text-slate-500 leading-relaxed';
 
@@ -1339,10 +1339,10 @@ export default function AIVideoPage() {
 
           {/* 悬浮输入层：展开时底部极淡渐变防文字贴边；收起时不铺渐变避免挡视线 */}
           <div
-            className={`pointer-events-none absolute inset-x-0 bottom-0 z-30 flex flex-col items-center px-3 sm:px-4 pb-2 sm:pb-3 ${
+            className={`pointer-events-none absolute inset-x-0 bottom-0 z-30 flex flex-col items-center px-2.5 pb-2 sm:px-4 sm:pb-3 ${
               inputBarCollapsed && generatedList.length > 0
                 ? 'pt-2 sm:pt-3'
-                : 'pt-6 sm:pt-8 bg-gradient-to-t from-slate-50/45 to-transparent'
+                : 'bg-gradient-to-t from-slate-50/95 via-slate-50/80 to-transparent pt-8 sm:pt-10'
             }`}
           >
             {inputBarCollapsed && generatedList.length > 0 && (
@@ -1358,27 +1358,27 @@ export default function AIVideoPage() {
               </div>
             )}
             <div
-              className={`pointer-events-auto w-full max-w-3xl mx-auto border border-slate-200/90 bg-white shadow-lg shadow-slate-200/40 backdrop-blur-sm ${
+              className={`pointer-events-auto mx-auto w-full max-w-4xl border border-slate-200 bg-white/95 shadow-[0_16px_45px_-20px_rgba(15,23,42,0.38)] backdrop-blur-md ${
                 inputBarCollapsed && generatedList.length > 0
-                  ? 'rounded-2xl px-2 sm:px-2.5 py-1.5'
-                  : 'rounded-2xl overflow-hidden'
+                  ? 'rounded-lg p-1.5'
+                  : 'overflow-hidden rounded-lg'
               }`}
             >
               {inputBarCollapsed && generatedList.length > 0 ? (
-                <div className="flex min-h-[46px] items-center gap-2">
+                <div className="flex min-h-[44px] items-center gap-2">
                   <button
                     type="button"
                     onClick={() => setInputBarCollapsed(false)}
-                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600 transition-colors hover:bg-slate-200 ${FV}`}
+                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600 transition-colors hover:bg-slate-200 ${FV}`}
                     title="展开"
                     aria-label="展开输入框"
                   >
-                    <Plus className="w-5 h-5" />
+                    <Plus className="h-4 w-4" />
                   </button>
                   <button
                     type="button"
                     onClick={() => setInputBarCollapsed(false)}
-                    className={`min-w-0 flex-1 truncate py-2 text-left text-sm text-slate-500 ${FV}`}
+                    className={`min-w-0 flex-1 truncate px-1 py-2 text-left text-sm text-slate-500 ${FV}`}
                   >
                     {prompt.trim() || '试试描述一段简短的故事情节…'}
                   </button>
@@ -1386,37 +1386,37 @@ export default function AIVideoPage() {
                     type="button"
                     onClick={() => void handleCreate()}
                     disabled={isSubmitting || !prompt.trim()}
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-600 text-white shadow-sm transition-colors hover:bg-teal-700 disabled:opacity-50 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/90"
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-teal-600 text-white shadow-sm transition-colors hover:bg-teal-700 disabled:opacity-50 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/90"
                     title="生成"
                     aria-label="生成"
                   >
-                    {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <ArrowUp className="w-5 h-5" />}
+                    {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp className="h-4 w-4" />}
                   </button>
                 </div>
               ) : (
-                <div className="relative space-y-2.5 p-3 sm:p-3.5">
-                  <button
-                    type="button"
-                    onClick={() => setPromptExpanded((v) => !v)}
-                    className={`absolute right-3 top-3 z-10 inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 ${FV}`}
-                    title={promptExpanded ? '收起输入框' : '展开输入框'}
-                    aria-label={promptExpanded ? '收起提示词输入框' : '展开提示词输入框'}
-                  >
-                    {promptExpanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-                  </button>
-                  <div className="overflow-hidden">
-                    <div className="flex flex-wrap items-center gap-2 pb-2">
+                <div className="relative">
+                  <div className="border-b border-slate-200 bg-slate-50/80 px-3 py-2.5 sm:px-4">
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span className="text-xs font-semibold text-slate-700">参考素材</span>
+                        <span className="truncate text-[11px] text-slate-400">不添加素材时按文生视频生成</span>
+                      </div>
+                      <span className="shrink-0 text-[11px] tabular-nums text-slate-400">
+                        {referenceImages.length + referenceImageUrls.length}/{REFERENCE_IMAGE_MAX}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 overflow-x-auto pb-0.5 sidebar-scrollbar">
                       {selectedTemplate ? (
                         <div className="group relative flex-shrink-0">
                           <img
                             src={selectedTemplate.thumb}
                             alt={selectedTemplate.name}
-                            className="h-11 w-11 rounded-xl border border-slate-200 object-cover sm:h-12 sm:w-12"
+                            className="h-12 w-12 rounded-lg border border-slate-200 object-cover"
                           />
                           <button
                             type="button"
                             onClick={() => setSelectedTemplateId(null)}
-                            className={`absolute -right-1 -top-1 z-10 flex h-5 w-5 items-center justify-center rounded-md border border-slate-200 bg-white/95 text-slate-500 shadow-sm opacity-0 transition-all duration-150 group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-red-50 hover:text-red-500 ${FV}`}
+                            className={`absolute right-0.5 top-0.5 z-10 flex h-5 w-5 items-center justify-center rounded-md border border-slate-200 bg-white/95 text-slate-500 shadow-sm transition-colors hover:bg-red-50 hover:text-red-500 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 ${FV}`}
                             title="移除模板"
                             aria-label="移除模板"
                           >
@@ -1426,7 +1426,7 @@ export default function AIVideoPage() {
                       ) : (
                         <button
                           type="button"
-                          className={`${uiToolTileBase} border-slate-200/80 bg-slate-50 text-slate-500 hover:bg-teal-50 hover:text-teal-700`}
+                          className={`${uiToolTileBase} border-dashed border-slate-300 bg-white text-slate-500 hover:border-teal-300 hover:bg-teal-50 hover:text-teal-700`}
                           title="模板"
                         >
                           <Plus className="h-4 w-4" />
@@ -1463,8 +1463,8 @@ export default function AIVideoPage() {
                         disabled={referenceImages.length + referenceImageUrls.length >= REFERENCE_IMAGE_MAX}
                         className={`${uiToolTileBase} border transition-colors disabled:opacity-50 ${
                           referenceImages.length > 0 || referenceImageUrls.length > 0
-                            ? 'border-teal-200/80 bg-teal-50 text-teal-800'
-                            : 'border-slate-200/80 bg-slate-50 text-slate-500 hover:bg-teal-50 hover:text-teal-700'
+                            ? 'border-teal-300 bg-teal-50 text-teal-800'
+                            : 'border-dashed border-slate-300 bg-white text-slate-500 hover:border-teal-300 hover:bg-teal-50 hover:text-teal-700'
                         }`}
                         title="选择参考图后为图生图模式，最多 7 张"
                       >
@@ -1476,12 +1476,12 @@ export default function AIVideoPage() {
                           <img
                             src={url}
                             alt={`参考图 ${idx + 1}`}
-                            className="h-11 w-11 rounded-xl border border-slate-200 object-cover sm:h-12 sm:w-12"
+                            className="h-12 w-12 rounded-lg border border-slate-200 object-cover"
                           />
                           <button
                             type="button"
                             onClick={() => setReferenceImageUrls((prev) => prev.filter((_, i) => i !== idx))}
-                            className={`absolute -right-1 -top-1 z-10 flex h-5 w-5 items-center justify-center rounded-md border border-slate-200 bg-white/95 text-slate-500 shadow-sm opacity-0 transition-all duration-150 group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-red-50 hover:text-red-500 ${FV}`}
+                            className={`absolute right-0.5 top-0.5 z-10 flex h-5 w-5 items-center justify-center rounded-md border border-slate-200 bg-white/95 text-slate-500 shadow-sm transition-colors hover:bg-red-50 hover:text-red-500 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 ${FV}`}
                             title="移除参考图"
                             aria-label="移除参考图"
                           >
@@ -1494,7 +1494,7 @@ export default function AIVideoPage() {
                           <img
                             src={r.previewUrl}
                             alt={`参考图 ${idx + 1}`}
-                            className="h-11 w-11 rounded-xl border border-slate-200 object-cover sm:h-12 sm:w-12"
+                            className="h-12 w-12 rounded-lg border border-slate-200 object-cover"
                           />
                           <button
                             type="button"
@@ -1502,7 +1502,7 @@ export default function AIVideoPage() {
                               URL.revokeObjectURL(r.previewUrl);
                               setReferenceImages((prev) => prev.filter((_, i) => i !== idx));
                             }}
-                            className={`absolute -right-1 -top-1 z-10 flex h-5 w-5 items-center justify-center rounded-md border border-slate-200 bg-white/95 text-slate-500 shadow-sm opacity-0 transition-all duration-150 group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-red-50 hover:text-red-500 ${FV}`}
+                            className={`absolute right-0.5 top-0.5 z-10 flex h-5 w-5 items-center justify-center rounded-md border border-slate-200 bg-white/95 text-slate-500 shadow-sm transition-colors hover:bg-red-50 hover:text-red-500 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 ${FV}`}
                             title="移除参考图"
                             aria-label="移除参考图"
                           >
@@ -1511,16 +1511,27 @@ export default function AIVideoPage() {
                         </div>
                       ))}
                     </div>
+                  </div>
+                  <div className="relative min-h-[116px] px-3 pb-4 pt-4 sm:px-4">
+                    <button
+                      type="button"
+                      onClick={() => setPromptExpanded((v) => !v)}
+                      className={`absolute right-3 top-3 z-20 inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 sm:right-4 ${FV}`}
+                      title={promptExpanded ? '收起输入框' : '展开输入框'}
+                      aria-label={promptExpanded ? '收起提示词输入框' : '展开提示词输入框'}
+                    >
+                      {promptExpanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                    </button>
                     <textarea
                       value={prompt}
                       onChange={(e) => setPrompt(e.target.value.slice(0, 2500))}
                       placeholder="正向提示词（文生视频），主体、环境、时间、风格等，最多 2500 字"
-                      className={`${uiPromptTextarea} ${promptExpanded ? 'min-h-[220px] sm:min-h-[280px]' : 'min-h-[72px]'}`}
+                      className={`${uiPromptTextarea} pr-10 ${promptExpanded ? 'min-h-[220px] sm:min-h-[280px]' : 'min-h-[78px]'}`}
                       maxLength={2500}
                     />
                   </div>
-                  <div className="flex flex-col gap-2 pt-1.5 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="order-2 flex flex-wrap items-center gap-2 sm:order-1">
+                  <div className="border-t border-slate-200 bg-slate-50/60 p-2.5 sm:flex sm:items-center sm:gap-3 sm:px-3">
+                    <div className="flex min-w-0 items-center gap-2 overflow-x-auto pb-2 sidebar-scrollbar sm:flex-1 sm:pb-0">
                       <select
                         value={selectedModelVersionId}
                         onChange={(e) => setSelectedModelVersionId(e.target.value as VideoModelVersionId)}
@@ -1592,23 +1603,23 @@ export default function AIVideoPage() {
                           setReferenceImages([]);
                           setReferenceImageUrls([]);
                         }}
-                        className={`${uiIconOutlineBtn} border-slate-200 bg-slate-50`}
+                        className={`${uiIconOutlineBtn} shrink-0 border-slate-200 bg-white shadow-sm`}
                         title="恢复输入框到默认"
                         aria-label="重置输入"
                       >
                         <RefreshCw className="h-4 w-4" />
                       </button>
                     </div>
-                    <div className="order-1 flex items-center justify-between gap-2 sm:order-2 sm:justify-end">
-                      <span className="tabular-nums text-xs text-slate-500">{prompt.length}/2500</span>
+                    <div className="flex items-center justify-between gap-3 border-t border-slate-200/80 pt-2 sm:shrink-0 sm:border-0 sm:pt-0">
+                      <span className="shrink-0 tabular-nums text-[11px] text-slate-400">{prompt.length}/2500</span>
                       <button
                         type="button"
                         onClick={() => void handleCreate()}
                         disabled={isSubmitting || !prompt.trim()}
-                        className={`${uiPrimary} sm:min-w-0`}
+                        className={`${uiPrimary} h-10 flex-1 rounded-lg sm:flex-none sm:min-w-[96px]`}
                         aria-busy={isSubmitting}
                       >
-                        {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                        {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp className="h-4 w-4" />}
                         生成
                       </button>
                     </div>
